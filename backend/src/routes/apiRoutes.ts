@@ -44,7 +44,7 @@ router.get('/canchas/:id/disponibilidad', (req, res, next) =>
   catalogController.consultarDisponibilidad(req, res, next)
 );
 
-// 4. Reservas (CRUD + Cotización del Servidor + Bloqueo + Cancelación 24h)
+// 4. Reservas (CRUD + Cotización del Servidor + Bloqueo + Verificación QR + Cancelación 24h)
 router.post('/reservas/cotizar', (req, res, next) =>
   reservationController.cotizarReserva(req, res, next)
 );
@@ -70,7 +70,10 @@ router.post('/reservas/:id/cancelar', (req, res, next) =>
   reservationController.cancelarReserva(req, res, next)
 );
 
-// 5. Pagos manuales (Yape / Plin / Transferencia), bandeja de revisión y aprobación/rechazo idempotentes (restringidos a ADMIN - LX-201)
+// 5. Pagos manuales (Yape / Plin / Transferencia), subida a bucket comprobantes, bandeja y aprobación/rechazo (ADMIN - LX-201)
+router.post('/pagos/comprobante', (req, res, next) =>
+  reservationController.subirComprobante(req, res, next)
+);
 router.post('/reservas/:id/pagos', (req, res, next) =>
   reservationController.registrarPago(req, res, next)
 );

@@ -720,6 +720,65 @@ export class ReservationService {
       reserva: actualizada,
     };
   }
+
+  /**
+   * LÓGICA DE NEGOCIO 7:
+   * Subida y validación de comprobante hacia el bucket privado 'comprobantes' (Supabase Storage).
+   */
+  async subirComprobanteStorage(payload: {
+    reserva_id?: unknown;
+    nombre_archivo?: unknown;
+    mime_type?: unknown;
+    contenido_base64?: unknown;
+  }): Promise<{
+    bucket: string;
+    path: string;
+    comprobante_url: string;
+    mime_type: string;
+    size_bytes: number;
+  }> {
+    const reservaId = Number(payload?.reserva_id);
+    if (!Number.isInteger(reservaId) || reservaId <= 0) {
+      throw Errors.badRequest('El campo reserva_id debe ser un entero positivo.');
+    }
+    await this.obtenerReserva(reservaId);
+
+    const mimeType = String(payload?.mime_type || 'image/jpeg').trim().toLowerCase();
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedMimes.includes(mimeType)) {
+      throw Errors.badRequest(
+        `Formato de imagen no permitido (${mimeType}). Usa JPEG, PNG o WEBP.`
+      );
+    }
+
+    const base64Raw = String(payload?.contenido_base64 || '')
+      .replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '')
+      .trim();
+    if (base64Raw.length < 8) {
+      throw Errors.badRequest(
+        'Debes adjuntar el contenido de la imagen del comprobante en base64.'
+      );
+    }
+
+    const buffer = Buffer.from(base64Raw, 'base64');
+    if (buffer.byteLength > 5 * 1024 * 1024) {
+      throw Errors.unprocessable(
+        'El archivo del comprobante supera el límite máximo permitido de 5 MB.'
+      );
+    }
+
+    const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
+    const objectPath = `reserva-${reservaId}/voucher-${Date.now()}.${ext}`;
+    const comprobanteUrl = `supabase://comprobantes/${objectPath}`;
+
+    return {
+      bucket: 'comprobantes',
+      path: objectPath,
+      comprobante_url: comprobanteUrl,
+      mime_type: mimeType,
+      size_bytes: buffer.byteLength,
+    };
+  }
 }
 
 export const reservationService = new ReservationService();
