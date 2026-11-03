@@ -10,6 +10,10 @@ Guía para entender el proyecto de punta a punta y preparar la sustentación: qu
 
 **Solución.** Una app móvil Flutter (para el jugador y para el administrador del complejo) que consume una **API REST propia** en Node.js. La API es la única que decide: disponibilidad, precios, stock de extras, pagos, Ticket QR y reembolsos. Los datos viven en PostgreSQL (Supabase).
 
+![Arquitectura de Luxxito Sports](arquitectura/arquitectura.png)
+
+*Diagrama de arquitectura (versión interactiva: [`arquitectura/arquitectura.html`](arquitectura/arquitectura.html)).*
+
 | Pieza | Tecnología | Dónde está |
 |---|---|---|
 | Cliente móvil | Flutter + Dart (Android) | `mobile/` |
