@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Luxxito Sports REST API
-  version: 1.0.0
+  version: 1.1.0
   description: >
     Contrato OpenAPI de la API REST propia de Luxxito Sports (SI806 - Taller 3 UNI).
     El servidor es la autoridad sobre disponibilidad, precios, stock de extras por intervalo,
@@ -10,7 +10,7 @@ servers:
   - url: http://localhost:3000/api
     description: Servidor de desarrollo local
   - url: http://10.0.2.2:3000/api
-    description:Acceso desde Emulador Android
+    description: Acceso desde Emulador Android
 paths:
   /health:
     get:
@@ -173,6 +173,22 @@ paths:
           description: Comprobante registrado (EN_REVISION o CONFIRMADA con QR)
         '422':
           description: Importe no coincide con la modalidad elegida (SENA_50 o TOTAL)
+  /pagos:
+    get:
+      summary: Bandeja de revisión del operador (pagos con resumen de su reserva)
+      parameters:
+        - in: query
+          name: estado
+          required: false
+          description: Filtra por estado del pago (la bandeja usa PENDIENTE_REVISION)
+          schema:
+            type: string
+            enum: [PENDIENTE_REVISION, APROBADO, RECHAZADO, REEMBOLSADO]
+      responses:
+        '200':
+          description: Lista de pagos con `count` y el resumen `reserva` de cada uno
+        '400':
+          description: Estado de pago inválido
   /pagos/{id}/aprobar:
     patch:
       summary: Aprobar pago de manera idempotente y emitir Ticket QR
@@ -184,7 +200,44 @@ paths:
             type: integer
       responses:
         '200':
-          description: Pago aprobado y reserva confirmada con QR
+          description: Pago aprobado y reserva confirmada con QR (idempotent=true si ya estaba aprobado)
+        '404':
+          description: Pago no encontrado
+        '409':
+          description: Pago RECHAZADO/REEMBOLSADO o reserva CANCELADA/VENCIDA
+  /pagos/{id}/rechazar:
+    patch:
+      summary: Rechazar comprobante con motivo obligatorio (idempotente)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [observacion]
+              properties:
+                observacion:
+                  type: string
+                  minLength: 5
+                  example: Número de operación no coincide con el voucher
+      responses:
+        '200':
+          description: >
+            Pago RECHAZADO con su observación. Si la reserva estaba EN_REVISION vuelve a
+            PENDIENTE_PAGO con un nuevo bloqueo de 20 minutos para reenviar comprobante
+            (idempotent=true si ya estaba rechazado).
+        '400':
+          description: Observación ausente o menor a 5 caracteres
+        '404':
+          description: Pago no encontrado
+        '409':
+          description: Pago APROBADO/REEMBOLSADO o reserva CANCELADA/VENCIDA
   /reservas/{id}/cancelar:
     post:
       summary: Cancelar reserva aplicando política de reembolso de 24 horas
