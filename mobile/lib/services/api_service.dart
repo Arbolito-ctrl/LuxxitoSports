@@ -251,19 +251,6 @@ class ApiService {
     }
   }
 
-  // 1b. GET /api/version
-  static Future<Map<String, dynamic>> checkAppUpdate() async {
-    return {
-      'version': '1.0.3',
-      'build_number': 4,
-      'release_notes':
-          'Incluye control de acceso JWT por rol ADMIN (LX-201), Row Level Security (RLS), bucket privado comprobantes y RPCs en servidor.',
-      'github_release_apk_url':
-          'https://github.com/Arbolito-ctrl/LuxxitoSports/releases/download/latest-apk/luxxito-sports.apk',
-      'server_apk_url': null,
-    };
-  }
-
   // 1c. Login y Registro (validados en servidor / RPC sin exponer password_hash)
   static Future<UserSession> login({
     required String email,

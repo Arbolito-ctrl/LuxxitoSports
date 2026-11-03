@@ -1,3 +1,4 @@
+import { version as VERSION_API } from '../../package.json';
 import path from 'path';
 import fs from 'fs';
 import { Request, Response, NextFunction } from 'express';
@@ -25,35 +26,36 @@ export class CatalogController {
       service: 'Luxxito Sports REST API (SI806 - Taller 3)',
       db_mode: mode,
       db_ready: true,
-      app_version: '1.0.1',
+      api_version: VERSION_API,
+      commit: process.env.RENDER_GIT_COMMIT || null,
       apk_download_url:
         'https://github.com/Arbolito-ctrl/LuxxitoSports/releases/latest/download/luxxito-sports.apk',
       timestamp: new Date().toISOString(),
     });
   }
 
+  /**
+   * Versión del APK publicada en GitHub Releases (version.json que genera el CI),
+   * para que cualquier cliente sepa cuál es la última sin valores fijos en el servidor.
+   */
   async obtenerVersionApp(req: Request, res: Response): Promise<void> {
-    const host = req.get('host') || 'localhost:3000';
-    const protocol = req.protocol || 'http';
-    const localApkPath = path.join(
-      __dirname,
-      '../../../mobile/build/app/outputs/flutter-apk/app-debug.apk'
-    );
-    const hasLocalApk = fs.existsSync(localApkPath);
-
-    res.status(200).json({
-      ok: true,
-      data: {
-        version: process.env.APP_VERSION || '1.0.1',
-        build_number: Number(process.env.APP_BUILD_NUMBER || 2),
-        mandatory: false,
-        release_notes:
-          'Actualización OTA/APK: conexión con Supabase PostgreSQL, cotización horaria día/noche, stock de extras por intervalo y Ticket QR verificable.',
-        github_release_apk_url:
-          'https://github.com/Arbolito-ctrl/LuxxitoSports/releases/latest/download/luxxito-sports.apk',
-        server_apk_url: hasLocalApk ? `${protocol}://${host}/api/apk/download` : null,
-      },
-    });
+    const canal = req.query.canal === 'dev-apk' ? 'dev-apk' : 'latest-apk';
+    const base = `https://github.com/Arbolito-ctrl/LuxxitoSports/releases/download/${canal}`;
+    try {
+      const respuesta = await fetch(`${base}/version.json`, { signal: AbortSignal.timeout(8000) });
+      if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
+      const publicada = (await respuesta.json()) as Record<string, unknown>;
+      res.status(200).json({
+        ok: true,
+        data: { ...publicada, apk_url: `${base}/luxxito-sports.apk`, api_version: VERSION_API },
+      });
+    } catch (error) {
+      res.status(502).json({
+        ok: false,
+        code: 'VERSION_NO_DISPONIBLE',
+        message: `No se pudo consultar la versión publicada en GitHub (${(error as Error).message}).`,
+      });
+    }
   }
 
   async descargarApkLocal(_req: Request, res: Response): Promise<void> {
