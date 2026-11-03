@@ -657,6 +657,66 @@ export class ReservationService {
       monto_devolucion: montoDevolucion,
     };
   }
+
+  /**
+   * LÓGICA DE NEGOCIO 6 (LX-202):
+   * Verificación y escaneo de Ticket QR en puerta.
+   * Comprueba que el código exista, pertenezca a una reserva CONFIRMADA (no cancelada ni revocada)
+   * y no haya sido utilizado previamente (protección contra doble ingreso).
+   */
+  async verificarTicketQr(codigoQrInput: unknown): Promise<{
+    verificado: boolean;
+    estado_ingreso: 'INGRESO_REGISTRADO';
+    verificado_en: string;
+    reserva: Reserva;
+  }> {
+    const codigoQr = typeof codigoQrInput === 'string' ? codigoQrInput.trim() : '';
+    if (!codigoQr || !codigoQr.toUpperCase().startsWith('LUXXITO-QR-')) {
+      throw Errors.badRequest(
+        'Debes proporcionar un código QR válido con formato LUXXITO-QR-...'
+      );
+    }
+
+    let reserva = await dataRepository.getReservaByCodigoQr(codigoQr);
+    if (!reserva) {
+      const matchId = codigoQr.match(/^LUXXITO-QR-(\d+)-/i);
+      if (matchId) {
+        const byId = await dataRepository.getReservaById(Number(matchId[1]));
+        if (byId && byId.estado === 'CANCELADA') {
+          throw Errors.conflict(
+            `El Ticket QR fue revocado porque la reserva #${byId.id} se encuentra CANCELADA.`
+          );
+        }
+      }
+      throw Errors.notFound(
+        'El código QR proporcionado no corresponde a ninguna reserva activa.'
+      );
+    }
+
+    if (reserva.estado !== 'CONFIRMADA') {
+      throw Errors.conflict(
+        `La reserva #${reserva.id} no está confirmada para el ingreso (estado actual: ${reserva.estado}).`
+      );
+    }
+
+    if (reserva.qr_usado_at) {
+      throw Errors.conflict(
+        `Este Ticket QR ya fue utilizado previamente para registrar el ingreso (${reserva.qr_usado_at}).`
+      );
+    }
+
+    const verificadoEn = new Date().toISOString();
+    const actualizada = (await dataRepository.updateReserva(reserva.id, {
+      qr_usado_at: verificadoEn,
+    }))!;
+
+    return {
+      verificado: true,
+      estado_ingreso: 'INGRESO_REGISTRADO',
+      verificado_en: verificadoEn,
+      reserva: actualizada,
+    };
+  }
 }
 
 export const reservationService = new ReservationService();

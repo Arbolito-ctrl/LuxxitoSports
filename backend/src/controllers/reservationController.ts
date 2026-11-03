@@ -162,6 +162,19 @@ export class ReservationController {
       next(error);
     }
   }
+
+  async verificarQr(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const resultado = await reservationService.verificarTicketQr(req.body?.codigo_qr);
+      res.status(200).json({
+        ok: true,
+        message: 'Ticket QR verificado exitosamente. Ingreso registrado.',
+        data: resultado,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const reservationController = new ReservationController();

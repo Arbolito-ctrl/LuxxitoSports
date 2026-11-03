@@ -852,6 +852,64 @@ export class DataRepository {
     return this.memState.pagos.filter((p) => !estado || p.estado === estado);
   }
 
+  async getReservaByCodigoQr(codigoQr: string): Promise<Reserva | null> {
+    const clean = codigoQr.trim();
+    const mode = getDbMode();
+    if (mode === 'POSTGRES_POOL') {
+      const res = await getPgPool().query(
+        'SELECT id FROM reservas WHERE UPPER(codigo_qr) = UPPER($1) LIMIT 1',
+        [clean]
+      );
+      if (!res.rows[0]) return null;
+      return this.getReservaById(Number(res.rows[0].id));
+    }
+    if (mode === 'SUPABASE_REST') {
+      const { data } = await getSupabaseClient()
+        .from('reservas')
+        .select('id')
+        .ilike('codigo_qr', clean)
+        .maybeSingle();
+      if (!data) return null;
+      return this.getReservaById(Number(data.id));
+    }
+    const found = this.memState.reservas.find(
+      (r) => r.codigo_qr && r.codigo_qr.toUpperCase() === clean.toUpperCase()
+    );
+    if (!found) return null;
+    return this.getReservaById(found.id);
+  }
+
+  async expireOverdueReservas(nowMs: number = Date.now()): Promise<number> {
+    const nowIso = new Date(nowMs).toISOString();
+    const mode = getDbMode();
+    if (mode === 'POSTGRES_POOL') {
+      const res = await getPgPool().query(
+        "UPDATE reservas SET estado = 'VENCIDA', updated_at = NOW() WHERE estado = 'PENDIENTE_PAGO' AND expires_at < $1",
+        [nowIso]
+      );
+      return res.rowCount || 0;
+    }
+    if (mode === 'SUPABASE_REST') {
+      const { data } = await getSupabaseClient()
+        .from('reservas')
+        .update({ estado: 'VENCIDA', updated_at: nowIso })
+        .eq('estado', 'PENDIENTE_PAGO')
+        .lt('expires_at', nowIso)
+        .select('id');
+      return (data || []).length;
+    }
+    let count = 0;
+    for (const r of this.memState.reservas) {
+      if (r.estado === 'PENDIENTE_PAGO' && Date.parse(r.expires_at) < nowMs) {
+        r.estado = 'VENCIDA';
+        r.updated_at = nowIso;
+        count++;
+      }
+    }
+    if (count > 0) this.saveLocalState();
+    return count;
+  }
+
   async getReservaById(id: number): Promise<Reserva | null> {
     const mode = getDbMode();
     if (mode === 'POSTGRES_POOL') {
@@ -1045,6 +1103,7 @@ export class DataRepository {
         | 'monto_pagado'
         | 'monto_devolucion'
         | 'codigo_qr'
+        | 'qr_usado_at'
         | 'motivo_cancelacion'
         | 'expires_at'
       >
