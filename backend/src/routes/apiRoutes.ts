@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authController } from '../controllers/authController';
 import { catalogController } from '../controllers/catalogController';
 import { reservationController } from '../controllers/reservationController';
-import { requireAuth, requireRole } from '../middlewares/authMiddleware';
+import { requireAuth, requireRole, requireTitularDeReserva } from '../middlewares/authMiddleware';
 
 const router = Router();
 
@@ -56,22 +56,22 @@ router.post('/reservas/cotizar', (req, res, next) =>
 router.post('/reservas/verificar-qr', requireAuth, requireRole('ADMIN'), (req, res, next) =>
   reservationController.verificarQr(req, res, next)
 );
-router.get('/reservas', (req, res, next) =>
+router.get('/reservas', requireAuth, (req, res, next) =>
   reservationController.listarReservas(req, res, next)
 );
-router.get('/reservas/:id', (req, res, next) =>
+router.get('/reservas/:id', requireAuth, requireTitularDeReserva, (req, res, next) =>
   reservationController.obtenerReserva(req, res, next)
 );
 router.post('/reservas', (req, res, next) =>
   reservationController.crearReserva(req, res, next)
 );
-router.put('/reservas/:id', (req, res, next) =>
+router.put('/reservas/:id', requireAuth, requireTitularDeReserva, (req, res, next) =>
   reservationController.actualizarReserva(req, res, next)
 );
-router.delete('/reservas/:id', (req, res, next) =>
+router.delete('/reservas/:id', requireAuth, requireTitularDeReserva, (req, res, next) =>
   reservationController.eliminarReserva(req, res, next)
 );
-router.post('/reservas/:id/cancelar', (req, res, next) =>
+router.post('/reservas/:id/cancelar', requireAuth, requireTitularDeReserva, (req, res, next) =>
   reservationController.cancelarReserva(req, res, next)
 );
 
@@ -79,7 +79,7 @@ router.post('/reservas/:id/cancelar', (req, res, next) =>
 router.post('/pagos/comprobante', (req, res, next) =>
   reservationController.subirComprobante(req, res, next)
 );
-router.post('/reservas/:id/pagos', (req, res, next) =>
+router.post('/reservas/:id/pagos', requireAuth, requireTitularDeReserva, (req, res, next) =>
   reservationController.registrarPago(req, res, next)
 );
 router.get('/pagos', requireAuth, requireRole('ADMIN'), (req, res, next) =>

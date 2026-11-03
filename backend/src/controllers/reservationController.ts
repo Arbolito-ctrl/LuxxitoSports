@@ -31,7 +31,13 @@ export class ReservationController {
     try {
       const filters = {
         estado: req.query.estado ? String(req.query.estado) : undefined,
-        cliente_dni: req.query.cliente_dni ? String(req.query.cliente_dni) : undefined,
+        // El jugador solo ve sus propias reservas; el ADMIN puede filtrar por cualquier DNI
+        cliente_dni:
+          req.user && req.user.rol !== 'ADMIN'
+            ? req.user.dni
+            : req.query.cliente_dni
+              ? String(req.query.cliente_dni)
+              : undefined,
         fecha: req.query.fecha ? String(req.query.fecha) : undefined,
       };
       const reservas = await reservationService.listarReservas(filters);

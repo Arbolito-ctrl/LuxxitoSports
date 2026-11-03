@@ -154,20 +154,33 @@ Crear otra reserva, enviar un comprobante y, como administrador, **Rechazar** co
 
 ## 2. Registro de evidencia
 
-Completar al ejecutar la demo con Supabase:
+**Ejecución:** 3 de noviembre de 2026, de 15:38 a 15:54 (hora de Lima) · **APK de producción 1.0.36** en un motorola edge 50 (Android 16) · API pública `https://luxxito-sports-api.onrender.com/api` con `db_mode = POSTGRES_POOL` (Supabase).
+**Datos:** reserva **#19** (Cancha Monumental 1, jue 5 nov, 17:00–19:00, 2 chalecos), pago **#5**, competidor **#20** y cancelación de la reserva **#4**.
 
-| Paso | Endpoint | Código | Captura app | Captura Supabase | Estado |
+| Paso | Endpoint | Código | Evidencia en la app | Estado persistido en Supabase | ✔ |
 |---|---|---|---|---|---|
-| 1 | `GET /api/canchas` | 200 | `01-explorar-filtros.png` | — | ☐ |
-| 2 | `POST /api/reservas/cotizar` | 200 | `02-cotizacion-servidor.png` | — | ☐ |
-| 3 | `POST /api/reservas` | 201 | `03a-reserva-creada-app.png` | `03b`, `03c` | ☐ |
-| 4 | `POST /api/reservas` (mismo turno) | 409 | `04a-turnos-bloqueados.png`, `04b-conflicto-409-*.png` | — | ☐ |
-| 5.1 | `POST /api/pagos/comprobante` + `POST /api/reservas/:id/pagos` | 201 | `05a-pago-con-foto.png` | `05b-storage-comprobante.png` | ☐ |
-| 5.2 | `PATCH /api/pagos/:id/aprobar` (ADMIN) | 200 | `05c`, `05d`, `05e` | `05f-supabase-confirmada.png` | ☐ |
-| 5.3 | `POST /api/reservas/verificar-qr` (1.º y 2.º) | 200 / 409 | `05g`, `05h` | `05i-supabase-qr-usado.png` | ☐ |
-| 5.4 | `POST /api/reservas/:id/cancelar` | 200 | `05j-cancelacion-app.png` | `05k-supabase-cancelada.png` | ☐ |
+| 1 | `GET /api/canchas?distrito=…&deporte=…` | 200 | [01-explorar-filtros](capturas/01-explorar-filtros.png) | — | ✅ |
+| 2 | `POST /api/reservas/cotizar` | 200 | [02-cotizacion-servidor](capturas/02-cotizacion-servidor.png) | S/ 210 cancha + S/ 30 extras = **S/ 240**; seña S/ 120 | ✅ |
+| 3 | `POST /api/reservas` | 201 | [03a-reserva-creada-app](capturas/03a-reserva-creada-app.png) | `reservas` #19: `PENDIENTE_PAGO`, total 240, `expires_at` en 20 min · `reserva_extras`: chalecos ×2 = 30 | ✅ |
+| 4 | Turno bloqueado + `POST /api/reservas` (mismo turno) | 409 | [04a-turnos-bloqueados](capturas/04a-turnos-bloqueados.png) · [04b-conflicto-409-app](capturas/04b-conflicto-409-app.png) | 17:00 y 18:00 "Reservándose"; el competidor tomó 20:00 (#20) y la app recibió 409 | ✅ |
+| 5.1 | `POST /api/pagos/comprobante` + `POST /api/reservas/19/pagos` | 201 | [05a-pago-en-revision](capturas/05a-pago-en-revision.png) | `pagos` #5: `PENDIENTE_REVISION`, `YAPE-8492014`, `comprobante_url = supabase://comprobantes/reserva-19/…jpg` · Storage: `voucher-…jpg` (63 KB) · reserva `EN_REVISION` | ✅ |
+| 5.2 | `GET /api/pagos` · `PATCH /api/pagos/5/aprobar` (ADMIN) | 200 | [05c-inicio-admin](capturas/05c-inicio-admin.png) · [05d-bandeja-pagos-foto](capturas/05d-bandeja-pagos-foto.png) · [05e-ticket-qr](capturas/05e-ticket-qr.png) | pago #5 `APROBADO` (`reviewed_at` 15:48) · reserva #19 `CONFIRMADA`, `monto_pagado` 240, `codigo_qr = LUXXITO-QR-19-EAFECA58D7` | ✅ |
+| 5.3 | `POST /api/reservas/verificar-qr` (1.º y 2.º) | 200 / 409 | [05g-ingreso-registrado](capturas/05g-ingreso-registrado.png) · [05h-qr-ya-usado](capturas/05h-qr-ya-usado.png) | `qr_usado_at` = 15:50; el segundo escaneo respondió "ya fue utilizado" | ✅ |
+| 5.4 | `POST /api/reservas/4/cancelar` (jugador) | 200 | [05j-cancelacion-app](capturas/05j-cancelacion-app.png) | reserva #4 `CANCELADA`, `monto_devolucion` 120 (100 %), `codigo_qr = NULL`; su QR responde 409 "revocado" | ✅ |
 
-**Datos de la ejecución:** fecha `____` · reserva `#____` · pago `#____` · `db_mode` = `POSTGRES_POOL`
+> En la captura `05d` el voucher está **difuminado**: la imagen de prueba era un Yape real con datos de otra persona. El archivo original sigue en el bucket **privado** `comprobantes` y solo el ADMIN lo ve, con un enlace firmado.
+
+El estado de Supabase se consultó con las sentencias de la [sección 3](#3-consultas-sql-de-respaldo) y quedó guardado en [`capturas/evidencia-supabase-demo.json`](capturas/evidencia-supabase-demo.json).
+
+### Galería
+
+| Catálogo | Cotización | Reserva creada | Turnos bloqueados |
+|---|---|---|---|
+| ![](capturas/01-explorar-filtros.png) | ![](capturas/02-cotizacion-servidor.png) | ![](capturas/03a-reserva-creada-app.png) | ![](capturas/04a-turnos-bloqueados.png) |
+| **409 en la app** | **Pago en revisión** | **Panel del ADMIN** | **Bandeja con voucher** |
+| ![](capturas/04b-conflicto-409-app.png) | ![](capturas/05a-pago-en-revision.png) | ![](capturas/05c-inicio-admin.png) | ![](capturas/05d-bandeja-pagos-foto.png) |
+| **Ticket QR** | **Ingreso registrado** | **QR ya usado** | **Cancelación 24 h** |
+| ![](capturas/05e-ticket-qr.png) | ![](capturas/05g-ingreso-registrado.png) | ![](capturas/05h-qr-ya-usado.png) | ![](capturas/05j-cancelacion-app.png) |
 
 ---
 
