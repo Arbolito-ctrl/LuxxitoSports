@@ -69,6 +69,7 @@ function generatePdf() {
       align: 'center',
     });
   doc.text('Fecha: Noviembre 2026 - Lima, Perú', { align: 'center' });
+  doc.text('Equipo: Juan Medina, Elvis y Steven', { align: 'center' });
 
   // =========================================================================
   // PÁGINA 1: PROBLEMA, ANÁLISIS Y ARQUITECTURA
@@ -108,7 +109,7 @@ function generatePdf() {
   );
   p(
     '4. ¿Qué datos y relaciones se almacenarán?',
-    'Se almacenan 6 tablas relacionadas en PostgreSQL (Supabase): complejos (1:N canchas, 1:N extras), canchas (1:N reservas), extras (N:M reservas mediante reserva_extras) y pagos (N:1 reservas).'
+    'Se almacenan 7 tablas en PostgreSQL (Supabase): usuarios, complejos (1:N canchas, 1:N extras), canchas (1:N reservas), extras (N:M reservas mediante reserva_extras) y pagos (N:1 reservas).'
   );
   p(
     '5. ¿Qué reglas ejecutará el servidor?',
@@ -124,7 +125,7 @@ function generatePdf() {
   );
   p(
     '8. ¿Cómo comprobarán cada resultado?',
-    'Con 8 pruebas automatizadas en Vitest/Supertest (éxitos y fallos), colección Postman y flujo completo desde la aplicación móvil Flutter.'
+    'Con 21 pruebas automatizadas en Vitest/Supertest (éxitos y fallos) ejecutadas en LOCAL_STORE. La colección Postman y el flujo en Android con base real requieren evidencia independiente; no se certifican por estas pruebas.'
   );
 
   h1('2. ARQUITECTURA EN CAPAS Y SEPARACIÓN DE RESPONSABILIDADES');
@@ -237,7 +238,7 @@ function generatePdf() {
     'Al cancelar, el servidor calcula las horas restantes hasta el inicio del turno en zona horaria America/Lima (UTC-5). Si faltan >= 24 horas, calcula un reembolso del 100% del monto pagado (penalidad = 0). Si faltan < 24 horas, retiene el 50% por penalidad y reembolsa el 50%. En ambos casos revoca codigo_qr = null y libera el turno.'
   );
 
-  h1('6. EVIDENCIA DE PRUEBAS VERIFICADAS (ÉXITOS Y FALLOS)');
+  h1('6. PRUEBAS AUTOMATIZADAS LOCALES (ÉXITOS Y FALLOS)');
   p(
     'Caso 1 (Éxito - 200 OK):',
     'GET /api/complejos y GET /api/canchas?deporte=Futbol%207 retornan los complejos y canchas filtradas.'
@@ -270,6 +271,19 @@ function generatePdf() {
     'Caso 8 (Éxito Cancelación 24h - 200 OK):',
     'POST /api/reservas/:id/cancelar con >24h de anticipación aplica REEMBOLSO_100_MAYOR_24H, devuelve S/ 90.00 y revoca el QR.'
   );
+
+  doc.addPage();
+  h1('7. DESPLIEGUE Y VALIDACIÓN DE INFRAESTRUCTURA - ISSUE #14');
+  p('Responsable:', 'Juan Medina (jc2709). Rama juan/despliegue-apk-validacion y PR #17 a develop. Revisión: 3 de noviembre de 2026.');
+  p('API pública:', 'https://luxxito-sports-api.onrender.com/api. GET /health comprobado con HTTP 200 y db_mode POSTGRES_POOL. Primer despliegue Render del commit f4a507a de main.');
+  p('Servicio:', 'Render Free, Node 22, raíz backend, build npm ci --include=dev && npm run build, inicio node dist/server.js y health /api/health. Las variables privadas solo se configuran en Render; no están en Git.');
+  p('Workflow del APK:', 'Los secretos pasan por env y los argumentos --dart-define se entrecomillan. Una validación previa rechaza URLs con espacios/paréntesis o IPs locales. API_BASE_URL apunta a la API pública.');
+  p('Consumo de API propia:', 'El APK no cambia silenciosamente a Supabase directo. El teléfono usa HTTPS y dispone de 60 segundos de timeout para el despertar del servicio gratuito. La descarga debe provenir del release latest-apk actualizado.');
+  p('Historial integrado:', 'PR #11: promoción de identidad, QR y expiración; PR #12: endpoint comprobantes/RPC; PR #13: promoción; PR #15/#16: enfoque solo Android. La integración de un endpoint no demuestra por sí sola que su función esté completa.');
+  p('Comprobaciones de este cambio:', 'Build backend correcto; 21/21 pruebas API locales y 3/3 pruebas de configuración. CI del PR verde para el commit 2a2b341. Resultado final del APK y promoción: consultar el informe de validación actualizado.');
+  p('Pendiente Android físico:', 'Instalar el APK actual, registrar modelo/versión y capturar el recorrido. No se declara completada la prueba de punta a punta sin esa evidencia.');
+  p('Fuera de este cambio:', 'Los fallos de pagos, upload de comprobantes y persistencia QR se atenderán después, por indicación de Juan. No se presentan aquí como corregidos; el criterio completo de aceptación de la issue sigue abierto.');
+  p('Evidencia:', 'docs/validaciones/2026-11-03-infra-issue14.md y capturas/infra-render-live.jpg. El PDF distingue pruebas locales, servicio publicado y validación física pendiente.');
 
   doc.end();
 
