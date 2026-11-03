@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Luxxito Sports REST API
-  version: 1.3.0
+  version: 1.4.0
   description: >
     Contrato OpenAPI de la API REST propia de Luxxito Sports (SI806 - Taller 3 UNI).
     El servidor es la autoridad sobre disponibilidad, precios, stock de extras por intervalo,
@@ -138,7 +138,9 @@ paths:
           description: Grilla de turnos y stock de extras disponibles
   /reservas/verificar-qr:
     post:
-      summary: Verificar e invalidar uso único de Ticket QR en puerta (LX-202)
+      summary: Verificar e invalidar uso único de Ticket QR en puerta (LX-202, requiere JWT con rol ADMIN)
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -155,6 +157,10 @@ paths:
           description: Ticket QR verificado e ingreso registrado (INGRESO_REGISTRADO)
         '400':
           description: Formato de código QR inválido
+        '401':
+          description: Token JWT ausente o inválido
+        '403':
+          description: Acceso denegado (se requiere rol ADMIN)
         '404':
           description: Código QR inexistente
         '409':
@@ -229,11 +235,75 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [metodo, modalidad, numero_operacion]
+              properties:
+                metodo:
+                  type: string
+                  enum: [YAPE, PLIN, TRANSFERENCIA]
+                modalidad:
+                  type: string
+                  enum: [TOTAL, SENA_50]
+                monto:
+                  type: number
+                  description: Opcional; por defecto el servidor usa el monto de la modalidad
+                numero_operacion:
+                  type: string
+                  minLength: 4
+                comprobante_url:
+                  type: string
+                  nullable: true
+                  description: Referencia devuelta por POST /pagos/comprobante (debe ser de la misma reserva)
+                  example: supabase://comprobantes/reserva-1/voucher-1730650000000.jpg
       responses:
         '201':
           description: Comprobante registrado (EN_REVISION o CONFIRMADA con QR)
+        '400':
+          description: Datos inválidos o comprobante_url de otra reserva
         '422':
           description: Importe no coincide con la modalidad elegida (SENA_50 o TOTAL)
+  /pagos/comprobante:
+    post:
+      summary: Subir la foto del voucher al bucket privado comprobantes (Supabase Storage)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reserva_id, contenido_base64]
+              properties:
+                reserva_id:
+                  type: integer
+                mime_type:
+                  type: string
+                  enum: [image/jpeg, image/png, image/webp]
+                  default: image/jpeg
+                contenido_base64:
+                  type: string
+                  description: Imagen en base64 (máximo 5 MB; cuerpo JSON de hasta 8 MB)
+      responses:
+        '201':
+          description: >
+            Voucher guardado. Devuelve `comprobante_url` (supabase://comprobantes/...) para enviarlo en
+            POST /reservas/{id}/pagos, y `almacenado` (false solo en pruebas o modo local).
+        '400':
+          description: reserva_id inválido, formato no permitido o contenido vacío
+        '404':
+          description: Reserva no encontrada
+        '409':
+          description: La reserva está CANCELADA o VENCIDA
+        '413':
+          description: El cuerpo supera el límite permitido (PAYLOAD_TOO_LARGE)
+        '422':
+          description: La imagen supera 5 MB
+        '502':
+          description: Error al guardar en Storage o Storage no configurado en el servidor (STORAGE_ERROR)
   /pagos:
     get:
       summary: Bandeja de revisión del operador (requiere JWT con rol ADMIN)
@@ -249,7 +319,9 @@ paths:
             enum: [PENDIENTE_REVISION, APROBADO, RECHAZADO, REEMBOLSADO]
       responses:
         '200':
-          description: Lista de pagos con `count` y el resumen `reserva` de cada uno
+          description: >
+            Lista de pagos con `count`, el resumen `reserva` de cada uno y `comprobante_url_firmada`
+            (enlace temporal de 1 hora para ver el voucher del bucket privado, o null)
         '400':
           description: Estado de pago inválido
         '401':

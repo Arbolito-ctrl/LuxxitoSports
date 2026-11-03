@@ -879,6 +879,44 @@ export class DataRepository {
     return this.getReservaById(found.id);
   }
 
+  /**
+   * Marca el Ticket QR como usado solo si aún no lo estaba, en una única operación,
+   * para que dos escaneos simultáneos no registren el mismo ingreso.
+   * Devuelve la reserva actualizada, o null si el QR ya había sido usado.
+   */
+  async marcarQrUsado(id: number, usadoEnIso: string): Promise<Reserva | null> {
+    const mode = getDbMode();
+    if (mode === 'POSTGRES_POOL') {
+      const res = await getPgPool().query(
+        `UPDATE reservas
+         SET qr_usado_at = $1, updated_at = NOW()
+         WHERE id = $2 AND qr_usado_at IS NULL
+         RETURNING id`,
+        [usadoEnIso, id]
+      );
+      return res.rows[0] ? this.getReservaById(id) : null;
+    }
+    if (mode === 'SUPABASE_REST') {
+      const { data, error } = await getSupabaseClient()
+        .from('reservas')
+        .update({ qr_usado_at: usadoEnIso, updated_at: usadoEnIso })
+        .eq('id', id)
+        .is('qr_usado_at', null)
+        .select('id');
+      if (error) throw error;
+      return data && data.length > 0 ? this.getReservaById(id) : null;
+    }
+    const idx = this.memState.reservas.findIndex((r) => r.id === id);
+    if (idx === -1 || this.memState.reservas[idx].qr_usado_at) return null;
+    this.memState.reservas[idx] = {
+      ...this.memState.reservas[idx],
+      qr_usado_at: usadoEnIso,
+      updated_at: usadoEnIso,
+    };
+    this.saveLocalState();
+    return this.getReservaById(id);
+  }
+
   async expireOverdueReservas(nowMs: number = Date.now()): Promise<number> {
     const nowIso = new Date(nowMs).toISOString();
     const mode = getDbMode();
@@ -1103,7 +1141,6 @@ export class DataRepository {
         | 'monto_pagado'
         | 'monto_devolucion'
         | 'codigo_qr'
-        | 'qr_usado_at'
         | 'motivo_cancelacion'
         | 'expires_at'
       >

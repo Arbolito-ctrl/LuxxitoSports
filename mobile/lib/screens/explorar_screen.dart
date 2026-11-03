@@ -9,7 +9,14 @@ import 'disponibilidad_reserva_screen.dart';
 class ExplorarScreen extends StatefulWidget {
   final VoidCallback onNavigateToReservas;
 
-  const ExplorarScreen({super.key, required this.onNavigateToReservas});
+  /// Vista del ADMIN: catálogo para administrar canchas, sin acciones de reserva.
+  final bool modoGestion;
+
+  const ExplorarScreen({
+    super.key,
+    required this.onNavigateToReservas,
+    this.modoGestion = false,
+  });
 
   @override
   State<ExplorarScreen> createState() => _ExplorarScreenState();
@@ -297,7 +304,11 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            nombre.isEmpty ? '¡Hola!' : '¡Hola, $nombre!',
+            widget.modoGestion
+                ? 'Catálogo de canchas'
+                : nombre.isEmpty
+                    ? '¡Hola!'
+                    : '¡Hola, $nombre!',
             style: const TextStyle(
               color: LuxxitoColors.texto,
               fontSize: 22,
@@ -305,9 +316,11 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
             ),
           ),
           const SizedBox(height: 2),
-          const Text(
-            '¿Dónde y a qué juegas hoy?',
-            style: TextStyle(color: LuxxitoColors.textoSecundario),
+          Text(
+            widget.modoGestion
+                ? 'Revisa precios y estado de cada cancha, o publica una nueva.'
+                : '¿Dónde y a qué juegas hoy?',
+            style: const TextStyle(color: LuxxitoColors.textoSecundario),
           ),
           const SizedBox(height: 14),
           _filaChips(
@@ -373,7 +386,7 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: activa ? () => _abrirReserva(cancha) : null,
+        onTap: activa && !widget.modoGestion ? () => _abrirReserva(cancha) : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -517,11 +530,18 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
                           ],
                         ),
                       ),
-                      FilledButton.icon(
-                        onPressed: activa ? () => _abrirReserva(cancha) : null,
-                        icon: const Icon(Icons.calendar_month, size: 18),
-                        label: const Text('Reservar'),
-                      ),
+                      if (widget.modoGestion)
+                        Insignia(
+                          activa ? 'Activa' : 'Inactiva',
+                          color: activa ? LuxxitoColors.exito : LuxxitoColors.error,
+                          icono: activa ? Icons.check_circle : Icons.block,
+                        )
+                      else
+                        FilledButton.icon(
+                          onPressed: activa ? () => _abrirReserva(cancha) : null,
+                          icon: const Icon(Icons.calendar_month, size: 18),
+                          label: const Text('Reservar'),
+                        ),
                     ],
                   ),
                 ],
@@ -570,8 +590,10 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
         if (idx == 0) {
           return Text(
             _canchas.length == 1
-                ? '1 cancha disponible'
-                : '${_canchas.length} canchas disponibles',
+                ? (widget.modoGestion ? '1 cancha en el catálogo' : '1 cancha disponible')
+                : widget.modoGestion
+                    ? '${_canchas.length} canchas en el catálogo'
+                    : '${_canchas.length} canchas disponibles',
             style: const TextStyle(
               color: LuxxitoColors.textoTenue,
               fontSize: 13,

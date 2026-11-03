@@ -826,6 +826,16 @@ class MisReservasScreenState extends State<MisReservasScreen>
           texto: 'Tu turno está protegido mientras confirmamos el comprobante.',
         ),
       );
+    } else if (r.estado == 'CONFIRMADA' && r.qrUsadoAt != null) {
+      final hora = DateTime.tryParse(r.qrUsadoAt!)?.toLocal();
+      avisos.add(AvisoBanner(
+        icono: Icons.how_to_reg,
+        color: LuxxitoColors.exito,
+        titulo: 'Ingreso registrado',
+        texto: hora != null
+            ? 'El ticket se validó en la entrada a las ${hora.hour.toString().padLeft(2, '0')}:${hora.minute.toString().padLeft(2, '0')}.'
+            : 'El ticket ya se validó en la entrada.',
+      ));
     } else if (r.estado == 'CANCELADA' && r.motivoCancelacion != null) {
       avisos.add(
         AvisoBanner(
@@ -842,8 +852,9 @@ class MisReservasScreenState extends State<MisReservasScreen>
     final estado = EstadoReservaInfo.de(r.estado);
     final activa = r.estado != 'CANCELADA' && r.estado != 'VENCIDA';
     final saldo = double.parse((r.total - r.montoPagado).toStringAsFixed(2));
-    final puedePagar =
-        r.estado == 'PENDIENTE_PAGO' || (r.estado == 'CONFIRMADA' && saldo > 0);
+    // Pagar es una acción del jugador; el ADMIN solo revisa los comprobantes.
+    final puedePagar = !ApiService.esAdmin &&
+        (r.estado == 'PENDIENTE_PAGO' || (r.estado == 'CONFIRMADA' && saldo > 0));
     final tieneQr = r.codigoQr != null && r.estado == 'CONFIRMADA';
     final avisos = _avisos(r);
 
