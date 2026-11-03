@@ -2,7 +2,7 @@
   "info": {
     "name": "Luxxito Sports API REST - Taller 3 (SI806 UNI)",
     "_postman_id": "a7f90211-88b4-41c9-99e0-112233445566",
-    "description": "Colección completa de endpoints para Luxxito Sports (Complejos, Canchas, Disponibilidad, Cotización, Reservas, Pagos y Cancelación 24h).",
+    "description": "Colección de la API REST de Luxxito Sports con pruebas automáticas. Ejecútala completa con el Collection Runner (o `npx newman run`): el primer request genera una fecha, horario y DNI únicos, y los siguientes encadenan `reservaId` y `pagoId`. Los requests marcados [Borde] verifican respuestas de error esperadas.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -10,181 +10,1384 @@
       "key": "baseUrl",
       "value": "http://localhost:3000/api",
       "type": "string"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "fecha",
+      "value": ""
+    },
+    {
+      "key": "horaInicio",
+      "value": ""
+    },
+    {
+      "key": "horaFin",
+      "value": ""
+    },
+    {
+      "key": "horaTemporal",
+      "value": ""
+    },
+    {
+      "key": "horaTemporalFin",
+      "value": ""
+    },
+    {
+      "key": "dni",
+      "value": ""
+    },
+    {
+      "key": "reservaId",
+      "value": ""
+    },
+    {
+      "key": "reservaTemporalId",
+      "value": ""
+    },
+    {
+      "key": "pagoId",
+      "value": ""
     }
   ],
   "item": [
     {
-      "name": "1. Health & Diagnóstico",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/health",
-          "host": ["{{baseUrl}}"],
-          "path": ["health"]
-        }
-      }
-    },
-    {
-      "name": "2. Listar Complejos Deportivos",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/complejos",
-          "host": ["{{baseUrl}}"],
-          "path": ["complejos"]
-        }
-      }
-    },
-    {
-      "name": "3. Listar y Filtrar Canchas",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/canchas?deporte=Futbol 7",
-          "host": ["{{baseUrl}}"],
-          "path": ["canchas"],
-          "query": [{ "key": "deporte", "value": "Futbol 7" }]
-        }
-      }
-    },
-    {
-      "name": "4. Crear Nueva Cancha (CRUD Create)",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"complejo_id\": 1,\n  \"nombre\": \"Cancha Sintética VIP\",\n  \"deporte\": \"Futbol 5\",\n  \"superficie\": \"Grass Sintético FIFA Pro\",\n  \"techada\": true,\n  \"iluminacion\": true,\n  \"precio_hora_diurno\": 80,\n  \"precio_hora_nocturno\": 105\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/canchas",
-          "host": ["{{baseUrl}}"],
-          "path": ["canchas"]
-        }
-      }
-    },
-    {
-      "name": "5. Consultar Disponibilidad y Extras por Fecha (Lógica de Negocio)",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/canchas/1/disponibilidad?fecha=2026-11-15&hora=18",
-          "host": ["{{baseUrl}}"],
-          "path": ["canchas", "1", "disponibilidad"],
-          "query": [
-            { "key": "fecha", "value": "2026-11-15" },
-            { "key": "hora", "value": "18" }
+      "name": "0. Diagnóstico",
+      "description": "Estado del servicio y modo de base de datos.",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Datos únicos por ejecución para que el Runner pueda repetirse sin choques de horario",
+                  "const dias = 10 + Math.floor(Math.random() * 40);",
+                  "const fecha = new Date(Date.now() + dias * 86400000).toISOString().slice(0, 10);",
+                  "const horaInicio = 8 + Math.floor(Math.random() * 6);",
+                  "pm.collectionVariables.set('fecha', fecha);",
+                  "pm.collectionVariables.set('horaInicio', horaInicio);",
+                  "pm.collectionVariables.set('horaFin', horaInicio + 2);",
+                  "pm.collectionVariables.set('horaTemporal', horaInicio + 3);",
+                  "pm.collectionVariables.set('horaTemporalFin', horaInicio + 4);",
+                  "pm.collectionVariables.set('dni', String(70000000 + Math.floor(Math.random() * 9999999)));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test('Indica el modo de base de datos', () => pm.expect(pm.response.json().db_mode).to.be.a('string'));",
+                  "}"
+                ]
+              }
+            }
           ]
         }
-      }
+      ]
     },
     {
-      "name": "6. Cotizar Reserva con Extras en Servidor (Lógica de Negocio)",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"cancha_id\": 1,\n  \"fecha\": \"2026-11-15\",\n  \"hora_inicio\": 17,\n  \"hora_fin\": 19,\n  \"extras\": [\n    { \"extra_id\": 1, \"cantidad\": 2 }\n  ]\n}"
+      "name": "1. Autenticación",
+      "description": "Login con JWT y validaciones de identidad.",
+      "item": [
+        {
+          "name": "Login administrador",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@luxxitosports.pe\",\n  \"password\": \"admin2026\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Devuelve token JWT', () => pm.expect(data.token).to.be.a('string').and.not.empty);",
+                  "pm.test('Rol ADMIN', () => pm.expect(data.user.rol).to.eql('ADMIN'));",
+                  "pm.test('No expone la contraseña', () => pm.expect(data.user).to.not.have.property('password_hash'));",
+                  "pm.collectionVariables.set('token', data.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
-        "url": {
-          "raw": "{{baseUrl}}/reservas/cotizar",
-          "host": ["{{baseUrl}}"],
-          "path": ["reservas", "cotizar"]
-        }
-      }
-    },
-    {
-      "name": "7. Crear Reserva con Bloqueo de 20 min (CRUD Create + Reglas)",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"cancha_id\": 1,\n  \"cliente_nombre\": \"Carlos Mendoza\",\n  \"cliente_dni\": \"74125896\",\n  \"cliente_telefono\": \"999888777\",\n  \"cliente_email\": \"carlos.mendoza@uni.pe\",\n  \"fecha\": \"2026-11-15\",\n  \"hora_inicio\": 19,\n  \"hora_fin\": 21,\n  \"notas\": \"Partido FIIS UNI\",\n  \"extras\": [\n    { \"extra_id\": 1, \"cantidad\": 1 },\n    { \"extra_id\": 2, \"cantidad\": 1 }\n  ]\n}"
+        {
+          "name": "[Borde] Login con contraseña incorrecta → 401",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@luxxitosports.pe\",\n  \"password\": \"incorrecta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 401', () => pm.response.to.have.status(401));",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
-        "url": {
-          "raw": "{{baseUrl}}/reservas",
-          "host": ["{{baseUrl}}"],
-          "path": ["reservas"]
+        {
+          "name": "[Borde] Registro con DNI ya existente → 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/registro",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "registro"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Cuenta Duplicada\",\n  \"dni\": \"74125896\",\n  \"telefono\": \"987654321\",\n  \"email\": \"duplicado@uni.pe\",\n  \"password\": \"secreta123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 409', () => pm.response.to.have.status(409));",
+                  "",
+                  "pm.test('Código CONFLICT', () => pm.expect(pm.response.json().code).to.eql('CONFLICT'));",
+                  "}"
+                ]
+              }
+            }
+          ]
         }
-      }
+      ]
     },
     {
-      "name": "8. Listar Reservas (CRUD Read)",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/reservas",
-          "host": ["{{baseUrl}}"],
-          "path": ["reservas"]
-        }
-      }
-    },
-    {
-      "name": "9. Actualizar Datos de Reserva (CRUD Update)",
-      "request": {
-        "method": "PUT",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"cliente_telefono\": \"988777666\",\n  \"notas\": \"Actualizado: llevar balones adicionales\"\n}"
+      "name": "2. Catálogo",
+      "description": "Complejos, canchas (CRUD) y disponibilidad.",
+      "item": [
+        {
+          "name": "Listar complejos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/complejos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "complejos"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test('Devuelve una lista', () => pm.expect(pm.response.json().data).to.be.an('array').that.is.not.empty);",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
-        "url": {
-          "raw": "{{baseUrl}}/reservas/1",
-          "host": ["{{baseUrl}}"],
-          "path": ["reservas", "1"]
-        }
-      }
-    },
-    {
-      "name": "10. Registrar Comprobante Yape/Plin y Aprobar Ticket QR",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"metodo\": \"YAPE\",\n  \"modalidad\": \"TOTAL\",\n  \"numero_operacion\": \"YAPE-8492014\",\n  \"auto_aprobar\": true\n}"
+        {
+          "name": "Filtrar canchas por deporte",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/canchas?deporte=Futbol 7",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "canchas"
+              ],
+              "query": [
+                {
+                  "key": "deporte",
+                  "value": "Futbol 7"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test('Todas son de Futbol 7', () =>",
+                  "  pm.response.json().data.forEach((c) => pm.expect(c.deporte).to.eql('Futbol 7')));",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
-        "url": {
-          "raw": "{{baseUrl}}/reservas/1/pagos",
-          "host": ["{{baseUrl}}"],
-          "path": ["reservas", "1", "pagos"]
-        }
-      }
-    },
-    {
-      "name": "11. Cancelar Reserva con Política 24 Horas (Lógica de Negocio)",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"motivo\": \"Reprogramación del equipo\"\n}"
+        {
+          "name": "Crear cancha (CRUD Create)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/canchas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "canchas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"complejo_id\": 1,\n  \"nombre\": \"Cancha Sintética VIP\",\n  \"deporte\": \"Futbol 5\",\n  \"superficie\": \"Grass Sintético FIFA Pro\",\n  \"techada\": true,\n  \"iluminacion\": true,\n  \"precio_hora_diurno\": 80,\n  \"precio_hora_nocturno\": 105\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
-        "url": {
-          "raw": "{{baseUrl}}/reservas/1/cancelar",
-          "host": ["{{baseUrl}}"],
-          "path": ["reservas", "1", "cancelar"]
+        {
+          "name": "[Borde] Cancha con precio nocturno menor al diurno → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/canchas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "canchas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"complejo_id\": 1,\n  \"nombre\": \"Cancha Inválida\",\n  \"deporte\": \"Futbol 7\",\n  \"precio_hora_diurno\": 120,\n  \"precio_hora_nocturno\": 90\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Disponibilidad y extras por fecha",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/canchas/1/disponibilidad?fecha={{fecha}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "canchas",
+                "1",
+                "disponibilidad"
+              ],
+              "query": [
+                {
+                  "key": "fecha",
+                  "value": "{{fecha}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Incluye turnos y extras', () => {",
+                  "  pm.expect(data.turnos).to.be.an('array').that.is.not.empty;",
+                  "  pm.expect(data.extras_disponibles).to.be.an('array');",
+                  "});",
+                  "}"
+                ]
+              }
+            }
+          ]
         }
-      }
+      ]
     },
     {
-      "name": "12. Eliminar Reserva No Confirmada (CRUD Delete)",
-      "request": {
-        "method": "DELETE",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/reservas/1",
-          "host": ["{{baseUrl}}"],
-          "path": ["reservas", "1"]
+      "name": "3. Reservas",
+      "description": "Cotización en servidor, bloqueo de 20 min y reglas de negocio.",
+      "item": [
+        {
+          "name": "Cotizar reserva",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservas/cotizar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas",
+                "cotizar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cancha_id\": 1,\n  \"fecha\": \"{{fecha}}\",\n  \"hora_inicio\": {{horaInicio}},\n  \"hora_fin\": {{horaFin}},\n  \"extras\": [{ \"extra_id\": 1, \"cantidad\": 2 }]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const q = pm.response.json().data;",
+                  "pm.test('La seña es el 50% del total', () => pm.expect(q.monto_sena_50).to.eql(Math.round(q.total * 50) / 100));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear reserva (bloqueo 20 min)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cancha_id\": 1,\n  \"cliente_nombre\": \"Carlos Mendoza\",\n  \"cliente_dni\": \"{{dni}}\",\n  \"cliente_telefono\": \"999888777\",\n  \"cliente_email\": \"carlos.mendoza@uni.pe\",\n  \"fecha\": \"{{fecha}}\",\n  \"hora_inicio\": {{horaInicio}},\n  \"hora_fin\": {{horaFin}},\n  \"notas\": \"Partido FIIS UNI\",\n  \"extras\": [\n    { \"extra_id\": 1, \"cantidad\": 1 },\n    { \"extra_id\": 2, \"cantidad\": 1 }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "",
+                  "const r = pm.response.json().data;",
+                  "pm.test('Queda PENDIENTE_PAGO con vencimiento', () => {",
+                  "  pm.expect(r.estado).to.eql('PENDIENTE_PAGO');",
+                  "  pm.expect(new Date(r.expires_at).getTime()).to.be.above(Date.now());",
+                  "});",
+                  "pm.collectionVariables.set('reservaId', r.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Borde] Reserva solapada en el mismo horario → 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cancha_id\": 1,\n  \"cliente_nombre\": \"Carlos Mendoza\",\n  \"cliente_dni\": \"{{dni}}\",\n  \"cliente_telefono\": \"999888777\",\n  \"cliente_email\": \"carlos.mendoza@uni.pe\",\n  \"fecha\": \"{{fecha}}\",\n  \"hora_inicio\": {{horaInicio}},\n  \"hora_fin\": {{horaFin}},\n  \"notas\": \"Partido FIIS UNI\",\n  \"extras\": [\n    { \"extra_id\": 1, \"cantidad\": 1 },\n    { \"extra_id\": 2, \"cantidad\": 1 }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 409', () => pm.response.to.have.status(409));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Borde] Reserva en fecha pasada → 422",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cancha_id\": 1,\n  \"cliente_nombre\": \"Fecha Pasada\",\n  \"cliente_dni\": \"71234567\",\n  \"cliente_telefono\": \"987654321\",\n  \"cliente_email\": \"pasado@uni.pe\",\n  \"fecha\": \"2020-01-10\",\n  \"hora_inicio\": 10,\n  \"hora_fin\": 11\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 422', () => pm.response.to.have.status(422));",
+                  "",
+                  "pm.test('Código BUSINESS_RULE_VIOLATION', () =>",
+                  "  pm.expect(pm.response.json().code).to.eql('BUSINESS_RULE_VIOLATION'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mis reservas (filtro por DNI)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reservas?cliente_dni={{dni}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas"
+              ],
+              "query": [
+                {
+                  "key": "cliente_dni",
+                  "value": "{{dni}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test('Solo devuelve reservas del DNI', () =>",
+                  "  pm.response.json().data.forEach((r) => pm.expect(r.cliente_dni).to.eql(pm.collectionVariables.get('dni'))));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalle de reserva",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reservas/{{reservaId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas",
+                "{{reservaId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Borde] Reserva inexistente → 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reservas/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas",
+                "999999"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 404', () => pm.response.to.have.status(404));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar contacto (CRUD Update)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservas/{{reservaId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas",
+                "{{reservaId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cliente_telefono\": \"988777666\",\n  \"notas\": \"Actualizado: llevar balones adicionales\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test('Guarda el nuevo teléfono', () => pm.expect(pm.response.json().data.cliente_telefono).to.eql('988777666'));",
+                  "}"
+                ]
+              }
+            }
+          ]
         }
-      }
+      ]
+    },
+    {
+      "name": "4. Pagos y revisión",
+      "description": "Comprobante del jugador y bandeja del operador (aprobar / rechazar).",
+      "item": [
+        {
+          "name": "Enviar comprobante Yape",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservas/{{reservaId}}/pagos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas",
+                "{{reservaId}}",
+                "pagos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodo\": \"YAPE\",\n  \"modalidad\": \"TOTAL\",\n  \"numero_operacion\": \"YAPE-8492014\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Reserva protegida EN_REVISION', () => pm.expect(data.reserva.estado).to.eql('EN_REVISION'));",
+                  "pm.collectionVariables.set('pagoId', data.pago.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bandeja de pagos pendientes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/pagos?estado=PENDIENTE_REVISION",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pagos"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "PENDIENTE_REVISION"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const pago = pm.response.json().data.find((p) => p.id === Number(pm.collectionVariables.get('pagoId')));",
+                  "pm.test('Incluye el comprobante con resumen de reserva', () => {",
+                  "  pm.expect(pago).to.not.be.undefined;",
+                  "  pm.expect(pago.reserva.cliente_nombre).to.eql('Carlos Mendoza');",
+                  "});",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Borde] Estado de pago inválido → 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/pagos?estado=INEXISTENTE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pagos"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "INEXISTENTE"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Borde] Rechazar sin motivo → 400",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/pagos/{{pagoId}}/rechazar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pagos",
+                "{{pagoId}}",
+                "rechazar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rechazar comprobante con motivo",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pagos/{{pagoId}}/rechazar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pagos",
+                "{{pagoId}}",
+                "rechazar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"observacion\": \"Número de operación no coincide con el voucher\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Pago RECHAZADO con observación', () => {",
+                  "  pm.expect(data.pago.estado).to.eql('RECHAZADO');",
+                  "  pm.expect(data.pago.observacion).to.include('voucher');",
+                  "});",
+                  "pm.test('Reserva vuelve a PENDIENTE_PAGO', () => pm.expect(data.reserva.estado).to.eql('PENDIENTE_PAGO'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Borde] Aprobar un pago rechazado → 409",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/pagos/{{pagoId}}/aprobar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pagos",
+                "{{pagoId}}",
+                "aprobar"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 409', () => pm.response.to.have.status(409));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reenviar comprobante válido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservas/{{reservaId}}/pagos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas",
+                "{{reservaId}}",
+                "pagos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodo\": \"PLIN\",\n  \"modalidad\": \"TOTAL\",\n  \"numero_operacion\": \"PLIN-5521890\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "",
+                  "pm.collectionVariables.set('pagoId', pm.response.json().data.pago.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Aprobar pago y emitir Ticket QR",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/pagos/{{pagoId}}/aprobar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pagos",
+                "{{pagoId}}",
+                "aprobar"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const r = pm.response.json().data.reserva;",
+                  "pm.test('Reserva CONFIRMADA con QR', () => {",
+                  "  pm.expect(r.estado).to.eql('CONFIRMADA');",
+                  "  pm.expect(r.codigo_qr).to.match(/^LUXXITO-QR-/);",
+                  "  pm.expect(r.monto_pagado).to.eql(r.total);",
+                  "});",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Aprobar de nuevo (idempotencia)",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/pagos/{{pagoId}}/aprobar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pagos",
+                "{{pagoId}}",
+                "aprobar"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test('No duplica el pago', () => pm.expect(pm.response.json().data.idempotent).to.be.true);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Borde] Rechazar un pago aprobado → 409",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pagos/{{pagoId}}/rechazar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pagos",
+                "{{pagoId}}",
+                "rechazar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"observacion\": \"Intento de rechazo tardío\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 409', () => pm.response.to.have.status(409));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Cancelación y eliminación",
+      "description": "Política de 24 horas y CRUD Delete.",
+      "item": [
+        {
+          "name": "Cancelar con más de 24 h (reembolso 100%)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservas/{{reservaId}}/cancelar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas",
+                "{{reservaId}}",
+                "cancelar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Reprogramación del equipo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Reembolso total y QR revocado', () => {",
+                  "  pm.expect(data.politica_aplicada).to.eql('REEMBOLSO_100_MAYOR_24H');",
+                  "  pm.expect(data.monto_devolucion).to.eql(data.monto_pagado);",
+                  "  pm.expect(data.reserva.codigo_qr).to.be.null;",
+                  "});",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Borde] Cancelar dos veces → 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservas/{{reservaId}}/cancelar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas",
+                "{{reservaId}}",
+                "cancelar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Repetido\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 409', () => pm.response.to.have.status(409));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear reserva temporal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cancha_id\": 1,\n  \"cliente_nombre\": \"Reserva Temporal\",\n  \"cliente_dni\": \"{{dni}}\",\n  \"cliente_telefono\": \"999888777\",\n  \"cliente_email\": \"temporal@uni.pe\",\n  \"fecha\": \"{{fecha}}\",\n  \"hora_inicio\": {{horaTemporal}},\n  \"hora_fin\": {{horaTemporalFin}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "",
+                  "pm.collectionVariables.set('reservaTemporalId', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar reserva no confirmada (CRUD Delete)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reservas/{{reservaTemporalId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas",
+                "{{reservaTemporalId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }

@@ -34,7 +34,7 @@ Base de Datos PostgreSQL en Supabase (backend/sql/schema.sql)
 | Cliente consume `>= 5 endpoints` | App Flutter consume los 12 endpoints desde 3 pestañas + pantalla de disponibilidad | Completado |
 | Validaciones y códigos HTTP | Códigos `200`, `201`, `400`, `404`, `409 Conflict`, `422`, `500` | Completado |
 | Arquitectura en capas | `controllers/`, `services/`, `repositories/` | Completado |
-| Pruebas (`>= 5 casos: éxitos y fallos`) | 8 casos automatizados en Vitest/Supertest + Widget Test en Flutter | Completado |
+| Pruebas (`>= 5 casos: éxitos y fallos`) | 17 casos automatizados en Vitest/Supertest + colección Postman con 51 aserciones + Widget Test en Flutter | Completado |
 | Documentación API + Postman | `docs/API_DOCUMENTATION.md`, `contracts/openapi.yaml` y `docs/LuxxitoSports.postman_collection.json` | Completado |
 | Documento Técnico (máx. 5 págs. PDF) | `docs/DOCUMENTO_TECNICO_TALLER3.pdf` y `docs/DOCUMENTO_TECNICO_TALLER3.md` | Completado |
 

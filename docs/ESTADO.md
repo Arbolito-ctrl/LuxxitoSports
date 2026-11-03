@@ -1,6 +1,6 @@
 # Estado Vigente del Proyecto — Luxxito Sports
 
-**Fecha de corte:** 2 de noviembre de 2026 (Perú)  
+**Fecha de corte:** 3 de noviembre de 2026 (Perú)  
 **Etapa:** Entrega Taller 3 (SI806 - Desarrollo e Integración de una API REST)
 
 ## 1. Resumen de Verificación
@@ -8,7 +8,8 @@
 | Componente | Comando Ejecutado | Resultado |
 |---|---|---|
 | Compilación TypeScript Backend | `cd backend && npm run build` | `0 errores` |
-| Suite de Pruebas API REST | `cd backend && npm test` | `8 passed (8)` en Vitest + Supertest |
+| Suite de Pruebas API REST | `cd backend && npm test` | `17 passed (17)` en Vitest + Supertest |
+| Colección Postman | `npx newman run docs/LuxxitoSports.postman_collection.json` | 31 requests y 51 aserciones sin fallos |
 | Análisis Estático Flutter | `cd mobile && flutter analyze` | `No issues found!` |
 | Pruebas de Widgets Flutter | `cd mobile && flutter test` | `All tests passed!` |
 

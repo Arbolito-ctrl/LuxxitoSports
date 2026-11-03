@@ -10,7 +10,7 @@
 - [ ] ¿Modifica tablas de PostgreSQL en Supabase? (Si es sí, se actualizó `backend/sql/schema.sql`)
 
 ## Evidencia de Verificación
-- [ ] `cd backend && npm test` (8 pruebas de éxito y fallo en verde)
+- [ ] `cd backend && npm test` (todas las pruebas de éxito y fallo en verde)
 - [ ] `cd backend && npm run build` (TypeScript sin errores)
 - [ ] `cd mobile && flutter analyze && flutter test` (Sin advertencias y widget test aprobado)
 - [ ] No se incluyen archivos `.env` ni credenciales privadas en el commit
