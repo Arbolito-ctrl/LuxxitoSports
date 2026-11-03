@@ -3,6 +3,18 @@
 -- Curso: SI806 Desarrollo Adaptativo e Integrado del Software - Taller 3 (UNI)
 -- ============================================================================
 
+-- 0. Tabla de Usuarios (Jugadores y Administradores)
+CREATE TABLE IF NOT EXISTS usuarios (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(120) NOT NULL,
+    dni VARCHAR(15) NOT NULL UNIQUE,
+    telefono VARCHAR(30) NOT NULL,
+    email VARCHAR(120) NOT NULL UNIQUE,
+    password_hash VARCHAR(200) NOT NULL,
+    rol VARCHAR(20) NOT NULL DEFAULT 'JUGADOR' CHECK (rol IN ('JUGADOR', 'ADMIN')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- 1. Tabla de Complejos Deportivos
 CREATE TABLE IF NOT EXISTS complejos (
     id SERIAL PRIMARY KEY,
@@ -104,6 +116,7 @@ CREATE INDEX IF NOT EXISTS idx_reservas_estado ON reservas(estado);
 CREATE INDEX IF NOT EXISTS idx_pagos_reserva ON pagos(reserva_id);
 
 -- Permisos para API de Supabase (PostgREST) si se usa SUPABASE_URL + SUPABASE_ANON_KEY
+ALTER TABLE usuarios DISABLE ROW LEVEL SECURITY;
 ALTER TABLE complejos DISABLE ROW LEVEL SECURITY;
 ALTER TABLE canchas DISABLE ROW LEVEL SECURITY;
 ALTER TABLE extras DISABLE ROW LEVEL SECURITY;

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'screens/auth_screen.dart';
 import 'screens/explorar_screen.dart';
 import 'screens/mis_reservas_screen.dart';
 import 'screens/perfil_config_screen.dart';
+import 'services/api_service.dart';
 
 void main() {
   runApp(const LuxxitoSportsApp());
@@ -25,13 +27,41 @@ class LuxxitoSportsApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const MainShellScreen(),
+      home: const AuthGateScreen(),
+    );
+  }
+}
+
+class AuthGateScreen extends StatefulWidget {
+  const AuthGateScreen({super.key});
+
+  @override
+  State<AuthGateScreen> createState() => _AuthGateScreenState();
+}
+
+class _AuthGateScreenState extends State<AuthGateScreen> {
+  @override
+  Widget build(BuildContext context) {
+    if (ApiService.currentSession == null) {
+      return AuthScreen(
+        onAuthenticated: (_) {
+          setState(() {});
+        },
+      );
+    }
+    return MainShellScreen(
+      onLogout: () {
+        ApiService.logout();
+        setState(() {});
+      },
     );
   }
 }
 
 class MainShellScreen extends StatefulWidget {
-  const MainShellScreen({super.key});
+  final VoidCallback? onLogout;
+
+  const MainShellScreen({super.key, this.onLogout});
 
   @override
   State<MainShellScreen> createState() => _MainShellScreenState();
@@ -74,13 +104,21 @@ class _MainShellScreenState extends State<MainShellScreen> {
             ),
           ],
         ),
+        actions: [
+          if (widget.onLogout != null)
+            IconButton(
+              onPressed: widget.onLogout,
+              icon: const Icon(Icons.logout, color: Colors.white70),
+              tooltip: 'Cerrar sesión',
+            ),
+        ],
       ),
       body: IndexedStack(
         index: _selectedIndex,
         children: [
           ExplorarScreen(onNavigateToReservas: _irAMisReservas),
           const MisReservasScreen(),
-          const PerfilConfigScreen(),
+          PerfilConfigScreen(onLogout: widget.onLogout),
         ],
       ),
       bottomNavigationBar: NavigationBar(

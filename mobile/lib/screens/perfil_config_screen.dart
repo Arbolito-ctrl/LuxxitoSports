@@ -4,7 +4,9 @@ import '../services/api_service.dart';
 import 'auth_screen.dart';
 
 class PerfilConfigScreen extends StatefulWidget {
-  const PerfilConfigScreen({super.key});
+  final VoidCallback? onLogout;
+
+  const PerfilConfigScreen({super.key, this.onLogout});
 
   @override
   State<PerfilConfigScreen> createState() => _PerfilConfigScreenState();
@@ -219,6 +221,7 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
                         onPressed: () {
                           ApiService.logout();
                           setState(() {});
+                          widget.onLogout?.call();
                         },
                         icon: const Icon(Icons.logout, size: 18),
                         label: const Text('Cerrar Sesión'),

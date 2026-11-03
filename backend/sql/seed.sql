@@ -2,6 +2,14 @@
 -- LUXXITO SPORTS - DATOS SEMILLA INICIALES (LIMA, PERÚ - MONEDA PEN S/)
 -- ============================================================================
 
+INSERT INTO usuarios (id, nombre, dni, telefono, email, password_hash, rol)
+VALUES
+  (1, 'Elvis Arboleda', '74125896', '987654321', 'elvis.arboleda@uni.pe', 'luxxito2026', 'JUGADOR'),
+  (2, 'Admin Luxxito Sports', '70001111', '999888777', 'admin@luxxitosports.pe', 'admin2026', 'ADMIN')
+ON CONFLICT (email) DO NOTHING;
+
+SELECT setval('usuarios_id_seq', (SELECT COALESCE(MAX(id), 1) FROM usuarios));
+
 INSERT INTO complejos (id, nombre, distrito, direccion, telefono, hora_apertura, hora_cierre, imagen_url, activo)
 VALUES
   (1, 'Luxxito Arena San Miguel', 'San Miguel', 'Av. La Marina 2450, San Miguel', '987654321', 7, 23, 'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?auto=format&fit=crop&w=800&q=80', TRUE),

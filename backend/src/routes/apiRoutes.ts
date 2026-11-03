@@ -1,8 +1,16 @@
 import { Router } from 'express';
+import { authController } from '../controllers/authController';
 import { catalogController } from '../controllers/catalogController';
 import { reservationController } from '../controllers/reservationController';
 
 const router = Router();
+
+// 0. Autenticación y Acceso (Login, Registro y Recuperación)
+router.post('/auth/login', (req, res, next) => authController.login(req, res, next));
+router.post('/auth/registro', (req, res, next) => authController.registro(req, res, next));
+router.post('/auth/recuperar', (req, res, next) =>
+  authController.recuperarAcceso(req, res, next)
+);
 
 // 1. Estado del servicio, versión de APK y descarga OTA
 router.get('/health', (req, res) => catalogController.healthCheck(req, res));
