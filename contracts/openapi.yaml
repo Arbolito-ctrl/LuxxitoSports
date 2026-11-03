@@ -1,12 +1,13 @@
 openapi: 3.0.3
 info:
   title: Luxxito Sports REST API
-  version: 1.4.0
+  version: 1.6.0
   description: >
     Contrato OpenAPI de la API REST propia de Luxxito Sports (SI806 - Taller 3 UNI).
     El servidor es la autoridad sobre disponibilidad, precios, stock de extras por intervalo,
     bloqueo de 20 minutos, aprobación idempotente de pagos manuales (protegida con JWT y rol ADMIN)
-    y política de cancelación de 24 horas.
+    y política de cancelación de 24 horas. Las reservas solo las ve y modifica su titular o un ADMIN,
+    las contraseñas se guardan con hash scrypt y el JWT vence a los 30 días.
 servers:
   - url: https://luxxito-sports-api.onrender.com/api
     description: API pública del Taller 3 en Render (plan gratuito)
@@ -20,10 +21,11 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Token JWT firmado con JWT_SECRET emitido por POST /api/auth/login o POST /api/auth/registro
+      description: Token JWT firmado con JWT_SECRET emitido por POST /api/auth/login o POST /api/auth/registro (vigente 30 días, campo exp)
 paths:
   /auth/login:
     post:
+      security: []
       summary: Autenticación de usuario (Jugador o Administrador) y emisión de JWT
       responses:
         '200':
@@ -32,6 +34,7 @@ paths:
           description: Credenciales inválidas
   /auth/registro:
     post:
+      security: []
       summary: Registro de nuevo usuario (rol JUGADOR) y emisión de JWT
       responses:
         '201':
@@ -52,12 +55,31 @@ paths:
           description: Token JWT ausente o inválido
   /health:
     get:
-      summary: Diagnóstico de la API y modo de base de datos (Supabase / Local)
+      security: []
+      summary: Diagnóstico de la API, versión desplegada (api_version, commit) y modo de base de datos
       responses:
         '200':
           description: Servicio operativo
+        '503':
+          description: La base de datos no responde
+  /version:
+    get:
+      security: []
+      summary: Última versión publicada del APK (version.json de GitHub Releases)
+      parameters:
+        - in: query
+          name: canal
+          schema:
+            type: string
+            enum: [latest-apk, dev-apk]
+      responses:
+        '200':
+          description: Versión, número de compilación y enlace de descarga del APK
+        '502':
+          description: No se pudo consultar GitHub Releases
   /complejos:
     get:
+      security: []
       summary: Listar complejos deportivos activos
       parameters:
         - in: query
@@ -69,6 +91,7 @@ paths:
           description: Lista de complejos
   /canchas:
     get:
+      security: []
       summary: Listar y filtrar canchas deportivas
       parameters:
         - in: query
@@ -87,14 +110,23 @@ paths:
         '200':
           description: Lista de canchas relacionadas con su complejo
     post:
-      summary: Crear nueva cancha deportiva (CRUD Create)
+      summary: Crear nueva cancha deportiva (CRUD Create, solo ADMIN)
+      security:
+        - bearerAuth: []
       responses:
         '201':
           description: Cancha creada
         '400':
           description: Datos de entrada inválidos (ej. tarifa nocturna menor a diurna)
+        '401':
+          description: Token JWT ausente, inválido o vencido
+        '403':
+          description: El token no es de rol ADMIN
+        '409':
+          description: Ya existe una cancha con ese nombre en el complejo
   /canchas/{id}:
     get:
+      security: []
       summary: Obtener detalle de una cancha
       parameters:
         - in: path
@@ -108,7 +140,9 @@ paths:
         '404':
           description: Cancha no encontrada
     put:
-      summary: Actualizar cancha deportiva (CRUD Update)
+      summary: Actualizar cancha deportiva (CRUD Update, solo ADMIN)
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: id
@@ -118,8 +152,58 @@ paths:
       responses:
         '200':
           description: Cancha actualizada
+        '401':
+          description: Token JWT ausente, inválido o vencido
+        '403':
+          description: El token no es de rol ADMIN
+        '404':
+          description: Cancha no encontrada
+        '409':
+          description: Ya existe una cancha con ese nombre en el complejo
+  /canchas/{id}/imagen:
+    post:
+      summary: Subir la foto de una cancha al bucket público canchas (solo ADMIN)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contenido_base64]
+              properties:
+                contenido_base64:
+                  type: string
+                  description: Imagen en base64 (se acepta el prefijo data:image/...;base64,)
+                mime_type:
+                  type: string
+                  enum: [image/jpeg, image/png, image/webp]
+                  default: image/jpeg
+      responses:
+        '200':
+          description: Cancha con su nueva imagen_url pública
+        '400':
+          description: Formato no permitido o imagen ausente
+        '401':
+          description: Token JWT ausente, inválido o vencido
+        '403':
+          description: El token no es de rol ADMIN
+        '404':
+          description: Cancha no encontrada
+        '413':
+          description: Imagen demasiado grande
+        '502':
+          description: Error del almacenamiento de Supabase
   /canchas/{id}/disponibilidad:
     get:
+      security: []
       summary: Consultar disponibilidad horaria, tarifas diurna/nocturna y stock de extras
       parameters:
         - in: path
@@ -167,6 +251,7 @@ paths:
           description: Ticket QR ya utilizado previamente o revocado por cancelación
   /reservas/cotizar:
     post:
+      security: []
       summary: Cotizar reserva y extras en el servidor
       responses:
         '200':
@@ -175,11 +260,16 @@ paths:
           description: Cancha inactiva o stock insuficiente de extras en el intervalo
   /reservas:
     get:
-      summary: Listar reservas con sus extras y pagos (CRUD Read)
+      summary: Listar reservas con sus extras y pagos (CRUD Read). El JUGADOR solo ve las suyas
+      security:
+        - bearerAuth: []
       responses:
         '200':
           description: Lista de reservas
+        '401':
+          description: Token JWT ausente, inválido o vencido
     post:
+      security: []
       summary: Crear reserva con bloqueo temporal de 20 minutos y exclusión mutua
       responses:
         '201':
@@ -187,12 +277,14 @@ paths:
         '400':
           description: Error de validación de datos del cliente o formato
         '409':
-          description: Conflicto por solapamiento horario o falta de stock de extras
+          description: Conflicto por solapamiento horario (incluido un pedido simultáneo por el mismo turno) o falta de stock de extras
         '422':
           description: Regla de negocio violada (horario pasado o fuera de atención)
   /reservas/{id}:
     get:
-      summary: Obtener detalle de reserva
+      summary: Obtener detalle de reserva (solo titular o ADMIN)
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: id
@@ -202,8 +294,16 @@ paths:
       responses:
         '200':
           description: Detalle de la reserva
+        '401':
+          description: Token JWT ausente, inválido o vencido
+        '403':
+          description: La reserva pertenece a otra persona (solo titular o ADMIN)
+        '404':
+          description: Reserva no encontrada
     put:
-      summary: Actualizar datos de contacto o notas de una reserva (CRUD Update)
+      summary: Actualizar datos de contacto o notas de una reserva (CRUD Update, solo titular o ADMIN)
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: id
@@ -213,8 +313,14 @@ paths:
       responses:
         '200':
           description: Reserva actualizada
+        '401':
+          description: Token JWT ausente, inválido o vencido
+        '403':
+          description: La reserva pertenece a otra persona (solo titular o ADMIN)
     delete:
-      summary: Eliminar reserva no confirmada (CRUD Delete)
+      summary: Eliminar reserva no confirmada (CRUD Delete, solo titular o ADMIN)
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: id
@@ -224,10 +330,16 @@ paths:
       responses:
         '200':
           description: Reserva eliminada
+        '401':
+          description: Token JWT ausente, inválido o vencido
+        '403':
+          description: La reserva pertenece a otra persona (solo titular o ADMIN)
         '409':
           description: No se permite eliminar físicamente una reserva confirmada
   /reservas/{id}/pagos:
     post:
+      security:
+        - bearerAuth: []
       summary: Registrar comprobante de pago manual (Yape/Plin/Transferencia)
       parameters:
         - in: path
@@ -261,6 +373,10 @@ paths:
                   description: Referencia devuelta por POST /pagos/comprobante (debe ser de la misma reserva)
                   example: supabase://comprobantes/reserva-1/voucher-1730650000000.jpg
       responses:
+        '401':
+          description: Token JWT ausente, inválido o vencido
+        '403':
+          description: La reserva pertenece a otra persona (solo titular o ADMIN)
         '201':
           description: Comprobante registrado (EN_REVISION o CONFIRMADA con QR)
         '400':
@@ -269,6 +385,7 @@ paths:
           description: Importe no coincide con la modalidad elegida (SENA_50 o TOTAL)
   /pagos/comprobante:
     post:
+      security: []
       summary: Subir la foto del voucher al bucket privado comprobantes (Supabase Storage)
       requestBody:
         required: true
@@ -391,6 +508,8 @@ paths:
           description: Pago APROBADO/REEMBOLSADO o reserva CANCELADA/VENCIDA
   /reservas/{id}/cancelar:
     post:
+      security:
+        - bearerAuth: []
       summary: Cancelar reserva aplicando política de reembolso de 24 horas
       parameters:
         - in: path
@@ -399,5 +518,9 @@ paths:
           schema:
             type: integer
       responses:
+        '401':
+          description: Token JWT ausente, inválido o vencido
+        '403':
+          description: La reserva pertenece a otra persona (solo titular o ADMIN)
         '200':
           description: Reserva cancelada con cálculo de penalidad/reembolso y QR revocado

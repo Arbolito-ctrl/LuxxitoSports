@@ -1,6 +1,7 @@
 import { getDbMode, getPgPool, getSupabaseClient } from '../config/database';
 import { signJwtToken } from '../middlewares/authMiddleware';
 import { Errors } from '../utils/errors';
+import { esHash, hashPassword, verificarPassword } from '../utils/passwords';
 
 export interface UsuarioRecord {
   id: number;
@@ -21,7 +22,7 @@ const initialMemUsers: UsuarioRecord[] = [
     dni: '74125896',
     telefono: '987654321',
     email: 'elvis.arboleda@uni.pe',
-    password_hash: 'luxxito2026',
+    password_hash: hashPassword('luxxito2026'),
     rol: 'JUGADOR',
   },
   {
@@ -30,7 +31,7 @@ const initialMemUsers: UsuarioRecord[] = [
     dni: '70001111',
     telefono: '999888777',
     email: 'admin@luxxitosports.pe',
-    password_hash: 'admin2026',
+    password_hash: hashPassword('admin2026'),
     rol: 'ADMIN',
   },
 ];
@@ -73,8 +74,12 @@ export class AuthService {
       found = memUsers.find((u) => u.email.toLowerCase() === email) || null;
     }
 
-    if (!found || found.password_hash !== password) {
+    if (!found || !verificarPassword(password, found.password_hash)) {
       return null;
+    }
+    // Contraseña antigua en texto plano: se reemplaza por su hash en el primer login
+    if (!esHash(found.password_hash)) {
+      await this.guardarHash(found.id, hashPassword(password));
     }
 
     const { password_hash: _, ...safeUser } = found;
@@ -124,7 +129,7 @@ export class AuthService {
         `INSERT INTO usuarios (nombre, dni, telefono, email, password_hash, rol)
          VALUES ($1, $2, $3, $4, $5, 'JUGADOR')
          RETURNING id, nombre, dni, telefono, email, rol`,
-        [nombre, dni, telefono, email, password]
+        [nombre, dni, telefono, email, hashPassword(password)]
       );
       createdUser = { ...ins.rows[0], id: Number(ins.rows[0].id) };
     } else if (mode === 'SUPABASE_REST') {
@@ -143,7 +148,7 @@ export class AuthService {
           dni,
           telefono,
           email,
-          password_hash: password,
+          password_hash: hashPassword(password),
           rol: 'JUGADOR',
         })
         .select('id, nombre, dni, telefono, email, rol')
@@ -164,7 +169,7 @@ export class AuthService {
         dni,
         telefono,
         email,
-        password_hash: password,
+        password_hash: hashPassword(password),
         rol: 'JUGADOR',
       };
       memUsers.push(nuevo);
@@ -174,6 +179,17 @@ export class AuthService {
 
     const token = signJwtToken(createdUser);
     return { user: createdUser, token };
+  }
+
+  private async guardarHash(id: number, hash: string): Promise<void> {
+    const mode = getDbMode();
+    if (mode === 'POSTGRES_POOL') {
+      await getPgPool().query('UPDATE usuarios SET password_hash = $1 WHERE id = $2', [hash, id]);
+    } else if (mode === 'SUPABASE_REST') {
+      await getSupabaseClient().from('usuarios').update({ password_hash: hash }).eq('id', id);
+    } else {
+      memUsers = memUsers.map((u) => (u.id === id ? { ...u, password_hash: hash } : u));
+    }
   }
 
   async obtenerPerfilPorId(userId: number): Promise<SafeUsuario> {

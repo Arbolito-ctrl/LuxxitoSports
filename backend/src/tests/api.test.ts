@@ -4,6 +4,7 @@ import request from 'supertest';
 import app from '../app';
 import { getJwtSecret, signJwtToken } from '../middlewares/authMiddleware';
 import { dataRepository } from '../repositories/dataRepository';
+import { hashPassword, verificarPassword } from '../utils/passwords';
 
 // Generar una fecha futura (dentro de 5 días) para pruebas de reservas válidas
 function getFutureDate(daysAhead: number = 5): string {
@@ -944,5 +945,22 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     const cancelada = await con(request(app).post(`/api/reservas/${id}/cancelar`), titularToken).send({ motivo: 'Cambio de planes' });
     expect(cancelada.status).toBe(200);
     expect(cancelada.body.data.reserva.estado).toBe('CANCELADA');
+  });
+  it('Caso 28 (Seguridad - Contraseñas con hash): Se guardan con scrypt y sal, y el login funciona con la contraseña correcta', async () => {
+    const hash = hashPassword('secreta123');
+    expect(hash).toMatch(/^scrypt\$[0-9a-f]{32}\$[0-9a-f]{128}$/);
+    expect(hash).not.toContain('secreta123');
+    expect(hashPassword('secreta123')).not.toBe(hash); // sal distinta en cada hash
+    expect(verificarPassword('secreta123', hash)).toBe(true);
+    expect(verificarPassword('otra', hash)).toBe(false);
+    expect(verificarPassword('antigua', 'antigua')).toBe(true); // texto plano heredado
+
+    const registro = await request(app).post('/api/auth/registro').send({
+      nombre: 'Usuario Hash', dni: '78880001', telefono: '987000222', email: 'hash@uni.pe', password: 'clave-segura',
+    });
+    expect(registro.status).toBe(201);
+    expect(registro.body.data.user.password_hash).toBeUndefined();
+    expect((await request(app).post('/api/auth/login').send({ email: 'hash@uni.pe', password: 'clave-segura' })).status).toBe(200);
+    expect((await request(app).post('/api/auth/login').send({ email: 'hash@uni.pe', password: 'incorrecta' })).status).toBe(401);
   });
 });

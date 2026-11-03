@@ -11,7 +11,7 @@
 
 **Vencimiento real:** reserva #1 creada a las 07:45:39, sin pago ni comprobante; a las 08:05:58 la API confirma `VENCIDA` y el TECNO muestra el estado y el horario liberado. No se modificó el reloj ni el plazo de la reserva.
 
-**Límites de esta entrega:** 21 pruebas aprobadas en almacenamiento local; no equivalen a pruebas PostgreSQL/Storage. Los fallos conocidos de pagos, comprobantes y QR fueron aplazados por Juan; no se declaran corregidos. El recorrido pago/archivo/QR continúa pendiente. Capturas y resultados en el informe de validación.
+**Estado de la entrega:** 28/28 pruebas automatizadas y Postman/Newman 38 solicitudes con 63 aserciones aprobadas. El recorrido completo (reserva, turno ocupado, pago con foto del voucher, aprobación del ADMIN, Ticket QR, ingreso en puerta, QR ya usado y cancelación) se demostró con el APK de producción contra Render y Supabase; evidencia en `validaciones/DEMOSTRACION_TALLER3.md`. La versión en PDF (carátula + 5 páginas) está en `../entregables/DOCUMENTO_TECNICO_TALLER3.pdf`.
 
 ---
 
@@ -54,4 +54,4 @@
    - Fechas u horas ya transcurridas, horarios fuera de atención o duración mayor a 4 horas (`422 Unprocessable Entity`).
    - Turnos ocupados/bloqueados, extras sin stock, doble escaneo de QR o QR de reserva cancelada (`409 Conflict`).
 8. **¿Cómo comprobarán cada resultado?**  
-   Mediante **21 pruebas API locales** con **Vitest y Supertest** (`npm test`), la colección **Postman** (resultados previos del equipo: 32 requests y 52 aserciones) y pruebas físicas de Flutter contra la API Node pública respaldada por PostgreSQL de Supabase. El recorrido observado y sus límites se registran por separado en `validaciones/2026-11-03-infra-issue14.md`.
+   Mediante **28 pruebas API** con **Vitest y Supertest** (`npm test`: éxitos, fallos, seguridad y concurrencia), la colección **Postman** ejecutada con Newman (38 solicitudes y 63 aserciones aprobadas) y la demostración en un Motorola Edge 50 con el APK de producción contra la API pública y PostgreSQL de Supabase (`validaciones/DEMOSTRACION_TALLER3.md`).

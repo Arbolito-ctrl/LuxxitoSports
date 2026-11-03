@@ -41,4 +41,4 @@ Base de Datos PostgreSQL en Supabase (backend/sql/schema.sql)
 | Arquitectura en capas | `middlewares/`, `controllers/`, `services/`, `repositories/` | Completado |
 | Pruebas (`>= 5 casos: éxitos y fallos`) | 20 casos automatizados en Vitest/Supertest + colección Postman con 52 aserciones + Widget Test en Flutter | Completado |
 | Documentación API + Postman | `docs/API_DOCUMENTATION.md`, `contracts/openapi.yaml` y `docs/LuxxitoSports.postman_collection.json` | Completado |
-| Documento Técnico (máx. 5 págs. PDF) | `docs/DOCUMENTO_TECNICO_TALLER3.pdf` y `docs/DOCUMENTO_TECNICO_TALLER3.md` | Completado |
+| Documento Técnico (máx. 5 págs. PDF) | `entregables/DOCUMENTO_TECNICO_TALLER3.pdf` y `docs/DOCUMENTO_TECNICO_TALLER3.md` | Completado |
