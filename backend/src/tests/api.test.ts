@@ -736,5 +736,24 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
       .post('/api/pagos/comprobante')
       .send({ reserva_id: reservaB.id, mime_type: 'image/jpeg', contenido_base64: voucher });
     expect(cancelada.status).toBe(409);
+
+    // Una foto real (~400 KB en base64) entra; un cuerpo mayor a 8 MB responde 413
+    const fotoReal = Buffer.alloc(300 * 1024, 7).toString('base64');
+    const grande = await request(app)
+      .post('/api/pagos/comprobante')
+      .send({ reserva_id: reservaA.id, mime_type: 'image/jpeg', contenido_base64: fotoReal });
+    expect(grande.status).toBe(201);
+
+    const excesiva = await request(app)
+      .post('/api/pagos/comprobante')
+      .send({ reserva_id: reservaA.id, mime_type: 'image/jpeg', contenido_base64: 'A'.repeat(9 * 1024 * 1024) });
+    expect(excesiva.status).toBe(413);
+    expect(excesiva.body.code).toBe('PAYLOAD_TOO_LARGE');
+
+    // El resto de la API mantiene el límite de 100 KB
+    const notasGigantes = await request(app)
+      .put(`/api/reservas/${reservaA.id}`)
+      .send({ notas: 'x'.repeat(200 * 1024) });
+    expect(notasGigantes.status).toBe(413);
   });
 });

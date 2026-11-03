@@ -145,6 +145,7 @@ class MisReservasScreenState extends State<MisReservasScreen>
     String modalidad = 'TOTAL';
     bool enviando = false;
     String? estadoEnvio;
+    String? errorEnvio;
     Uint8List? fotoBytes;
     String fotoMime = 'image/jpeg';
     String? fotoSubidaUrl;
@@ -384,12 +385,24 @@ class MisReservasScreenState extends State<MisReservasScreen>
                         ],
                       ),
                     const SizedBox(height: 18),
+                    if (errorEnvio != null) ...[
+                      AvisoBanner(
+                        icono: Icons.error_outline,
+                        color: LuxxitoColors.error,
+                        titulo: 'No pudimos enviar tu comprobante',
+                        texto: errorEnvio!,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     FilledButton.icon(
                       onPressed: enviando
                           ? null
                           : () async {
                               if (!formKey.currentState!.validate()) return;
-                              setSheetState(() => enviando = true);
+                              setSheetState(() {
+                                enviando = true;
+                                errorEnvio = null;
+                              });
                               try {
                                 // Si el registro falla, el reintento reutiliza la foto ya subida
                                 if (fotoBytes != null && fotoSubidaUrl == null) {
@@ -415,13 +428,8 @@ class MisReservasScreenState extends State<MisReservasScreen>
                                 setSheetState(() {
                                   enviando = false;
                                   estadoEnvio = null;
+                                  errorEnvio = mensajeError(e);
                                 });
-                                if (!ctx.mounted) return;
-                                mostrarAviso(
-                                  ctx,
-                                  mensajeError(e),
-                                  tipo: TipoAviso.error,
-                                );
                               }
                             },
                       icon: enviando
