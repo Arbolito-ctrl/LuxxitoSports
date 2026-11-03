@@ -1,0 +1,32 @@
+# Variables de entorno y secretos
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+mobile/.env
+
+# Dependencias Node.js
+node_modules/
+backend/node_modules/
+backend/dist/
+npm-debug.log*
+
+# Flutter / Dart
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/build/
+mobile/.metadata
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/ios/Pods/
+
+# Sistema y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

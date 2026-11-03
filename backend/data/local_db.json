@@ -1,0 +1,170 @@
+{
+  "complejos": [
+    {
+      "id": 1,
+      "nombre": "Luxxito Arena San Miguel",
+      "distrito": "San Miguel",
+      "direccion": "Av. La Marina 2450, San Miguel",
+      "telefono": "987654321",
+      "hora_apertura": 7,
+      "hora_cierre": 23,
+      "imagen_url": "https://images.unsplash.com/photo-1529900748604-07564a03e7a6?auto=format&fit=crop&w=800&q=80",
+      "activo": true
+    },
+    {
+      "id": 2,
+      "nombre": "Complejo Deportivo Surco Pro",
+      "distrito": "Santiago de Surco",
+      "direccion": "Av. Primavera 1520, Surco",
+      "telefono": "987111222",
+      "hora_apertura": 7,
+      "hora_cierre": 23,
+      "imagen_url": "https://images.unsplash.com/photo-1575361204480-aadea25e6e68?auto=format&fit=crop&w=800&q=80",
+      "activo": true
+    },
+    {
+      "id": 3,
+      "nombre": "Centro Deportivo Miraflores Club",
+      "distrito": "Miraflores",
+      "direccion": "Av. Ejército 890, Miraflores",
+      "telefono": "987333444",
+      "hora_apertura": 8,
+      "hora_cierre": 22,
+      "imagen_url": "https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=800&q=80",
+      "activo": true
+    }
+  ],
+  "canchas": [
+    {
+      "id": 1,
+      "complejo_id": 1,
+      "nombre": "Cancha Monumental 1",
+      "deporte": "Futbol 7",
+      "superficie": "Grass Sintetico FIFA Quality",
+      "techada": false,
+      "iluminacion": true,
+      "precio_hora_diurno": 90,
+      "precio_hora_nocturno": 120,
+      "estado": "ACTIVA"
+    },
+    {
+      "id": 2,
+      "complejo_id": 1,
+      "nombre": "Cancha La Bombonera 2",
+      "deporte": "Futbol 5",
+      "superficie": "Grass Sintetico Pro",
+      "techada": true,
+      "iluminacion": true,
+      "precio_hora_diurno": 70,
+      "precio_hora_nocturno": 95,
+      "estado": "ACTIVA"
+    },
+    {
+      "id": 3,
+      "complejo_id": 1,
+      "nombre": "Polideportivo Vóley Central",
+      "deporte": "Voley",
+      "superficie": "Piso Flotante Poliuretano",
+      "techada": true,
+      "iluminacion": true,
+      "precio_hora_diurno": 65,
+      "precio_hora_nocturno": 85,
+      "estado": "ACTIVA"
+    },
+    {
+      "id": 4,
+      "complejo_id": 2,
+      "nombre": "Cancha Champions Surco",
+      "deporte": "Futbol 7",
+      "superficie": "Grass Sintetico FIFA Pro",
+      "techada": false,
+      "iluminacion": true,
+      "precio_hora_diurno": 100,
+      "precio_hora_nocturno": 135,
+      "estado": "ACTIVA"
+    },
+    {
+      "id": 5,
+      "complejo_id": 2,
+      "nombre": "Pádel Crystal Court 1",
+      "deporte": "Padel",
+      "superficie": "Césped Azul + Cristal Templado",
+      "techada": true,
+      "iluminacion": true,
+      "precio_hora_diurno": 80,
+      "precio_hora_nocturno": 110,
+      "estado": "ACTIVA"
+    },
+    {
+      "id": 6,
+      "complejo_id": 3,
+      "nombre": "Court Central Tenis",
+      "deporte": "Tenis",
+      "superficie": "Arcilla Roja",
+      "techada": false,
+      "iluminacion": true,
+      "precio_hora_diurno": 75,
+      "precio_hora_nocturno": 100,
+      "estado": "ACTIVA"
+    }
+  ],
+  "extras": [
+    {
+      "id": 1,
+      "complejo_id": 1,
+      "nombre": "Juego de Chalecos (x12)",
+      "descripcion": "Pack de 12 chalecos deportivos diferenciados en 2 colores",
+      "precio_unitario": 15,
+      "stock_total": 4,
+      "activo": true
+    },
+    {
+      "id": 2,
+      "complejo_id": 1,
+      "nombre": "Balón Oficial Adidas Pro",
+      "descripcion": "Balón de alta presión cosido térmicamente",
+      "precio_unitario": 10,
+      "stock_total": 6,
+      "activo": true
+    },
+    {
+      "id": 3,
+      "complejo_id": 1,
+      "nombre": "Árbitro Oficial Por Hora",
+      "descripcion": "Servicio de arbitraje con tarjetas y silbato",
+      "precio_unitario": 45,
+      "stock_total": 2,
+      "activo": true
+    },
+    {
+      "id": 4,
+      "complejo_id": 2,
+      "nombre": "Juego de Chalecos Surco (x14)",
+      "descripcion": "Pack de 14 chalecos deportivos transpirables",
+      "precio_unitario": 15,
+      "stock_total": 3,
+      "activo": true
+    },
+    {
+      "id": 5,
+      "complejo_id": 2,
+      "nombre": "Pack 2 Palas de Pádel + Tubo Pelotas",
+      "descripcion": "Alquiler de equipamiento completo para pádel",
+      "precio_unitario": 25,
+      "stock_total": 4,
+      "activo": true
+    },
+    {
+      "id": 6,
+      "complejo_id": 3,
+      "nombre": "Canasta de 30 Pelotas de Tenis",
+      "descripcion": "Pelotas presurizadas para entrenamiento o partido",
+      "precio_unitario": 20,
+      "stock_total": 3,
+      "activo": true
+    }
+  ],
+  "reservas": [],
+  "reserva_extras": [],
+  "pagos": []
+}

@@ -1,0 +1,25 @@
+{
+  "request": {
+    "method": "POST",
+    "endpoint": "/api/reservas",
+    "body": {
+      "cancha_id": 1,
+      "cliente_nombre": "Usuario Dos",
+      "cliente_dni": "76543210",
+      "cliente_telefono": "987654321",
+      "cliente_email": "dos@uni.pe",
+      "fecha": "2026-11-15",
+      "hora_inicio": 18,
+      "hora_fin": 19
+    }
+  },
+  "response": {
+    "status": 409,
+    "body": {
+      "ok": false,
+      "code": "CONFLICT",
+      "message": "El turno de 18:00 a 19:00 ya se encuentra ocupado o bloqueado (Reserva #1 en estado PENDIENTE_PAGO)."
+    }
+  }
+}
+

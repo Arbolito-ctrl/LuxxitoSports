@@ -1,0 +1,200 @@
+openapi: 3.0.3
+info:
+  title: Luxxito Sports REST API
+  version: 1.0.0
+  description: >
+    Contrato OpenAPI de la API REST propia de Luxxito Sports (SI806 - Taller 3 UNI).
+    El servidor es la autoridad sobre disponibilidad, precios, stock de extras por intervalo,
+    bloqueo de 20 minutos, aprobación idempotente de pagos manuales y política de cancelación de 24 horas.
+servers:
+  - url: http://localhost:3000/api
+    description: Servidor de desarrollo local
+  - url: http://10.0.2.2:3000/api
+    description:Acceso desde Emulador Android
+paths:
+  /health:
+    get:
+      summary: Diagnóstico de la API y modo de base de datos (Supabase / Local)
+      responses:
+        '200':
+          description: Servicio operativo
+  /complejos:
+    get:
+      summary: Listar complejos deportivos activos
+      parameters:
+        - in: query
+          name: distrito
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de complejos
+  /canchas:
+    get:
+      summary: Listar y filtrar canchas deportivas
+      parameters:
+        - in: query
+          name: complejo_id
+          schema:
+            type: integer
+        - in: query
+          name: distrito
+          schema:
+            type: string
+        - in: query
+          name: deporte
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de canchas relacionadas con su complejo
+    post:
+      summary: Crear nueva cancha deportiva (CRUD Create)
+      responses:
+        '201':
+          description: Cancha creada
+        '400':
+          description: Datos de entrada inválidos (ej. tarifa nocturna menor a diurna)
+  /canchas/{id}:
+    get:
+      summary: Obtener detalle de una cancha
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cancha encontrada
+        '404':
+          description: Cancha no encontrada
+    put:
+      summary: Actualizar cancha deportiva (CRUD Update)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cancha actualizada
+  /canchas/{id}/disponibilidad:
+    get:
+      summary: Consultar disponibilidad horaria, tarifas diurna/nocturna y stock de extras
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: fecha
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Grilla de turnos y stock de extras disponibles
+  /reservas/cotizar:
+    post:
+      summary: Cotizar reserva y extras en el servidor
+      responses:
+        '200':
+          description: Cotización exacta con desglose de horas y seña del 50%
+        '409':
+          description: Cancha inactiva o stock insuficiente de extras en el intervalo
+  /reservas:
+    get:
+      summary: Listar reservas con sus extras y pagos (CRUD Read)
+      responses:
+        '200':
+          description: Lista de reservas
+    post:
+      summary: Crear reserva con bloqueo temporal de 20 minutos y exclusión mutua
+      responses:
+        '201':
+          description: Reserva creada con estado PENDIENTE_PAGO
+        '400':
+          description: Error de validación de datos del cliente o formato
+        '409':
+          description: Conflicto por solapamiento horario o falta de stock de extras
+        '422':
+          description: Regla de negocio violada (horario pasado o fuera de atención)
+  /reservas/{id}:
+    get:
+      summary: Obtener detalle de reserva
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Detalle de la reserva
+    put:
+      summary: Actualizar datos de contacto o notas de una reserva (CRUD Update)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reserva actualizada
+    delete:
+      summary: Eliminar reserva no confirmada (CRUD Delete)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reserva eliminada
+        '409':
+          description: No se permite eliminar físicamente una reserva confirmada
+  /reservas/{id}/pagos:
+    post:
+      summary: Registrar comprobante de pago manual (Yape/Plin/Transferencia)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Comprobante registrado (EN_REVISION o CONFIRMADA con QR)
+        '422':
+          description: Importe no coincide con la modalidad elegida (SENA_50 o TOTAL)
+  /pagos/{id}/aprobar:
+    patch:
+      summary: Aprobar pago de manera idempotente y emitir Ticket QR
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Pago aprobado y reserva confirmada con QR
+  /reservas/{id}/cancelar:
+    post:
+      summary: Cancelar reserva aplicando política de reembolso de 24 horas
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reserva cancelada con cálculo de penalidad/reembolso y QR revocado
+

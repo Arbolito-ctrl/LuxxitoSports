@@ -1,0 +1,36 @@
+{
+  "request": {
+    "method": "POST",
+    "endpoint": "/api/reservas",
+    "body": {
+      "cancha_id": 1,
+      "cliente_nombre": "Carlos Mendoza",
+      "cliente_dni": "74125896",
+      "cliente_telefono": "999888777",
+      "cliente_email": "carlos.mendoza@uni.pe",
+      "fecha": "2026-11-15",
+      "hora_inicio": 17,
+      "hora_fin": 19,
+      "extras": [
+        { "extra_id": 1, "cantidad": 2 }
+      ]
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "ok": true,
+      "message": "Reserva creada con bloqueo temporal de 20 minutos.",
+      "data": {
+        "id": 1,
+        "cancha_id": 1,
+        "subtotal_cancha": 210,
+        "subtotal_extras": 30,
+        "total": 240,
+        "monto_pagado": 0,
+        "estado": "PENDIENTE_PAGO"
+      }
+    }
+  }
+}
+

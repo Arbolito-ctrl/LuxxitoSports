@@ -1,0 +1,190 @@
+{
+  "info": {
+    "name": "Luxxito Sports API REST - Taller 3 (SI806 UNI)",
+    "_postman_id": "a7f90211-88b4-41c9-99e0-112233445566",
+    "description": "Colección completa de endpoints para Luxxito Sports (Complejos, Canchas, Disponibilidad, Cotización, Reservas, Pagos y Cancelación 24h).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health & Diagnóstico",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "2. Listar Complejos Deportivos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/complejos",
+          "host": ["{{baseUrl}}"],
+          "path": ["complejos"]
+        }
+      }
+    },
+    {
+      "name": "3. Listar y Filtrar Canchas",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/canchas?deporte=Futbol 7",
+          "host": ["{{baseUrl}}"],
+          "path": ["canchas"],
+          "query": [{ "key": "deporte", "value": "Futbol 7" }]
+        }
+      }
+    },
+    {
+      "name": "4. Crear Nueva Cancha (CRUD Create)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"complejo_id\": 1,\n  \"nombre\": \"Cancha Sintética VIP\",\n  \"deporte\": \"Futbol 5\",\n  \"superficie\": \"Grass Sintético FIFA Pro\",\n  \"techada\": true,\n  \"iluminacion\": true,\n  \"precio_hora_diurno\": 80,\n  \"precio_hora_nocturno\": 105\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/canchas",
+          "host": ["{{baseUrl}}"],
+          "path": ["canchas"]
+        }
+      }
+    },
+    {
+      "name": "5. Consultar Disponibilidad y Extras por Fecha (Lógica de Negocio)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/canchas/1/disponibilidad?fecha=2026-11-15&hora=18",
+          "host": ["{{baseUrl}}"],
+          "path": ["canchas", "1", "disponibilidad"],
+          "query": [
+            { "key": "fecha", "value": "2026-11-15" },
+            { "key": "hora", "value": "18" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "6. Cotizar Reserva con Extras en Servidor (Lógica de Negocio)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cancha_id\": 1,\n  \"fecha\": \"2026-11-15\",\n  \"hora_inicio\": 17,\n  \"hora_fin\": 19,\n  \"extras\": [\n    { \"extra_id\": 1, \"cantidad\": 2 }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/reservas/cotizar",
+          "host": ["{{baseUrl}}"],
+          "path": ["reservas", "cotizar"]
+        }
+      }
+    },
+    {
+      "name": "7. Crear Reserva con Bloqueo de 20 min (CRUD Create + Reglas)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cancha_id\": 1,\n  \"cliente_nombre\": \"Carlos Mendoza\",\n  \"cliente_dni\": \"74125896\",\n  \"cliente_telefono\": \"999888777\",\n  \"cliente_email\": \"carlos.mendoza@uni.pe\",\n  \"fecha\": \"2026-11-15\",\n  \"hora_inicio\": 19,\n  \"hora_fin\": 21,\n  \"notas\": \"Partido FIIS UNI\",\n  \"extras\": [\n    { \"extra_id\": 1, \"cantidad\": 1 },\n    { \"extra_id\": 2, \"cantidad\": 1 }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/reservas",
+          "host": ["{{baseUrl}}"],
+          "path": ["reservas"]
+        }
+      }
+    },
+    {
+      "name": "8. Listar Reservas (CRUD Read)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/reservas",
+          "host": ["{{baseUrl}}"],
+          "path": ["reservas"]
+        }
+      }
+    },
+    {
+      "name": "9. Actualizar Datos de Reserva (CRUD Update)",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cliente_telefono\": \"988777666\",\n  \"notas\": \"Actualizado: llevar balones adicionales\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/reservas/1",
+          "host": ["{{baseUrl}}"],
+          "path": ["reservas", "1"]
+        }
+      }
+    },
+    {
+      "name": "10. Registrar Comprobante Yape/Plin y Aprobar Ticket QR",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"metodo\": \"YAPE\",\n  \"modalidad\": \"TOTAL\",\n  \"numero_operacion\": \"YAPE-8492014\",\n  \"auto_aprobar\": true\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/reservas/1/pagos",
+          "host": ["{{baseUrl}}"],
+          "path": ["reservas", "1", "pagos"]
+        }
+      }
+    },
+    {
+      "name": "11. Cancelar Reserva con Política 24 Horas (Lógica de Negocio)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"motivo\": \"Reprogramación del equipo\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/reservas/1/cancelar",
+          "host": ["{{baseUrl}}"],
+          "path": ["reservas", "1", "cancelar"]
+        }
+      }
+    },
+    {
+      "name": "12. Eliminar Reserva No Confirmada (CRUD Delete)",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/reservas/1",
+          "host": ["{{baseUrl}}"],
+          "path": ["reservas", "1"]
+        }
+      }
+    }
+  ]
+}
