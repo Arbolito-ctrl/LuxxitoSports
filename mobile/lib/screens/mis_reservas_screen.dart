@@ -196,7 +196,6 @@ class _MisReservasScreenState extends State<MisReservasScreen>
                       modalidad: modalidad,
                       monto: montoRequerido,
                       numeroOperacion: opCtrl.text.trim(),
-                      autoAprobar: true,
                     );
                     if (!ctx.mounted) return;
                     Navigator.of(ctx).pop(true);
@@ -210,8 +209,8 @@ class _MisReservasScreenState extends State<MisReservasScreen>
                     );
                   }
                 },
-                icon: const Icon(Icons.verified),
-                label: const Text('Enviar y Generar QR'),
+                icon: const Icon(Icons.send),
+                label: const Text('Enviar Comprobante'),
               ),
             ],
           );
@@ -223,7 +222,9 @@ class _MisReservasScreenState extends State<MisReservasScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('¡Pago verificado y Ticket QR generado!'),
+            content: Text(
+              'Comprobante enviado. Tu turno queda protegido mientras el operador lo revisa.',
+            ),
             backgroundColor: Color(0xFF059669),
           ),
         );
@@ -610,6 +611,46 @@ class _MisReservasScreenState extends State<MisReservasScreen>
                                           ),
                                         ],
                                         if (r.estado == 'PENDIENTE_PAGO') ...[
+                                          if (r.rechazoVigente != null) ...[
+                                            const SizedBox(height: 8),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 6,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.redAccent
+                                                    .withValues(alpha: 0.16),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                border: Border.all(
+                                                    color: Colors.redAccent),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  const Icon(
+                                                    Icons.report_outlined,
+                                                    size: 16,
+                                                    color: Colors.redAccent,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: Text(
+                                                      'Comprobante ${r.rechazoVigente!.numeroOperacion} rechazado: ${r.rechazoVigente!.observacion ?? 'sin motivo'}. Envía uno nuevo antes de que venza el bloqueo.',
+                                                      style: const TextStyle(
+                                                        color:
+                                                            Color(0xFFFECACA),
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
                                           const SizedBox(height: 8),
                                           Container(
                                             padding: const EdgeInsets.symmetric(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import 'auth_screen.dart';
+import 'revision_pagos_screen.dart';
 
 class PerfilConfigScreen extends StatefulWidget {
   final VoidCallback? onLogout;
@@ -229,6 +230,35 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
                   ],
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // MODO OPERADOR: BANDEJA DE REVISIÓN DE COMPROBANTES (LX-301)
+          Card(
+            color: const Color(0xFF1E293B),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: const BorderSide(color: Color(0xFF0EA5E9)),
+            ),
+            child: ListTile(
+              leading: const Icon(Icons.admin_panel_settings,
+                  color: Color(0xFF38BDF8)),
+              title: const Text(
+                'Modo Operador · Revisión de Pagos',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              subtitle: const Text(
+                'Aprobar o rechazar comprobantes Yape/Plin pendientes.',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const RevisionPagosScreen()),
+              ),
             ),
           ),
           const SizedBox(height: 16),

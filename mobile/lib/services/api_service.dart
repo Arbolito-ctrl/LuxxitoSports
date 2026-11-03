@@ -846,6 +846,8 @@ class ApiService {
     final rows = await _supaGet(query) as List<dynamic>;
     final reRows = await _supaGet('reserva_extras?select=*') as List<dynamic>;
     final exRows = await _supaGet('extras?select=id,nombre') as List<dynamic>;
+    final pagoRows =
+        await _supaGet('pagos?select=*&order=id.asc') as List<dynamic>;
     final exNames = {
       for (final e in exRows)
         ((e as Map<String, dynamic>)['id'] as num).toInt():
@@ -870,6 +872,10 @@ class ApiService {
         rm['nombre'] = exNames[(rm['extra_id'] as num).toInt()] ?? 'Extra';
         return rm;
       }).toList();
+      m['pagos'] = pagoRows
+          .where((p) =>
+              ((p as Map<String, dynamic>)['reserva_id'] as num).toInt() == rId)
+          .toList();
       return Reserva.fromJson(m);
     }).toList();
   }
@@ -942,7 +948,7 @@ class ApiService {
     required String modalidad,
     required double monto,
     required String numeroOperacion,
-    bool autoAprobar = true,
+    bool autoAprobar = false,
   }) async {
     if (numeroOperacion.trim().length < 4) {
       throw ApiException(
@@ -992,13 +998,190 @@ class ApiService {
         'LUXXITO-QR-$reservaId-${numeroOperacion.trim().toUpperCase()}';
     await _supaPatch('reservas?id=eq.$reservaId', {
       'estado': autoAprobar ? 'CONFIRMADA' : 'EN_REVISION',
-      'monto_pagado': monto,
+      if (autoAprobar) 'monto_pagado': monto,
       'codigo_qr': autoAprobar ? qr : null,
       'updated_at': DateTime.now().toIso8601String(),
     });
 
     final list = await getReservas();
     return list.firstWhere((r) => r.id == reservaId);
+  }
+
+  // 11b. GET /api/pagos?estado= (Bandeja de revisión del operador)
+  static Future<List<PagoEnRevision>> listarPagos({
+    String estado = 'PENDIENTE_REVISION',
+  }) async {
+    if (!_useSupabaseDirect) {
+      try {
+        final uri = Uri.parse('$_baseUrl/pagos').replace(
+          queryParameters: {'estado': estado},
+        );
+        final res = await http.get(uri, headers: _headers).timeout(_timeout);
+        final body = _decodeResponse(res);
+        return (body['data'] as List<dynamic>)
+            .map((p) => PagoEnRevision.fromJson(p as Map<String, dynamic>))
+            .toList();
+      } on ApiException {
+        rethrow;
+      } catch (_) {
+        if (_supaUrl.isNotEmpty && _supaKey.isNotEmpty) {
+          enableSupabaseCloudMode();
+        } else {
+          rethrow;
+        }
+      }
+    }
+
+    final pagos = await _supaGet(
+      'pagos?select=*&estado=eq.$estado&order=created_at.asc,id.asc',
+    ) as List<dynamic>;
+    if (pagos.isEmpty) return [];
+    final reservas = {for (final r in await getReservas()) r.id: r};
+
+    return pagos.map((raw) {
+      final m = Map<String, dynamic>.from(raw as Map<String, dynamic>);
+      final r = reservas[(m['reserva_id'] as num).toInt()];
+      if (r != null) {
+        m['reserva'] = {
+          'estado': r.estado,
+          'cancha_nombre': r.canchaNombre,
+          'complejo_nombre': r.complejoNombre,
+          'cliente_nombre': r.clienteNombre,
+          'cliente_dni': r.clienteDni,
+          'cliente_telefono': r.clienteTelefono,
+          'fecha': r.fecha,
+          'hora_inicio': r.horaInicio,
+          'hora_fin': r.horaFin,
+          'total': r.total,
+        };
+      }
+      return PagoEnRevision.fromJson(m);
+    }).toList();
+  }
+
+  // 11c. PATCH /api/pagos/:id/aprobar (Aprobación idempotente + Ticket QR)
+  static Future<Reserva> aprobarPago(int pagoId) async {
+    if (!_useSupabaseDirect) {
+      try {
+        final res = await http
+            .patch(
+              Uri.parse('$_baseUrl/pagos/$pagoId/aprobar'),
+              headers: _headers,
+            )
+            .timeout(_timeout);
+        final body = _decodeResponse(res);
+        final data = body['data'] as Map<String, dynamic>;
+        return Reserva.fromJson(data['reserva'] as Map<String, dynamic>);
+      } on ApiException {
+        rethrow;
+      } catch (_) {
+        if (_supaUrl.isNotEmpty && _supaKey.isNotEmpty) {
+          enableSupabaseCloudMode();
+        }
+      }
+    }
+
+    final pago = await _pagoPendienteSupabase(pagoId, accion: 'aprobar');
+    final reservaId = (pago['reserva_id'] as num).toInt();
+    final r = (await getReservas()).firstWhere((item) => item.id == reservaId);
+    final montoPagado = (r.montoPagado + (pago['monto'] as num).toDouble())
+        .clamp(0, r.total)
+        .toDouble();
+    final numeroOperacion = pago['numero_operacion'].toString().toUpperCase();
+
+    await _supaPatch('pagos?id=eq.$pagoId', {
+      'estado': 'APROBADO',
+      'observacion': 'Comprobante verificado y conciliado.',
+      'reviewed_at': DateTime.now().toUtc().toIso8601String(),
+    });
+    await _supaPatch('reservas?id=eq.$reservaId', {
+      'estado': 'CONFIRMADA',
+      'monto_pagado': montoPagado,
+      'codigo_qr': r.codigoQr ?? 'LUXXITO-QR-$reservaId-$numeroOperacion',
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
+
+    final list = await getReservas();
+    return list.firstWhere((item) => item.id == reservaId);
+  }
+
+  // 11d. PATCH /api/pagos/:id/rechazar (Rechazo con observación obligatoria)
+  static Future<Reserva> rechazarPago({
+    required int pagoId,
+    required String observacion,
+  }) async {
+    if (observacion.trim().length < 5) {
+      throw ApiException(
+        statusCode: 400,
+        code: 'BAD_REQUEST',
+        message: 'Indica el motivo del rechazo (mínimo 5 caracteres).',
+      );
+    }
+
+    if (!_useSupabaseDirect) {
+      try {
+        final res = await http
+            .patch(
+              Uri.parse('$_baseUrl/pagos/$pagoId/rechazar'),
+              headers: _headers,
+              body: jsonEncode({'observacion': observacion.trim()}),
+            )
+            .timeout(_timeout);
+        final body = _decodeResponse(res);
+        final data = body['data'] as Map<String, dynamic>;
+        return Reserva.fromJson(data['reserva'] as Map<String, dynamic>);
+      } on ApiException {
+        rethrow;
+      } catch (_) {
+        if (_supaUrl.isNotEmpty && _supaKey.isNotEmpty) {
+          enableSupabaseCloudMode();
+        }
+      }
+    }
+
+    final pago = await _pagoPendienteSupabase(pagoId, accion: 'rechazar');
+    final reservaId = (pago['reserva_id'] as num).toInt();
+
+    await _supaPatch('pagos?id=eq.$pagoId', {
+      'estado': 'RECHAZADO',
+      'observacion': observacion.trim(),
+      'reviewed_at': DateTime.now().toUtc().toIso8601String(),
+    });
+    // La reserva vuelve a PENDIENTE_PAGO con un nuevo bloqueo de 20 min para reintentar
+    await _supaPatch('reservas?id=eq.$reservaId&estado=eq.EN_REVISION', {
+      'estado': 'PENDIENTE_PAGO',
+      'expires_at': DateTime.now()
+          .toUtc()
+          .add(const Duration(minutes: 20))
+          .toIso8601String(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
+
+    final list = await getReservas();
+    return list.firstWhere((item) => item.id == reservaId);
+  }
+
+  static Future<Map<String, dynamic>> _pagoPendienteSupabase(
+    int pagoId, {
+    required String accion,
+  }) async {
+    final rows = await _supaGet('pagos?select=*&id=eq.$pagoId') as List<dynamic>;
+    if (rows.isEmpty) {
+      throw ApiException(
+        statusCode: 404,
+        code: 'NOT_FOUND',
+        message: 'No se encontró el pago con ID $pagoId.',
+      );
+    }
+    final pago = rows.first as Map<String, dynamic>;
+    if (pago['estado'] != 'PENDIENTE_REVISION') {
+      throw ApiException(
+        statusCode: 409,
+        code: 'CONFLICT',
+        message: 'No se puede $accion un pago en estado ${pago['estado']}.',
+      );
+    }
+    return pago;
   }
 
   // 12. POST /api/reservas/:id/cancelar

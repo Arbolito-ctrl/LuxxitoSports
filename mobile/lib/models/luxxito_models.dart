@@ -236,6 +236,93 @@ class ReservaExtraDetalle {
   }
 }
 
+class Pago {
+  final int id;
+  final int reservaId;
+  final String metodo;
+  final String modalidad;
+  final double monto;
+  final String numeroOperacion;
+  final String? comprobanteUrl;
+  final String estado;
+  final String? observacion;
+  final String createdAt;
+
+  Pago({
+    required this.id,
+    required this.reservaId,
+    required this.metodo,
+    required this.modalidad,
+    required this.monto,
+    required this.numeroOperacion,
+    this.comprobanteUrl,
+    required this.estado,
+    this.observacion,
+    required this.createdAt,
+  });
+
+  factory Pago.fromJson(Map<String, dynamic> json) {
+    return Pago(
+      id: (json['id'] as num).toInt(),
+      reservaId: (json['reserva_id'] as num).toInt(),
+      metodo: json['metodo']?.toString() ?? 'YAPE',
+      modalidad: json['modalidad']?.toString() ?? 'TOTAL',
+      monto: (json['monto'] as num).toDouble(),
+      numeroOperacion: json['numero_operacion']?.toString() ?? '',
+      comprobanteUrl: json['comprobante_url']?.toString(),
+      estado: json['estado']?.toString() ?? 'PENDIENTE_REVISION',
+      observacion: json['observacion']?.toString(),
+      createdAt: json['created_at']?.toString() ?? '',
+    );
+  }
+}
+
+/// Pago de la bandeja del operador (GET /api/pagos) con el resumen de su reserva.
+class PagoEnRevision {
+  final Pago pago;
+  final String reservaEstado;
+  final String canchaNombre;
+  final String complejoNombre;
+  final String clienteNombre;
+  final String clienteDni;
+  final String clienteTelefono;
+  final String fecha;
+  final int horaInicio;
+  final int horaFin;
+  final double total;
+
+  PagoEnRevision({
+    required this.pago,
+    required this.reservaEstado,
+    required this.canchaNombre,
+    required this.complejoNombre,
+    required this.clienteNombre,
+    required this.clienteDni,
+    required this.clienteTelefono,
+    required this.fecha,
+    required this.horaInicio,
+    required this.horaFin,
+    required this.total,
+  });
+
+  factory PagoEnRevision.fromJson(Map<String, dynamic> json) {
+    final reserva = json['reserva'] as Map<String, dynamic>? ?? const {};
+    return PagoEnRevision(
+      pago: Pago.fromJson(json),
+      reservaEstado: reserva['estado']?.toString() ?? '',
+      canchaNombre: reserva['cancha_nombre']?.toString() ?? 'Cancha',
+      complejoNombre: reserva['complejo_nombre']?.toString() ?? 'Complejo Luxxito',
+      clienteNombre: reserva['cliente_nombre']?.toString() ?? '',
+      clienteDni: reserva['cliente_dni']?.toString() ?? '',
+      clienteTelefono: reserva['cliente_telefono']?.toString() ?? '',
+      fecha: reserva['fecha']?.toString() ?? '',
+      horaInicio: (reserva['hora_inicio'] as num?)?.toInt() ?? 0,
+      horaFin: (reserva['hora_fin'] as num?)?.toInt() ?? 0,
+      total: (reserva['total'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
 class Reserva {
   final int id;
   final int canchaId;
@@ -261,6 +348,7 @@ class Reserva {
   final String? notas;
   final String expiresAt;
   final List<ReservaExtraDetalle> extras;
+  final List<Pago> pagos;
 
   Reserva({
     required this.id,
@@ -287,7 +375,15 @@ class Reserva {
     this.notas,
     required this.expiresAt,
     required this.extras,
+    this.pagos = const [],
   });
+
+  /// Último pago rechazado si el jugador aún no ha reenviado un comprobante válido.
+  Pago? get rechazoVigente {
+    if (estado != 'PENDIENTE_PAGO' || pagos.isEmpty) return null;
+    final ultimo = pagos.last;
+    return ultimo.estado == 'RECHAZADO' ? ultimo : null;
+  }
 
   factory Reserva.fromJson(Map<String, dynamic> json) {
     return Reserva(
@@ -316,6 +412,9 @@ class Reserva {
       expiresAt: json['expires_at']?.toString() ?? '',
       extras: (json['extras'] as List<dynamic>? ?? [])
           .map((e) => ReservaExtraDetalle.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      pagos: (json['pagos'] as List<dynamic>? ?? [])
+          .map((p) => Pago.fromJson(p as Map<String, dynamic>))
           .toList(),
     );
   }
