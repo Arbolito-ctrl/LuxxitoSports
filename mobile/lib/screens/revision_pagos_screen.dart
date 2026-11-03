@@ -8,13 +8,23 @@ import '../widgets/luxxito_widgets.dart';
 /// Modo Operador (LX-301): bandeja de comprobantes PENDIENTE_REVISION para
 /// aprobarlos (reserva CONFIRMADA + Ticket QR) o rechazarlos con motivo.
 class RevisionPagosScreen extends StatefulWidget {
-  const RevisionPagosScreen({super.key});
+  /// false cuando la bandeja vive como pestaña del panel del ADMIN.
+  final bool mostrarAppBar;
+
+  /// Informa cuántos comprobantes quedan por revisar (para el contador de la pestaña).
+  final ValueChanged<int>? onPendientes;
+
+  const RevisionPagosScreen({
+    super.key,
+    this.mostrarAppBar = true,
+    this.onPendientes,
+  });
 
   @override
-  State<RevisionPagosScreen> createState() => _RevisionPagosScreenState();
+  State<RevisionPagosScreen> createState() => RevisionPagosScreenState();
 }
 
-class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
+class RevisionPagosScreenState extends State<RevisionPagosScreen> {
   static const Color _fondo = LuxxitoColors.fondo;
   static const Color _superficie = LuxxitoColors.superficie;
   static const Color _verde = LuxxitoColors.primario;
@@ -61,6 +71,11 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
     _cargarPagos();
   }
 
+  /// Permite que el panel del ADMIN refresque la bandeja al abrir la pestaña.
+  void recargar() {
+    if (!_cargando) _cargarPagos();
+  }
+
   Future<void> _cargarPagos() async {
     setState(() {
       _cargando = true;
@@ -73,6 +88,7 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
         _pagos = pagos;
         _cargando = false;
       });
+      widget.onPendientes?.call(pagos.length);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -137,6 +153,7 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
       await accion();
       if (!mounted) return;
       setState(() => _pagos.removeWhere((p) => p.pago.id == item.pago.id));
+      widget.onPendientes?.call(_pagos.length);
       _aviso(mensajeExito, const Color(0xFF059669), Icons.check_circle);
     } catch (e) {
       if (!mounted) return;
@@ -811,7 +828,9 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _fondo,
-      appBar: AppBar(
+      appBar: !widget.mostrarAppBar
+          ? null
+          : AppBar(
         backgroundColor: _superficie,
         foregroundColor: LuxxitoColors.texto,
         elevation: 0,

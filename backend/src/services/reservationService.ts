@@ -744,15 +744,24 @@ export class ReservationService {
     }
 
     if (reserva.qr_usado_at) {
+      const usadoEn = new Date(reserva.qr_usado_at).toLocaleString('es-PE', {
+        timeZone: 'America/Lima',
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
       throw Errors.conflict(
-        `Este Ticket QR ya fue utilizado previamente para registrar el ingreso (${reserva.qr_usado_at}).`
+        `Este Ticket QR ya fue utilizado para ingresar (${usadoEn}).`
       );
     }
 
     const verificadoEn = new Date().toISOString();
-    const actualizada = (await dataRepository.updateReserva(reserva.id, {
-      qr_usado_at: verificadoEn,
-    }))!;
+    const actualizada = await dataRepository.marcarQrUsado(reserva.id, verificadoEn);
+    if (!actualizada) {
+      // Otro escaneo registró el ingreso entre la lectura y la escritura
+      throw Errors.conflict('Este Ticket QR ya fue utilizado previamente para registrar el ingreso.');
+    }
 
     return {
       verificado: true,

@@ -48,7 +48,8 @@ router.get('/canchas/:id/disponibilidad', (req, res, next) =>
 router.post('/reservas/cotizar', (req, res, next) =>
   reservationController.cotizarReserva(req, res, next)
 );
-router.post('/reservas/verificar-qr', (req, res, next) =>
+// Solo el operador (ADMIN) puede registrar el ingreso con el Ticket QR
+router.post('/reservas/verificar-qr', requireAuth, requireRole('ADMIN'), (req, res, next) =>
   reservationController.verificarQr(req, res, next)
 );
 router.get('/reservas', (req, res, next) =>

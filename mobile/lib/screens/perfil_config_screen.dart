@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import '../theme/luxxito_theme.dart';
 import '../widgets/luxxito_widgets.dart';
-import 'revision_pagos_screen.dart';
 
 class PerfilConfigScreen extends StatefulWidget {
   final VoidCallback? onLogout;
@@ -18,21 +17,10 @@ class PerfilConfigScreen extends StatefulWidget {
 class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
   static const String currentInstalledVersion = '1.0.0';
   bool _buscandoUpdate = false;
-  int? _pagosPendientes;
 
   @override
   void initState() {
     super.initState();
-    if (ApiService.esAdmin) _contarPagosPendientes();
-  }
-
-  Future<void> _contarPagosPendientes() async {
-    try {
-      final pagos = await ApiService.listarPagos();
-      if (mounted) setState(() => _pagosPendientes = pagos.length);
-    } catch (_) {
-      // El contador es informativo: si falla, la bandeja mostrará el error.
-    }
   }
 
   Future<void> _buscarActualizacion() async {
@@ -359,39 +347,6 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
                 icono: Icons.email_outlined,
                 titulo: 'Correo',
                 subtitulo: session.email,
-              ),
-            ]),
-          if (ApiService.esAdmin)
-            _grupo('Administración', [
-              _opcion(
-                icono: Icons.fact_check_outlined,
-                color: LuxxitoColors.secundario,
-                titulo: 'Revisión de pagos',
-                subtitulo: 'Aprueba o rechaza comprobantes',
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if ((_pagosPendientes ?? 0) > 0)
-                      Badge(
-                        label: Text('$_pagosPendientes'),
-                        backgroundColor: LuxxitoColors.advertencia,
-                        textColor: Colors.black,
-                      ),
-                    const SizedBox(width: 8),
-                    const Icon(
-                      Icons.chevron_right,
-                      color: LuxxitoColors.textoTenue,
-                    ),
-                  ],
-                ),
-                onTap: () async {
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const RevisionPagosScreen(),
-                    ),
-                  );
-                  _contarPagosPendientes();
-                },
               ),
             ]),
           _grupo('Ayuda', [

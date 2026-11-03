@@ -581,6 +581,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     // 1. Primer escaneo válido -> 200 OK
     const check1 = await request(app)
       .post('/api/reservas/verificar-qr')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ codigo_qr: codigoQr });
     expect(check1.status).toBe(200);
     expect(check1.body.data.verificado).toBe(true);
@@ -589,6 +590,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     // 2. Segundo escaneo del mismo QR -> 409 Conflict (ya utilizado)
     const check2 = await request(app)
       .post('/api/reservas/verificar-qr')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ codigo_qr: codigoQr });
     expect(check2.status).toBe(409);
     expect(check2.body.code).toBe('CONFLICT');
@@ -599,14 +601,28 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
       .send({ motivo: 'Cancelación posterior' });
     const checkCancelado = await request(app)
       .post('/api/reservas/verificar-qr')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ codigo_qr: codigoQr });
     expect(checkCancelado.status).toBe(409);
 
     // 4. QR inexistente -> 404 Not Found
     const checkInexistente = await request(app)
       .post('/api/reservas/verificar-qr')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ codigo_qr: 'LUXXITO-QR-999999-NOEXISTE' });
     expect(checkInexistente.status).toBe(404);
+
+    // Sin sesión o con rol JUGADOR no se puede registrar el ingreso
+    const sinToken = await request(app)
+      .post('/api/reservas/verificar-qr')
+      .send({ codigo_qr: 'LUXXITO-QR-1-ABC' });
+    expect(sinToken.status).toBe(401);
+
+    const comoJugador = await request(app)
+      .post('/api/reservas/verificar-qr')
+      .set('Authorization', `Bearer ${jugadorToken}`)
+      .send({ codigo_qr: 'LUXXITO-QR-1-ABC' });
+    expect(comoJugador.status).toBe(403);
   });
 
   it('Caso 20 (Éxito - Expiración Automática de Bloqueos de 20 Minutos - LX-203): Vence PENDIENTE_PAGO tras 20 min y libera el turno, pero protege EN_REVISION', async () => {

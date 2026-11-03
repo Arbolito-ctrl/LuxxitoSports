@@ -32,13 +32,15 @@
 | 18 | `PATCH` | `/api/pagos/:id/aprobar` | **Lógica de Negocio 5 (Rol `ADMIN`):** Aprobación idempotente de pago y emisión de Ticket QR (`LUXXITO-QR-...`) | `200`, `400`, `401`, `403`, `404`, `409` |
 | 19 | `GET` | `/api/pagos?estado=PENDIENTE_REVISION` | **Bandeja del operador (Rol `ADMIN`):** Listar pagos con el resumen de su reserva | `200`, `400`, `401`, `403` |
 | 20 | `PATCH` | `/api/pagos/:id/rechazar` | **Rechazo de comprobante (Rol `ADMIN`):** `observacion` obligatoria; la reserva vuelve a `PENDIENTE_PAGO` con nuevo bloqueo de 20 min (idempotente) | `200`, `400`, `401`, `403`, `404`, `409` |
+| 22 | `POST` | `/api/pagos/comprobante` | **Foto del voucher:** sube la imagen (JPEG/PNG/WEBP, máx. 5 MB, en base64) al bucket privado `comprobantes` y devuelve `comprobante_url` | `201`, `400`, `404`, `409`, `413`, `422`, `502` |
+| 23 | `POST` | `/api/reservas/verificar-qr` | **Ingreso en puerta (Rol `ADMIN`):** valida el Ticket QR una sola vez | `200`, `400`, `401`, `403`, `404`, `409` |
 | 21 | `POST` | `/api/reservas/:id/cancelar` | **Lógica de Negocio 6:** Cancelación con política de 24 horas (100% reembolso >= 24h; 50% retención < 24h) y revocación de QR | `200`, `400`, `404`, `409` |
 
 ---
 
 ## 2. Seguridad JWT y Control de Roles (`LX-201`)
 
-Los endpoints del **Modo Operador** (`GET /api/pagos`, `PATCH /api/pagos/:id/aprobar` y `PATCH /api/pagos/:id/rechazar`) requieren el encabezado:
+Los endpoints del **Modo Operador** (`GET /api/pagos`, `PATCH /api/pagos/:id/aprobar`, `PATCH /api/pagos/:id/rechazar` y `POST /api/reservas/verificar-qr`) requieren el encabezado:
 
 ```http
 Authorization: Bearer <token_jwt>
@@ -46,7 +48,7 @@ Authorization: Bearer <token_jwt>
 
 - **Sin token o con firma JWT inválida:** responde `401 Unauthorized` (`code: "UNAUTHORIZED"`).
 - **Con token válido de rol `JUGADOR`:** responde `403 Forbidden` (`code: "FORBIDDEN"`).
-- **Con token válido de rol `ADMIN`:** permite listar, aprobar y rechazar comprobantes.
+- **Con token válido de rol `ADMIN`:** permite listar, aprobar y rechazar comprobantes, y registrar ingresos con el Ticket QR.
 
 ---
 
@@ -193,5 +195,37 @@ Bandeja de revisión del operador. Requiere `Authorization: Bearer <token_admin>
 
 ---
 
-### 3.5. `POST /api/reservas/:id/cancelar`
+### 3.5. `POST /api/pagos/comprobante` (foto del voucher)
+Flujo de la app: el jugador elige la foto → `POST /api/pagos/comprobante` → recibe `comprobante_url` → la envía en `POST /api/reservas/:id/pagos`.
+
+**Cuerpo de Solicitud:**
+```json
+{ "reserva_id": 12, "mime_type": "image/jpeg", "contenido_base64": "/9j/4AAQSkZJRg..." }
+```
+
+**Respuesta `201 Created`:**
+```json
+{
+  "ok": true,
+  "data": {
+    "bucket": "comprobantes",
+    "path": "reserva-12/voucher-1730650000000.jpg",
+    "comprobante_url": "supabase://comprobantes/reserva-12/voucher-1730650000000.jpg",
+    "mime_type": "image/jpeg",
+    "size_bytes": 184233,
+    "almacenado": true
+  }
+}
+```
+
+**Reglas:**
+- El bucket es **privado**. El ADMIN ve la imagen en `GET /api/pagos` mediante `comprobante_url_firmada`, un enlace temporal de 1 hora.
+- Solo se aceptan JPEG, PNG o WEBP de hasta 5 MB. El cuerpo JSON de esta ruta admite hasta 8 MB, y el resto de la API mantiene 100 KB (`413` si se supera).
+- Una reserva `CANCELADA` o `VENCIDA` no acepta comprobantes (`409`).
+- El `comprobante_url` enviado al registrar el pago debe pertenecer a la misma reserva (`400` en caso contrario).
+- Con base de datos real y sin `SUPABASE_SERVICE_ROLE_KEY` responde `502 STORAGE_ERROR`. En pruebas y modo local se valida sin guardar (`almacenado: false`).
+
+---
+
+### 3.6. `POST /api/reservas/:id/cancelar`
 Cancela una reserva aplicando la regla de las 24 horas y revocando el QR.

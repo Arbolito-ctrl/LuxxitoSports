@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'screens/admin/admin_shell_screen.dart';
 import 'screens/auth_screen.dart';
 import 'screens/explorar_screen.dart';
 import 'screens/mis_reservas_screen.dart';
@@ -42,12 +43,16 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
         },
       );
     }
-    return MainShellScreen(
-      onLogout: () {
-        ApiService.logout();
-        setState(() {});
-      },
-    );
+    void cerrarSesion() {
+      ApiService.logout();
+      setState(() {});
+    }
+
+    // El operador del complejo tiene su propia navegación
+    if (ApiService.esAdmin) {
+      return AdminShellScreen(onLogout: cerrarSesion);
+    }
+    return MainShellScreen(onLogout: cerrarSesion);
   }
 }
 

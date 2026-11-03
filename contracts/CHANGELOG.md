@@ -1,5 +1,17 @@
 # Historial de Cambios de Contratos — Luxxito Sports API
 
+## [1.4.0] - 2026-11-03 (LX-301 subida real y verificación QR por ADMIN)
+
+### Añadido
+- `POST /pagos/comprobante` documentado: guarda el voucher en el bucket privado `comprobantes` y devuelve `comprobante_url` y `almacenado`. Respuestas `409` (reserva cancelada o vencida), `413 PAYLOAD_TOO_LARGE` y `502 STORAGE_ERROR`.
+- `GET /pagos` incluye `comprobante_url_firmada`: un enlace temporal de 1 hora para ver el voucher.
+- `POST /reservas/{id}/pagos` documenta su cuerpo y acepta `comprobante_url`; responde `400` si el voucher pertenece a otra reserva.
+
+### Cambiado
+- `POST /reservas/verificar-qr` ahora requiere JWT con rol `ADMIN` (`401` / `403`). Solo el operador registra ingresos.
+- Sin foto adjunta, `comprobante_url` queda en `null` (ya no se genera una URL de ejemplo).
+- Los errores de lectura del cuerpo responden `413` o `400 INVALID_JSON` en lugar de `500`.
+
 ## [1.2.0] - 2026-11-03 (LX-201 & Infra #5)
 
 ### Añadido
