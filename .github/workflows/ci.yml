@@ -21,6 +21,8 @@ jobs:
       - run: npm install
       - run: npm run build
       - run: npm test
+      - name: Validar configuración del APK
+        run: node --test ../.github/scripts/validate-apk-config.test.cjs
 
   mobile-checks:
     name: Flutter Mobile Client (Analyze & Test)

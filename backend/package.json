@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "start": "tsx src/server.ts",
+    "start": "node dist/server.js",
     "build": "tsc",
     "db:init": "tsx src/scripts/initDb.ts",
     "apk:build": "tsx src/scripts/buildApk.ts",
