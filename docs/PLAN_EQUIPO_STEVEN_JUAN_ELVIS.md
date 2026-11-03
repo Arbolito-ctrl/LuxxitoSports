@@ -132,7 +132,7 @@ Para cerrar al 100% la **demostración en vivo del Taller 3** y completar las ca
   2. Actualizar `docs/validaciones/2026-11-02-taller3.md` con los nuevos conteos de pruebas.
 - **Criterio de aceptación:** `cd backend && npm test` ejecuta >= 12 pruebas en verde sin advertencias.
 
-#### `LX-303` — Guion y Evidencia de Demostración en Vivo (Entregable Obligatorio Taller 3)
+#### `LX-303` — Guion y Evidencia de Demostración en Vivo (Entregable Obligatorio Taller 3) (`[~] Guion listo` · faltan capturas con Supabase)
 - **Responsable:** Steven (con apoyo de Elvis y Juan)
 - **Rama sugerida:** `steven/evidencia-demostracion-taller3`
 - **Problema:** La diapositiva 6 del PDF del Taller 3 exige: *"DEMOSTRACIÓN: Cliente consumiendo la API; operación completa y cambio persistido en base de datos"*.
