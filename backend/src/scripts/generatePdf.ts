@@ -274,16 +274,16 @@ function generatePdf() {
 
   doc.addPage();
   h1('7. DESPLIEGUE Y VALIDACIÓN DE INFRAESTRUCTURA - ISSUE #14');
-  p('Responsable:', 'Juan Medina (jc2709). Rama juan/despliegue-apk-validacion y PR #17 a develop. Revisión: 3 de noviembre de 2026.');
-  p('API pública:', 'https://luxxito-sports-api.onrender.com/api. GET /health comprobado con HTTP 200 y db_mode POSTGRES_POOL. Primer despliegue Render del commit f4a507a de main.');
+  p('Responsable:', 'Juan Medina (jc2709). PR #17 integrado a develop con squash; PR #18 a main con merge commit. Revisión: 3 de noviembre de 2026.');
+  p('API pública:', 'https://luxxito-sports-api.onrender.com/api. GET /health comprobado con HTTP 200, db_mode POSTGRES_POOL y db_ready=true. Commit ac5a75c de main activo en Render a las 07:38 de Perú.');
   p('Servicio:', 'Render Free, Node 22, raíz backend, build npm ci --include=dev && npm run build, inicio node dist/server.js y health /api/health. Las variables privadas solo se configuran en Render; no están en Git.');
   p('Workflow del APK:', 'Los secretos pasan por env y los argumentos --dart-define se entrecomillan. Una validación previa rechaza URLs con espacios/paréntesis o IPs locales. API_BASE_URL apunta a la API pública.');
   p('Consumo de API propia:', 'El APK no cambia silenciosamente a Supabase directo. El teléfono usa HTTPS y dispone de 60 segundos de timeout para el despertar del servicio gratuito. La descarga debe provenir del release latest-apk actualizado.');
   p('Historial integrado:', 'PR #11: promoción de identidad, QR y expiración; PR #12: endpoint comprobantes/RPC; PR #13: promoción; PR #15/#16: enfoque solo Android. La integración de un endpoint no demuestra por sí sola que su función esté completa.');
-  p('Comprobaciones de este cambio:', 'Build backend correcto; 21/21 pruebas API locales y 3/3 pruebas de configuración. CI del PR verde para el commit 2a2b341. Resultado final del APK y promoción: consultar el informe de validación actualizado.');
-  p('Pendiente Android físico:', 'Instalar el APK actual, registrar modelo/versión y capturar el recorrido. No se declara completada la prueba de punta a punta sin esa evidencia.');
+  p('Comprobaciones de este cambio:', 'Build backend correcto; 21/21 pruebas API locales y 3/3 pruebas de configuración. CI y workflow APK de main verdes. Release latest-apk del commit ac5a75c: versión 1.0.22, build 22.');
+  p('Android físico comprobado:', 'TECNO KJ5, Android 13: instalación, login demo, 6 canchas y Perfil correctos. Reserva #1 del 04/11/2026, 07:00-08:00, con 1 juego de chalecos: S/105. Se recupera tras cerrar la app y volver a iniciar sesión. Capturas en el informe de validación.');
   p('Fuera de este cambio:', 'Los fallos de pagos, upload de comprobantes y persistencia QR se atenderán después, por indicación de Juan. No se presentan aquí como corregidos; el criterio completo de aceptación de la issue sigue abierto.');
-  p('Evidencia:', 'docs/validaciones/2026-11-03-infra-issue14.md y capturas/infra-render-live.jpg. El PDF distingue pruebas locales, servicio publicado y validación física pendiente.');
+  p('Evidencia y límites:', 'docs/validaciones/2026-11-03-infra-issue14.md y capturas/. No se probó registro nuevo ni vencimiento físico tras 20 minutos. Las pruebas físicas cubren acceso, catálogo y reserva, sin pago, upload ni QR.');
 
   doc.end();
 
