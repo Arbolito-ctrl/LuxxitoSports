@@ -116,3 +116,20 @@ jobs:
           prerelease: ${{ steps.env_info.outputs.ENV_NAME == 'dev' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Asociar tag de APK al commit compilado
+        uses: actions/github-script@v7
+        env:
+          APK_TAG: ${{ steps.env_info.outputs.TAG_NAME }}
+        with:
+          script: |
+            const tag = process.env.APK_TAG;
+            if (!['latest-apk', 'dev-apk'].includes(tag)) throw new Error('Tag de APK inesperado');
+            // Solo mueve el tag móvil del artefacto; nunca modifica main/develop.
+            await github.rest.git.updateRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `tags/${tag}`,
+              sha: context.sha,
+              force: true,
+            });
