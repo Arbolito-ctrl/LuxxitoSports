@@ -200,7 +200,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     const total = createRes.body.data.total; // S/ 95.00
 
     const pagoRes = await request(app)
-      .post(`/api/reservas/${reservaId}/pagos`)
+      .post(`/api/reservas/${reservaId}/pagos`).set('Authorization', `Bearer ${adminToken}`)
       .send({
         metodo: 'YAPE',
         modalidad: 'TOTAL',
@@ -245,7 +245,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     const reservaId = createRes.body.data.id;
 
     // Pagar y auto-aprobar
-    await request(app).post(`/api/reservas/${reservaId}/pagos`).send({
+    await request(app).post(`/api/reservas/${reservaId}/pagos`).set('Authorization', `Bearer ${adminToken}`).send({
       metodo: 'PLIN',
       modalidad: 'TOTAL',
       monto: 90,
@@ -255,7 +255,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
 
     // Cancelar con más de 24 horas de anticipación
     const cancelRes = await request(app)
-      .post(`/api/reservas/${reservaId}/cancelar`)
+      .post(`/api/reservas/${reservaId}/cancelar`).set('Authorization', `Bearer ${adminToken}`)
       .send({ motivo: 'Cambio de fecha del torneo' });
 
     expect(cancelRes.status).toBe(200);
@@ -277,7 +277,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
       hora_fin: 10,
     });
     const reservaId = createRes.body.data.id;
-    await request(app).post(`/api/reservas/${reservaId}/pagos`).send({
+    await request(app).post(`/api/reservas/${reservaId}/pagos`).set('Authorization', `Bearer ${adminToken}`).send({
       metodo: 'YAPE',
       modalidad: 'TOTAL',
       monto: createRes.body.data.total,
@@ -315,7 +315,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     });
     const reservaId = createRes.body.data.id;
     const total = createRes.body.data.total;
-    const pagoRes = await request(app).post(`/api/reservas/${reservaId}/pagos`).send({
+    const pagoRes = await request(app).post(`/api/reservas/${reservaId}/pagos`).set('Authorization', `Bearer ${adminToken}`).send({
       metodo: 'PLIN',
       modalidad: 'TOTAL',
       monto: total,
@@ -348,7 +348,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     expect(aprobarRechazado.status).toBe(409);
 
     // El jugador reenvía un comprobante válido
-    const reintento = await request(app).post(`/api/reservas/${reservaId}/pagos`).send({
+    const reintento = await request(app).post(`/api/reservas/${reservaId}/pagos`).set('Authorization', `Bearer ${adminToken}`).send({
       metodo: 'PLIN',
       modalidad: 'TOTAL',
       monto: total,
@@ -370,7 +370,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
       hora_fin: 12,
     });
     const reservaId = createRes.body.data.id;
-    const pagoRes = await request(app).post(`/api/reservas/${reservaId}/pagos`).send({
+    const pagoRes = await request(app).post(`/api/reservas/${reservaId}/pagos`).set('Authorization', `Bearer ${adminToken}`).send({
       metodo: 'YAPE',
       modalidad: 'TOTAL',
       monto: createRes.body.data.total,
@@ -446,7 +446,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
       .post('/api/reservas')
       .send({ cancha_id: 1, ...titular('71110002'), fecha, hora_inicio: 10, hora_fin: 11 });
     const reservaId = createRes.body.data.id;
-    await request(app).post(`/api/reservas/${reservaId}/pagos`).send({
+    await request(app).post(`/api/reservas/${reservaId}/pagos`).set('Authorization', `Bearer ${adminToken}`).send({
       metodo: 'YAPE',
       modalidad: 'TOTAL',
       monto: 90,
@@ -459,7 +459,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     vi.setSystemTime(new Date(`${fecha}T08:00:00-05:00`));
     try {
       const cancelRes = await request(app)
-        .post(`/api/reservas/${reservaId}/cancelar`)
+        .post(`/api/reservas/${reservaId}/cancelar`).set('Authorization', `Bearer ${adminToken}`)
         .send({ motivo: 'Lesión de un jugador' });
 
       expect(cancelRes.status).toBe(200);
@@ -472,7 +472,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
       vi.useRealTimers();
     }
 
-    const otraVez = await request(app).post(`/api/reservas/${reservaId}/cancelar`).send({});
+    const otraVez = await request(app).post(`/api/reservas/${reservaId}/cancelar`).set('Authorization', `Bearer ${adminToken}`).send({});
     expect(otraVez.status).toBe(409);
   });
 
@@ -485,16 +485,16 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
       .post('/api/reservas')
       .send({ cancha_id: 1, ...titular('71110004'), fecha, hora_inicio: 9, hora_fin: 10 });
 
-    const propias = await request(app).get('/api/reservas?cliente_dni=71110003');
+    const propias = await request(app).get('/api/reservas?cliente_dni=71110003').set('Authorization', `Bearer ${adminToken}`);
     expect(propias.status).toBe(200);
     expect(propias.body.count).toBe(1);
     expect(propias.body.data[0].cliente_dni).toBe('71110003');
 
-    const inexistente = await request(app).get('/api/reservas/999999');
+    const inexistente = await request(app).get('/api/reservas/999999').set('Authorization', `Bearer ${adminToken}`);
     expect(inexistente.status).toBe(404);
     expect(inexistente.body.code).toBe('NOT_FOUND');
 
-    const invalido = await request(app).get('/api/reservas/abc');
+    const invalido = await request(app).get('/api/reservas/abc').set('Authorization', `Bearer ${adminToken}`);
     expect(invalido.status).toBe(400);
   });
 
@@ -576,7 +576,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
       .send({ cancha_id: 1, ...titular('75551111'), fecha, hora_inicio: 15, hora_fin: 16 });
     const reservaId = createRes.body.data.id;
 
-    const pagoRes = await request(app).post(`/api/reservas/${reservaId}/pagos`).send({
+    const pagoRes = await request(app).post(`/api/reservas/${reservaId}/pagos`).set('Authorization', `Bearer ${adminToken}`).send({
       metodo: 'YAPE',
       modalidad: 'TOTAL',
       monto: createRes.body.data.total,
@@ -605,7 +605,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
 
     // 3. Cancelar la reserva y verificar que el QR revocado responde 409 Conflict
     await request(app)
-      .post(`/api/reservas/${reservaId}/cancelar`)
+      .post(`/api/reservas/${reservaId}/cancelar`).set('Authorization', `Bearer ${adminToken}`)
       .send({ motivo: 'Cancelación posterior' });
     const checkCancelado = await request(app)
       .post('/api/reservas/verificar-qr')
@@ -649,7 +649,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
       .post('/api/reservas')
       .send({ cancha_id: 1, ...titular('76662222'), fecha, hora_inicio: 16, hora_fin: 17 });
     const idB = resB.body.data.id;
-    await request(app).post(`/api/reservas/${idB}/pagos`).send({
+    await request(app).post(`/api/reservas/${idB}/pagos`).set('Authorization', `Bearer ${adminToken}`).send({
       metodo: 'PLIN',
       modalidad: 'TOTAL',
       monto: resB.body.data.total,
@@ -660,11 +660,11 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(t0 + 21 * 60 * 1000));
     try {
-      const checkA = await request(app).get(`/api/reservas/${idA}`);
+      const checkA = await request(app).get(`/api/reservas/${idA}`).set('Authorization', `Bearer ${adminToken}`);
       expect(checkA.status).toBe(200);
       expect(checkA.body.data.estado).toBe('VENCIDA');
 
-      const checkB = await request(app).get(`/api/reservas/${idB}`);
+      const checkB = await request(app).get(`/api/reservas/${idB}`).set('Authorization', `Bearer ${adminToken}`);
       expect(checkB.status).toBe(200);
       expect(checkB.body.data.estado).toBe('EN_REVISION');
 
@@ -722,7 +722,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     const comprobanteUrl = subida.body.data.comprobante_url;
 
     // El voucher de la reserva A no puede usarse para pagar la reserva B
-    const ajeno = await request(app).post(`/api/reservas/${reservaB.id}/pagos`).send({
+    const ajeno = await request(app).post(`/api/reservas/${reservaB.id}/pagos`).set('Authorization', `Bearer ${adminToken}`).send({
       metodo: 'YAPE',
       modalidad: 'TOTAL',
       numero_operacion: 'YAPE-300001',
@@ -730,7 +730,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     });
     expect(ajeno.status).toBe(400);
 
-    const propio = await request(app).post(`/api/reservas/${reservaA.id}/pagos`).send({
+    const propio = await request(app).post(`/api/reservas/${reservaA.id}/pagos`).set('Authorization', `Bearer ${adminToken}`).send({
       metodo: 'YAPE',
       modalidad: 'TOTAL',
       numero_operacion: 'YAPE-300002',
@@ -740,7 +740,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     expect(propio.body.data.pago.comprobante_url).toBe(comprobanteUrl);
 
     // Sin imagen adjunta el pago queda sin comprobante (no se inventa una URL)
-    const sinImagen = await request(app).post(`/api/reservas/${reservaB.id}/pagos`).send({
+    const sinImagen = await request(app).post(`/api/reservas/${reservaB.id}/pagos`).set('Authorization', `Bearer ${adminToken}`).send({
       metodo: 'PLIN',
       modalidad: 'TOTAL',
       numero_operacion: 'PLIN-300003',
@@ -755,7 +755,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     expect(pagoA).toHaveProperty('comprobante_url_firmada', null);
 
     // No se aceptan comprobantes para reservas canceladas
-    await request(app).post(`/api/reservas/${reservaB.id}/cancelar`).send({ motivo: 'Prueba' });
+    await request(app).post(`/api/reservas/${reservaB.id}/cancelar`).set('Authorization', `Bearer ${adminToken}`).send({ motivo: 'Prueba' });
     const cancelada = await request(app)
       .post('/api/pagos/comprobante')
       .send({ reserva_id: reservaB.id, mime_type: 'image/jpeg', contenido_base64: voucher });
@@ -776,7 +776,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
 
     // El resto de la API mantiene el límite de 100 KB
     const notasGigantes = await request(app)
-      .put(`/api/reservas/${reservaA.id}`)
+      .put(`/api/reservas/${reservaA.id}`).set('Authorization', `Bearer ${adminToken}`)
       .send({ notas: 'x'.repeat(200 * 1024) });
     expect(notasGigantes.status).toBe(413);
   });
@@ -864,7 +864,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     const comprobantes = await Promise.all(
       [1, 2].map((n) =>
         request(app)
-          .post(`/api/reservas/${reservaId}/pagos`)
+          .post(`/api/reservas/${reservaId}/pagos`).set('Authorization', `Bearer ${adminToken}`)
           .send({ metodo: 'YAPE', modalidad: 'TOTAL', numero_operacion: `YAPE-99000${n}` })
       )
     );
@@ -879,7 +879,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     );
     expect(aprobaciones.every((r) => r.status === 200)).toBe(true);
     expect(aprobaciones.filter((r) => r.body.data.idempotent === true)).toHaveLength(1);
-    const reserva = (await request(app).get(`/api/reservas/${reservaId}`)).body.data;
+    const reserva = (await request(app).get(`/api/reservas/${reservaId}`).set('Authorization', `Bearer ${adminToken}`)).body.data;
     expect(reserva.monto_pagado).toBe(reserva.total);
   });
   it('Caso 26 (Fallo - Nombre de cancha repetido 409): No se crea ni renombra una cancha con un nombre que ya existe en el complejo', async () => {
@@ -910,5 +910,39 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     // Guardar la cancha con su propio nombre no es un conflicto
     const mismoNombre = await admin(request(app).put('/api/canchas/1')).send({ nombre: 'Cancha Monumental 1' });
     expect(mismoNombre.status).toBe(200);
+  });
+  it('Caso 27 (Seguridad - Titular de la reserva 401/403): Solo el titular o el ADMIN ven, pagan o cancelan una reserva', async () => {
+    const titularToken = signJwtToken({ id: 50, email: 'titular@uni.pe', dni: '77770001', rol: 'JUGADOR' });
+    const ajenoToken = signJwtToken({ id: 51, email: 'ajeno@uni.pe', dni: '77770002', rol: 'JUGADOR' });
+    const creada = await request(app)
+      .post('/api/reservas')
+      .send({ cancha_id: 1, ...titular('77770001'), fecha: getFutureDate(11), hora_inicio: 10, hora_fin: 11 });
+    const id = creada.body.data.id;
+    const con = (r: request.Test, token: string) => r.set('Authorization', `Bearer ${token}`);
+
+    // Sin sesión: 401
+    expect((await request(app).get(`/api/reservas/${id}`)).status).toBe(401);
+    expect((await request(app).post(`/api/reservas/${id}/cancelar`).send({})).status).toBe(401);
+    expect((await request(app).get('/api/reservas')).status).toBe(401);
+
+    // Otro jugador: 403 al ver, editar, pagar, eliminar o cancelar
+    expect((await con(request(app).get(`/api/reservas/${id}`), ajenoToken)).status).toBe(403);
+    expect((await con(request(app).put(`/api/reservas/${id}`), ajenoToken).send({ notas: 'x' })).status).toBe(403);
+    expect(
+      (await con(request(app).post(`/api/reservas/${id}/pagos`), ajenoToken).send({ metodo: 'YAPE', modalidad: 'TOTAL', numero_operacion: 'YAPE-1234' })).status
+    ).toBe(403);
+    expect((await con(request(app).delete(`/api/reservas/${id}`), ajenoToken)).status).toBe(403);
+    expect((await con(request(app).post(`/api/reservas/${id}/cancelar`), ajenoToken).send({})).status).toBe(403);
+
+    // El listado del jugador solo trae sus reservas, aunque pida otro DNI
+    const listado = await con(request(app).get('/api/reservas?cliente_dni=77770001'), ajenoToken);
+    expect(listado.status).toBe(200);
+    expect(listado.body.data.every((r: any) => r.cliente_dni === '77770002')).toBe(true);
+
+    // El titular sí puede ver y cancelar su reserva
+    expect((await con(request(app).get(`/api/reservas/${id}`), titularToken)).status).toBe(200);
+    const cancelada = await con(request(app).post(`/api/reservas/${id}/cancelar`), titularToken).send({ motivo: 'Cambio de planes' });
+    expect(cancelada.status).toBe(200);
+    expect(cancelada.body.data.reserva.estado).toBe('CANCELADA');
   });
 });
