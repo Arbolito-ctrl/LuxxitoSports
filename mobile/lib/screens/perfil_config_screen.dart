@@ -379,10 +379,20 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
               ),
               ActionChip(
                 backgroundColor: const Color(0xFF064E3B),
-                label: const Text('Cloud Render (Producción)',
+                label: const Text('Supabase Cloud (4.5G / Internet)',
                     style: TextStyle(color: Color(0xFF6EE7B7), fontSize: 12)),
                 onPressed: () {
-                  _urlCtrl.text = 'https://luxxito-sports-api.onrender.com/api';
+                  ApiService.enableSupabaseCloudMode();
+                  _urlCtrl.text = ApiService.baseUrl;
+                  _verificarConexion();
+                },
+              ),
+              ActionChip(
+                backgroundColor: const Color(0xFF1E293B),
+                label: const Text('Wi-Fi Laptop (192.168.1.14)',
+                    style: TextStyle(color: Colors.white, fontSize: 12)),
+                onPressed: () {
+                  _urlCtrl.text = 'http://192.168.1.14:3000/api';
                   _verificarConexion();
                 },
               ),

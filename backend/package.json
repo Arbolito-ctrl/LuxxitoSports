@@ -8,6 +8,7 @@
     "start": "tsx src/server.ts",
     "build": "tsc",
     "db:init": "tsx src/scripts/initDb.ts",
+    "apk:build": "tsx src/scripts/buildApk.ts",
     "test": "vitest run"
   },
   "dependencies": {
