@@ -31,7 +31,7 @@ Para cerrar al 100% la **demostración en vivo del Taller 3** y completar las ca
 |---|---|---|---|
 | **Elvis** | **Líder Móvil, CI/CD de APK y Despliegue** | App Flutter (`mobile/`), experiencia de usuario, actualización OTA/APK, conexión con API en la nube y promoción `develop -> main`. | `elvis/<tema>` |
 | **Juan** | **Líder Backend, Base de Datos Supabase y Contratos** | API REST (`backend/`), reglas de negocio avanzadas, autenticación JWT, verificación de QR, migraciones SQL y contratos (`contracts/`). | `juan/<tema>` |
-| **Steven** | **Líder de Integración, Comprobantes, QA y Documentación/Demo** | Flujo de pagos/comprobantes, bandeja de revisión administrativa, colección Postman, pruebas de concurrencia/dispositivos físicos y evidencia del Taller 3 (`docs/`). | `steven/<tema>` |
+| **Steven** | **Líder de FrontEnd (UI Móvil / Panel Web), Pagos/Comprobantes, QA y Demo** | Diseño e interfaz FrontEnd (componentes visuales, estados de carga/vacío/error, panel administrativo web `frontend/`), flujo de comprobantes, colección Postman, pruebas y evidencia del Taller 3 (`docs/`). | `steven/<tema>` |
 
 ---
 
@@ -102,7 +102,16 @@ Para cerrar al 100% la **demostración en vivo del Taller 3** y completar las ca
 
 ---
 
-### Bloque de Steven (Pagos/Comprobantes · Bandeja Admin · QA y Demostración Taller 3)
+### Bloque de Steven (FrontEnd UI / Panel Web · Pagos/Comprobantes · QA y Demostración Taller 3)
+
+#### `LX-300` — Desarrollo y Pulido de FrontEnd (Componentes UI, Estados de Pantalla y Panel Administrativo)
+- **Responsable:** Steven
+- **Rama sugerida:** `steven/frontend-ui-admin`
+- **Problema:** Asegurar que tanto las vistas móviles como el panel administrativo FrontEnd mantengan la línea gráfica de Luxxito Sports (azul oscuro `#0F172A` y verde `#10B981`, tarjetas de complejos con imágenes, estados de carga/vacío/error/reintento y accesibilidad).
+- **Qué hacer:**
+  1. Refinar los componentes de interfaz FrontEnd (tarjetas de canchas con badges de superficie/iluminación, previsualización de comprobantes, modales de confirmación y vista de agenda administrativa).
+  2. Garantizar que cada pantalla maneje explícitamente los 4 estados visuales: cargando (`skeleton/spinner`), lista vacía, error de red con botón de reintento y confirmación exitosa.
+- **Criterio de aceptación:** Interfaz consistente y responsiva conectada en tiempo real a los endpoints de la API REST sin usar datos simulados (`mocks`).
 
 #### `LX-301` — Captura/Subida de Imagen de Comprobante y Bandeja Administrativa de Revisión
 - **Responsable:** Steven
@@ -172,3 +181,4 @@ git push -u origin juan/verificacion-qr
 | **Fase 1 (Inmediata - Cierre Demo Taller 3)** | `LX-101`, `LX-202`, `LX-303` | Elvis, Juan, Steven | API en la nube + APK conectado + Capturas de persistencia en Supabase. |
 | **Fase 2 (Seguridad y Expiración)** | `LX-103`, `LX-201`, `LX-203` | Elvis, Juan | Login/Registro con JWT + Temporizador real de 20 min + Limpieza de vencidos. |
 | **Fase 3 (Operación Completa y QA)** | `LX-102`, `LX-301`, `LX-302` | Elvis, Steven | Bandeja de aprobación/rechazo de comprobantes + 12 pruebas automatizadas. |
+
