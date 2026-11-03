@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Luxxito Sports REST API
-  version: 1.2.0
+  version: 1.3.0
   description: >
     Contrato OpenAPI de la API REST propia de Luxxito Sports (SI806 - Taller 3 UNI).
     El servidor es la autoridad sobre disponibilidad, precios, stock de extras por intervalo,
@@ -38,6 +38,16 @@ paths:
           description: Datos de entrada inválidos
         '409':
           description: Correo o DNI duplicado
+  /auth/me:
+    get:
+      summary: Obtener perfil del usuario autenticado a partir del token JWT (LX-201)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Perfil del usuario autenticado
+        '401':
+          description: Token JWT ausente o inválido
   /health:
     get:
       summary: Diagnóstico de la API y modo de base de datos (Supabase / Local)
@@ -124,6 +134,29 @@ paths:
       responses:
         '200':
           description: Grilla de turnos y stock de extras disponibles
+  /reservas/verificar-qr:
+    post:
+      summary: Verificar e invalidar uso único de Ticket QR en puerta (LX-202)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [codigo_qr]
+              properties:
+                codigo_qr:
+                  type: string
+                  example: LUXXITO-QR-1-8F3A19C0D2
+      responses:
+        '200':
+          description: Ticket QR verificado e ingreso registrado (INGRESO_REGISTRADO)
+        '400':
+          description: Formato de código QR inválido
+        '404':
+          description: Código QR inexistente
+        '409':
+          description: Ticket QR ya utilizado previamente o revocado por cancelación
   /reservas/cotizar:
     post:
       summary: Cotizar reserva y extras en el servidor

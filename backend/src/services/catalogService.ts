@@ -180,6 +180,7 @@ export class CatalogService {
       throw Errors.badRequest('El parámetro fecha debe tener formato YYYY-MM-DD.');
     }
 
+    await dataRepository.expireOverdueReservas();
     const reservasDelDia = await dataRepository.getReservasByCanchaAndDate(canchaId, fecha);
     const now = new Date();
     const hoyLima = new Date(now.getTime() - 5 * 60 * 60 * 1000)
