@@ -1,5 +1,12 @@
 # Historial de Cambios de Contratos — Luxxito Sports API
 
+## [1.2.0] - 2026-11-03 (LX-201 & Infra #5)
+
+### Añadido
+- Esquema de seguridad `components.securitySchemes.bearerAuth` (`HTTP Bearer JWT` firmado con `JWT_SECRET`).
+- Respuestas `401 Unauthorized` y `403 Forbidden` en `GET /pagos`, `PATCH /pagos/{id}/aprobar` y `PATCH /pagos/{id}/rechazar` (restringidos exclusivamente a `rol: 'ADMIN'`).
+- Documentación de endpoints `POST /auth/login` y `POST /auth/registro`.
+
 ## [1.1.0] - 2026-11-03 (LX-301)
 
 ### Añadido
@@ -14,4 +21,3 @@
 ### Añadido
 - Contrato inicial OpenAPI 3.0.3 (`contracts/openapi.yaml`) para los recursos `/complejos`, `/canchas`, `/canchas/:id/disponibilidad`, `/reservas/cotizar`, `/reservas`, `/reservas/:id/pagos`, `/pagos/:id/aprobar` y `/reservas/:id/cancelar`.
 - Ejemplos verificables de solicitudes válidas (`201 Created`) y rechazos por reglas de negocio (`409 Conflict`).
-

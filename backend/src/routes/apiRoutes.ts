@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authController } from '../controllers/authController';
 import { catalogController } from '../controllers/catalogController';
 import { reservationController } from '../controllers/reservationController';
+import { requireAuth, requireRole } from '../middlewares/authMiddleware';
 
 const router = Router();
 
@@ -65,17 +66,17 @@ router.post('/reservas/:id/cancelar', (req, res, next) =>
   reservationController.cancelarReserva(req, res, next)
 );
 
-// 5. Pagos manuales (Yape / Plin / Transferencia), bandeja de revisión y aprobación/rechazo idempotentes
+// 5. Pagos manuales (Yape / Plin / Transferencia), bandeja de revisión y aprobación/rechazo idempotentes (restringidos a ADMIN - LX-201)
 router.post('/reservas/:id/pagos', (req, res, next) =>
   reservationController.registrarPago(req, res, next)
 );
-router.get('/pagos', (req, res, next) =>
+router.get('/pagos', requireAuth, requireRole('ADMIN'), (req, res, next) =>
   reservationController.listarPagos(req, res, next)
 );
-router.patch('/pagos/:id/aprobar', (req, res, next) =>
+router.patch('/pagos/:id/aprobar', requireAuth, requireRole('ADMIN'), (req, res, next) =>
   reservationController.aprobarPago(req, res, next)
 );
-router.patch('/pagos/:id/rechazar', (req, res, next) =>
+router.patch('/pagos/:id/rechazar', requireAuth, requireRole('ADMIN'), (req, res, next) =>
   reservationController.rechazarPago(req, res, next)
 );
 

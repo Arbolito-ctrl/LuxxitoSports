@@ -62,12 +62,15 @@ jobs:
           flutter analyze
           flutter test
 
-      - name: Compilar APK de Android
+      - name: Compilar APK de Android con configuración de entorno
         working-directory: ./mobile
         run: |
           flutter build apk --release \
             --build-name=1.0.${{ github.run_number }} \
-            --build-number=${{ github.run_number }}
+            --build-number=${{ github.run_number }} \
+            --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }} \
+            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
           cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/luxxito-sports.apk
           cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/luxxito-sports-${{ steps.env_info.outputs.ENV_NAME }}.apk
 

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import app from '../app';
+import { signJwtToken } from '../middlewares/authMiddleware';
 import { dataRepository } from '../repositories/dataRepository';
 
 // Generar una fecha futura (dentro de 5 días) para pruebas de reservas válidas
@@ -14,6 +15,20 @@ const titular = (dni: string) => ({
   cliente_dni: dni,
   cliente_telefono: '987000111',
   cliente_email: `jugador${dni}@uni.pe`,
+});
+
+const adminToken = signJwtToken({
+  id: 2,
+  email: 'admin@luxxitosports.pe',
+  dni: '70001111',
+  rol: 'ADMIN',
+});
+
+const jugadorToken = signJwtToken({
+  id: 1,
+  email: 'elvis.arboleda@uni.pe',
+  dni: '74125896',
+  rol: 'JUGADOR',
 });
 
 describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => {
@@ -189,15 +204,19 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
 
     const pagoId = pagoRes.body.data.pago.id;
 
-    // Primera aprobación
-    const approve1 = await request(app).patch(`/api/pagos/${pagoId}/aprobar`);
+    // Primera aprobación (con rol ADMIN)
+    const approve1 = await request(app)
+      .patch(`/api/pagos/${pagoId}/aprobar`)
+      .set('Authorization', `Bearer ${adminToken}`);
     expect(approve1.status).toBe(200);
     expect(approve1.body.data.reserva.estado).toBe('CONFIRMADA');
     expect(approve1.body.data.reserva.monto_pagado).toBe(total);
     expect(approve1.body.data.reserva.codigo_qr).toContain('LUXXITO-QR-');
 
     // Segunda aprobación repetida (prueba de idempotencia)
-    const approve2 = await request(app).patch(`/api/pagos/${pagoId}/aprobar`);
+    const approve2 = await request(app)
+      .patch(`/api/pagos/${pagoId}/aprobar`)
+      .set('Authorization', `Bearer ${adminToken}`);
     expect(approve2.status).toBe(200);
     expect(approve2.body.data.idempotent).toBe(true);
     expect(approve2.body.data.reserva.monto_pagado).toBe(total);
@@ -237,6 +256,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     expect(cancelRes.body.data.reserva.estado).toBe('CANCELADA');
     expect(cancelRes.body.data.reserva.codigo_qr).toBeNull();
   });
+
   it('Caso 9 (Éxito - Bandeja de revisión): Lista pagos PENDIENTE_REVISION con resumen de la reserva', async () => {
     const createRes = await request(app).post('/api/reservas').send({
       cancha_id: 1,
@@ -256,7 +276,9 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
       numero_operacion: 'YAPE-554433',
     });
 
-    const res = await request(app).get('/api/pagos?estado=PENDIENTE_REVISION');
+    const res = await request(app)
+      .get('/api/pagos?estado=PENDIENTE_REVISION')
+      .set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.count).toBe(res.body.data.length);
@@ -265,7 +287,9 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     expect(pago.reserva.cliente_nombre).toBe('Rosa Quispe');
     expect(pago.reserva.estado).toBe('EN_REVISION');
 
-    const invalido = await request(app).get('/api/pagos?estado=INEXISTENTE');
+    const invalido = await request(app)
+      .get('/api/pagos?estado=INEXISTENTE')
+      .set('Authorization', `Bearer ${adminToken}`);
     expect(invalido.status).toBe(400);
     expect(invalido.body.ok).toBe(false);
   });
@@ -293,6 +317,7 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
 
     const rechazo = await request(app)
       .patch(`/api/pagos/${pagoId}/rechazar`)
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ observacion: 'Número de operación no coincide con el voucher' });
     expect(rechazo.status).toBe(200);
     expect(rechazo.body.data.idempotent).toBe(false);
@@ -303,12 +328,15 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
 
     const rechazo2 = await request(app)
       .patch(`/api/pagos/${pagoId}/rechazar`)
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ observacion: 'Segundo intento de rechazo' });
     expect(rechazo2.status).toBe(200);
     expect(rechazo2.body.data.idempotent).toBe(true);
 
     // Un pago rechazado no puede aprobarse después
-    const aprobarRechazado = await request(app).patch(`/api/pagos/${pagoId}/aprobar`);
+    const aprobarRechazado = await request(app)
+      .patch(`/api/pagos/${pagoId}/aprobar`)
+      .set('Authorization', `Bearer ${adminToken}`);
     expect(aprobarRechazado.status).toBe(409);
 
     // El jugador reenvía un comprobante válido
@@ -342,21 +370,29 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     });
     const pagoId = pagoRes.body.data.pago.id;
 
-    const sinMotivo = await request(app).patch(`/api/pagos/${pagoId}/rechazar`).send({});
+    const sinMotivo = await request(app)
+      .patch(`/api/pagos/${pagoId}/rechazar`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({});
     expect(sinMotivo.status).toBe(400);
 
     const inexistente = await request(app)
       .patch('/api/pagos/999999/rechazar')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ observacion: 'Comprobante ilegible' });
     expect(inexistente.status).toBe(404);
 
-    await request(app).patch(`/api/pagos/${pagoId}/aprobar`);
+    await request(app)
+      .patch(`/api/pagos/${pagoId}/aprobar`)
+      .set('Authorization', `Bearer ${adminToken}`);
     const yaAprobado = await request(app)
       .patch(`/api/pagos/${pagoId}/rechazar`)
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ observacion: 'Comprobante ilegible' });
     expect(yaAprobado.status).toBe(409);
     expect(yaAprobado.body.ok).toBe(false);
   });
+
   it('Caso 12 (Fallo - Regla de Negocio 422): Rechaza reservas en fechas u horas que ya pasaron', async () => {
     const res = await request(app)
       .post('/api/reservas')
@@ -477,5 +513,45 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     });
     expect(duplicado.status).toBe(409);
     expect(duplicado.body.code).toBe('CONFLICT');
+  });
+
+  it('Caso 18 (Seguridad JWT y Autorización por Rol 401/403 - LX-201): Restringe bandeja y acciones de pagos al rol ADMIN', async () => {
+    // 1. Sin token -> 401 Unauthorized
+    const sinTokenGet = await request(app).get('/api/pagos');
+    expect(sinTokenGet.status).toBe(401);
+    expect(sinTokenGet.body.code).toBe('UNAUTHORIZED');
+
+    const sinTokenAprobar = await request(app).patch('/api/pagos/1/aprobar');
+    expect(sinTokenAprobar.status).toBe(401);
+
+    const sinTokenRechazar = await request(app)
+      .patch('/api/pagos/1/rechazar')
+      .send({ observacion: 'Motivo de prueba' });
+    expect(sinTokenRechazar.status).toBe(401);
+
+    // 2. Token inválido/manipulado -> 401 Unauthorized
+    const tokenInvalido = await request(app)
+      .get('/api/pagos')
+      .set('Authorization', 'Bearer token.manipulado.invalido');
+    expect(tokenInvalido.status).toBe(401);
+    expect(tokenInvalido.body.code).toBe('UNAUTHORIZED');
+
+    // 3. Token válido pero con rol JUGADOR -> 403 Forbidden
+    const jugadorGet = await request(app)
+      .get('/api/pagos')
+      .set('Authorization', `Bearer ${jugadorToken}`);
+    expect(jugadorGet.status).toBe(403);
+    expect(jugadorGet.body.code).toBe('FORBIDDEN');
+
+    const jugadorAprobar = await request(app)
+      .patch('/api/pagos/1/aprobar')
+      .set('Authorization', `Bearer ${jugadorToken}`);
+    expect(jugadorAprobar.status).toBe(403);
+
+    const jugadorRechazar = await request(app)
+      .patch('/api/pagos/1/rechazar')
+      .set('Authorization', `Bearer ${jugadorToken}`)
+      .send({ observacion: 'Intento sin permisos' });
+    expect(jugadorRechazar.status).toBe(403);
   });
 });

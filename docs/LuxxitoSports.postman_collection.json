@@ -799,6 +799,36 @@
       "description": "Comprobante del jugador y bandeja del operador (aprobar / rechazar).",
       "item": [
         {
+          "name": "[Borde] Bandeja sin token → 401",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/pagos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pagos"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 401 sin token', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Enviar comprobante Yape",
           "request": {
             "method": "POST",
@@ -1389,5 +1419,15 @@
         }
       ]
     }
-  ]
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  }
 }

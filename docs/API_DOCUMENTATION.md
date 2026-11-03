@@ -3,39 +3,56 @@
 **URL Base (Desarrollo Local):** `http://localhost:3000/api`  
 **URL Base (Emulador Android):** `http://10.0.2.2:3000/api`  
 **Formato de Intercambio:** `application/json; charset=utf-8`  
-**Persistencia:** PostgreSQL en Supabase (`complejos`, `canchas`, `extras`, `reservas`, `reserva_extras`, `pagos`).
+**Autenticación y Autorización:** JWT (`Authorization: Bearer <token>`) firmado con `JWT_SECRET` para endpoints de administración (`rol: 'ADMIN'`).  
+**Persistencia:** PostgreSQL en Supabase (`usuarios`, `complejos`, `canchas`, `extras`, `reservas`, `reserva_extras`, `pagos`) con Row Level Security (RLS) y bucket privado `comprobantes`.
 
 ---
 
-## 1. Resumen de Endpoints Propios (13 Endpoints)
+## 1. Resumen de Endpoints Propios
 
 | # | Método | Ruta | Operación / Regla de Negocio | Códigos HTTP |
 |---|---|---|---|---|
-| 1 | `GET` | `/api/health` | Estado de la API y modo de conexión a Supabase | `200` |
-| 2 | `GET` | `/api/complejos` | Listar complejos deportivos (filtro por `distrito`) | `200` |
-| 3 | `GET` | `/api/complejos/:id` | Detalle de complejo con sus canchas y extras | `200`, `400`, `404` |
-| 4 | `GET` | `/api/canchas` | Listar canchas con filtros (`complejo_id`, `distrito`, `deporte`, `estado`) | `200` |
-| 5 | `GET` | `/api/canchas/:id` | Obtener detalle de una cancha específica | `200`, `400`, `404` |
-| 6 | `POST` | `/api/canchas` | **CRUD (Create):** Registrar nueva cancha con validación de tarifas | `201`, `400`, `404` |
-| 7 | `PUT` | `/api/canchas/:id` | **CRUD (Update):** Actualizar tarifas, estado o características de cancha | `200`, `400`, `404` |
-| 8 | `GET` | `/api/canchas/:id/disponibilidad` | **Lógica de Negocio 1:** Grilla horaria por fecha, tarifas diurna/nocturna y stock de extras | `200`, `400`, `404` |
-| 9 | `POST` | `/api/reservas/cotizar` | **Lógica de Negocio 2:** Cotización en servidor (cancha + extras + seña 50%) y verificación de stock | `200`, `400`, `404`, `409`, `422` |
-| 10 | `GET` | `/api/reservas` | **CRUD (Read):** Listar reservas con extras y pagos (`estado`, `cliente_dni`, `fecha`) | `200` |
-| 11 | `GET` | `/api/reservas/:id` | Obtener detalle completo de una reserva por ID | `200`, `400`, `404` |
-| 12 | `POST` | `/api/reservas` | **CRUD (Create) + Lógica de Negocio 3:** Crear reserva con bloqueo de 20 min, exclusión mutua de horario y reserva de extras | `201`, `400`, `404`, `409`, `422` |
-| 13 | `PUT` | `/api/reservas/:id` | **CRUD (Update):** Actualizar datos de contacto o notas de una reserva activa | `200`, `400`, `404`, `409` |
-| 14 | `DELETE` | `/api/reservas/:id` | **CRUD (Delete):** Eliminar físicamente una reserva no confirmada | `200`, `400`, `404`, `409` |
-| 15 | `POST` | `/api/reservas/:id/pagos` | **Lógica de Negocio 4:** Registrar comprobante Yape/Plin/Transferencia y proteger reserva en revisión | `201`, `400`, `404`, `409`, `422` |
-| 16 | `PATCH` | `/api/pagos/:id/aprobar` | **Lógica de Negocio 5:** Aprobación idempotente de pago y emisión de Ticket QR (`LUXXITO-QR-...`) | `200`, `400`, `404`, `409` |
-| 17 | `GET` | `/api/pagos?estado=PENDIENTE_REVISION` | **Bandeja del operador:** Listar pagos (filtro opcional por `estado`) con el resumen de su reserva | `200`, `400` |
-| 18 | `PATCH` | `/api/pagos/:id/rechazar` | **Rechazo de comprobante:** `observacion` obligatoria; la reserva vuelve a `PENDIENTE_PAGO` con nuevo bloqueo de 20 min (idempotente) | `200`, `400`, `404`, `409` |
-| 19 | `POST` | `/api/reservas/:id/cancelar` | **Lógica de Negocio 6:** Cancelación con política de 24 horas (100% reembolso >= 24h; 50% retención < 24h) y revocación de QR | `200`, `400`, `404`, `409` |
+| 1 | `POST` | `/api/auth/login` | Autenticación de usuario (`JUGADOR` o `ADMIN`) y emisión de JWT | `200`, `400`, `401` |
+| 2 | `POST` | `/api/auth/registro` | Registro de cuenta nueva (`JUGADOR`) con validación de DNI/email y emisión de JWT | `201`, `400`, `409` |
+| 3 | `GET` | `/api/health` | Estado de la API y modo de conexión a Supabase | `200` |
+| 4 | `GET` | `/api/complejos` | Listar complejos deportivos (filtro por `distrito`) | `200` |
+| 5 | `GET` | `/api/complejos/:id` | Detalle de complejo con sus canchas y extras | `200`, `400`, `404` |
+| 6 | `GET` | `/api/canchas` | Listar canchas con filtros (`complejo_id`, `distrito`, `deporte`, `estado`) | `200` |
+| 7 | `GET` | `/api/canchas/:id` | Obtener detalle de una cancha específica | `200`, `400`, `404` |
+| 8 | `POST` | `/api/canchas` | **CRUD (Create):** Registrar nueva cancha con validación de tarifas | `201`, `400`, `404` |
+| 9 | `PUT` | `/api/canchas/:id` | **CRUD (Update):** Actualizar tarifas, estado o características de cancha | `200`, `400`, `404` |
+| 10 | `GET` | `/api/canchas/:id/disponibilidad` | **Lógica de Negocio 1:** Grilla horaria por fecha, tarifas diurna/nocturna y stock de extras | `200`, `400`, `404` |
+| 11 | `POST` | `/api/reservas/cotizar` | **Lógica de Negocio 2:** Cotización en servidor (cancha + extras + seña 50%) y verificación de stock | `200`, `400`, `404`, `409`, `422` |
+| 12 | `GET` | `/api/reservas` | **CRUD (Read):** Listar reservas con extras y pagos (`estado`, `cliente_dni`, `fecha`) | `200` |
+| 13 | `GET` | `/api/reservas/:id` | Obtener detalle completo de una reserva por ID | `200`, `400`, `404` |
+| 14 | `POST` | `/api/reservas` | **CRUD (Create) + Lógica de Negocio 3:** Crear reserva con bloqueo de 20 min, exclusión mutua de horario y reserva de extras | `201`, `400`, `404`, `409`, `422` |
+| 15 | `PUT` | `/api/reservas/:id` | **CRUD (Update):** Actualizar datos de contacto o notas de una reserva activa | `200`, `400`, `404`, `409` |
+| 16 | `DELETE` | `/api/reservas/:id` | **CRUD (Delete):** Eliminar físicamente una reserva no confirmada | `200`, `400`, `404`, `409` |
+| 17 | `POST` | `/api/reservas/:id/pagos` | **Lógica de Negocio 4:** Registrar comprobante Yape/Plin/Transferencia y proteger reserva en revisión | `201`, `400`, `404`, `409`, `422` |
+| 18 | `PATCH` | `/api/pagos/:id/aprobar` | **Lógica de Negocio 5 (Rol `ADMIN`):** Aprobación idempotente de pago y emisión de Ticket QR (`LUXXITO-QR-...`) | `200`, `400`, `401`, `403`, `404`, `409` |
+| 19 | `GET` | `/api/pagos?estado=PENDIENTE_REVISION` | **Bandeja del operador (Rol `ADMIN`):** Listar pagos con el resumen de su reserva | `200`, `400`, `401`, `403` |
+| 20 | `PATCH` | `/api/pagos/:id/rechazar` | **Rechazo de comprobante (Rol `ADMIN`):** `observacion` obligatoria; la reserva vuelve a `PENDIENTE_PAGO` con nuevo bloqueo de 20 min (idempotente) | `200`, `400`, `401`, `403`, `404`, `409` |
+| 21 | `POST` | `/api/reservas/:id/cancelar` | **Lógica de Negocio 6:** Cancelación con política de 24 horas (100% reembolso >= 24h; 50% retención < 24h) y revocación de QR | `200`, `400`, `404`, `409` |
 
 ---
 
-## 2. Detalle de Endpoints y Ejemplos JSON
+## 2. Seguridad JWT y Control de Roles (`LX-201`)
 
-### 2.1. `GET /api/canchas/:id/disponibilidad?fecha=2026-11-10&hora=18`
+Los endpoints del **Modo Operador** (`GET /api/pagos`, `PATCH /api/pagos/:id/aprobar` y `PATCH /api/pagos/:id/rechazar`) requieren el encabezado:
+
+```http
+Authorization: Bearer <token_jwt>
+```
+
+- **Sin token o con firma JWT inválida:** responde `401 Unauthorized` (`code: "UNAUTHORIZED"`).
+- **Con token válido de rol `JUGADOR`:** responde `403 Forbidden` (`code: "FORBIDDEN"`).
+- **Con token válido de rol `ADMIN`:** permite listar, aprobar y rechazar comprobantes.
+
+---
+
+## 3. Detalle de Endpoints y Ejemplos JSON
+
+### 3.1. `GET /api/canchas/:id/disponibilidad?fecha=2026-11-10&hora=18`
 Calcula para cada turno de 1 hora si está `DISPONIBLE`, `BLOQUEADA`, `OCUPADA`, `MANTENIMIENTO` o `PASADA`, asigna tarifa `DIURNA` (< 18:00) o `NOCTURNA` (>= 18:00) y calcula el stock restante de cada extra en el intervalo.
 
 **Respuesta `200 OK`:**
@@ -91,7 +108,7 @@ Calcula para cada turno de 1 hora si está `DISPONIBLE`, `BLOQUEADA`, `OCUPADA`,
 
 ---
 
-### 2.2. `POST /api/reservas`
+### 3.2. `POST /api/reservas`
 Crea una reserva verificando horario de atención, no solapamiento con otra reserva activa, stock de extras en el intervalo y cotizando en el servidor.
 
 **Cuerpo de Solicitud (`Request Body`):**
@@ -140,18 +157,9 @@ Crea una reserva verificando horario de atención, no solapamiento con otra rese
 }
 ```
 
-**Respuesta de Error por Cruce de Horario (`409 Conflict`):**
-```json
-{
-  "ok": false,
-  "code": "CONFLICT",
-  "message": "El turno de 19:00 a 21:00 ya se encuentra ocupado o bloqueado (Reserva #1 en estado PENDIENTE_PAGO)."
-}
-```
-
 ---
 
-### 2.3. `POST /api/reservas/:id/pagos` y `PATCH /api/pagos/:id/aprobar`
+### 3.3. `POST /api/reservas/:id/pagos` y `PATCH /api/pagos/:id/aprobar`
 Registra el comprobante de pago (`YAPE`, `PLIN` o `TRANSFERENCIA`) bajo modalidad `SENA_50` (50%) o `TOTAL` (100%).
 
 **Cuerpo de Solicitud (`POST /api/reservas/1/pagos`):**
@@ -165,65 +173,10 @@ Registra el comprobante de pago (`YAPE`, `PLIN` o `TRANSFERENCIA`) bajo modalida
 }
 ```
 
-**Respuesta `201 Created`:**
-```json
-{
-  "ok": true,
-  "message": "Comprobante registrado y aprobado. Ticket QR generado.",
-  "data": {
-    "pago": {
-      "id": 1,
-      "reserva_id": 1,
-      "metodo": "YAPE",
-      "modalidad": "TOTAL",
-      "monto": 280,
-      "numero_operacion": "YAPE-9948102",
-      "estado": "APROBADO"
-    },
-    "reserva": {
-      "id": 1,
-      "estado": "CONFIRMADA",
-      "monto_pagado": 280,
-      "codigo_qr": "LUXXITO-QR-1-8F3A19C0D2"
-    },
-    "idempotent": false
-  }
-}
-```
-
 ---
 
-### 2.4. `GET /api/pagos?estado=PENDIENTE_REVISION` y `PATCH /api/pagos/:id/rechazar`
-Bandeja de revisión del operador. Cada pago incluye un resumen de su reserva (cancha, jugador, fecha y horario) para revisarlo sin consultas adicionales. Un `estado` fuera de `PENDIENTE_REVISION`, `APROBADO`, `RECHAZADO` o `REEMBOLSADO` responde `400`.
-
-**Respuesta `200 OK` (`GET /api/pagos?estado=PENDIENTE_REVISION`):**
-```json
-{
-  "ok": true,
-  "count": 1,
-  "data": [
-    {
-      "id": 3,
-      "reserva_id": 2,
-      "metodo": "PLIN",
-      "modalidad": "TOTAL",
-      "monto": 95,
-      "numero_operacion": "PLIN-000111",
-      "estado": "PENDIENTE_REVISION",
-      "reserva": {
-        "id": 2,
-        "estado": "EN_REVISION",
-        "cancha_nombre": "Cancha 2",
-        "cliente_nombre": "Pedro Huamán",
-        "fecha": "2026-11-10",
-        "hora_inicio": 18,
-        "hora_fin": 19,
-        "total": 95
-      }
-    }
-  ]
-}
-```
+### 3.4. `GET /api/pagos?estado=PENDIENTE_REVISION` y `PATCH /api/pagos/:id/rechazar` (Rol `ADMIN`)
+Bandeja de revisión del operador. Requiere `Authorization: Bearer <token_admin>`. Cada pago incluye un resumen de su reserva (cancha, jugador, fecha y horario) para revisarlo sin consultas adicionales. Un `estado` fuera de `PENDIENTE_REVISION`, `APROBADO`, `RECHAZADO` o `REEMBOLSADO` responde `400`.
 
 **Cuerpo de Solicitud (`PATCH /api/pagos/3/rechazar`):**
 ```json
@@ -231,6 +184,7 @@ Bandeja de revisión del operador. Cada pago incluye un resumen de su reserva (c
 ```
 
 **Reglas:**
+- Requiere token JWT válido con `rol: 'ADMIN'` (`401` sin token, `403` si es `JUGADOR`).
 - `observacion` es obligatoria (mínimo 5 caracteres) → `400` si falta.
 - Solo se rechazan pagos `PENDIENTE_REVISION`; un pago `APROBADO` o `REEMBOLSADO` responde `409`.
 - Repetir el rechazo devuelve `200` con `idempotent: true` sin modificar nada.
@@ -239,33 +193,5 @@ Bandeja de revisión del operador. Cada pago incluye un resumen de su reserva (c
 
 ---
 
-### 2.5. `POST /api/reservas/:id/cancelar`
+### 3.5. `POST /api/reservas/:id/cancelar`
 Cancela una reserva aplicando la regla de las 24 horas y revocando el QR.
-
-**Cuerpo de Solicitud:**
-```json
-{
-  "motivo": "Reprogramación de fecha por lluvia"
-}
-```
-
-**Respuesta `200 OK`:**
-```json
-{
-  "ok": true,
-  "message": "Reserva cancelada aplicando la política de reembolso de 24 horas.",
-  "data": {
-    "politica_aplicada": "REEMBOLSO_100_MAYOR_24H",
-    "horas_anticipacion": 142.5,
-    "monto_pagado": 280,
-    "penalidad": 0,
-    "monto_devolucion": 280,
-    "reserva": {
-      "id": 1,
-      "estado": "CANCELADA",
-      "monto_devolucion": 280,
-      "codigo_qr": null
-    }
-  }
-}
-```

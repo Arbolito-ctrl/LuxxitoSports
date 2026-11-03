@@ -96,53 +96,80 @@ class ApiService {
     );
   }
 
-  static Future<dynamic> _supaPost(String table, Object body) async {
+  /// Invoca una función RPC SECURITY DEFINER en el servidor PostgreSQL de Supabase.
+  /// Garantiza que toda regla de negocio y validación de rol ADMIN se ejecute en el servidor.
+  static Future<dynamic> _supaRpc(
+    String fnName,
+    Map<String, dynamic> params,
+  ) async {
     final res = await http
         .post(
-          Uri.parse('$_supaUrl/rest/v1/$table'),
+          Uri.parse('$_supaUrl/rest/v1/rpc/$fnName'),
           headers: _supaHeaders,
-          body: jsonEncode(body),
+          body: jsonEncode(params),
         )
         .timeout(_timeout);
     if (res.statusCode >= 200 && res.statusCode < 300) {
+      if (res.bodyBytes.isEmpty) return null;
       return jsonDecode(utf8.decode(res.bodyBytes));
     }
-    throw ApiException(
-      statusCode: res.statusCode,
-      code: 'SUPABASE_WRITE_ERROR',
-      message: 'Error al guardar en Supabase (${res.statusCode}): ${res.body}',
-    );
-  }
 
-  static Future<dynamic> _supaPatch(String query, Object body) async {
-    final res = await http
-        .patch(
-          Uri.parse('$_supaUrl/rest/v1/$query'),
-          headers: _supaHeaders,
-          body: jsonEncode(body),
-        )
-        .timeout(_timeout);
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      return jsonDecode(utf8.decode(res.bodyBytes));
-    }
-    throw ApiException(
-      statusCode: res.statusCode,
-      code: 'SUPABASE_UPDATE_ERROR',
-      message: 'Error al actualizar en Supabase (${res.statusCode}).',
-    );
-  }
+    String rawMsg = 'Error en operación del servidor (${res.statusCode}).';
+    try {
+      final errBody = jsonDecode(utf8.decode(res.bodyBytes));
+      if (errBody is Map && errBody['message'] != null) {
+        rawMsg = errBody['message'].toString();
+      }
+    } catch (_) {}
 
-  static Future<void> _supaDelete(String query) async {
-    final res = await http
-        .delete(Uri.parse('$_supaUrl/rest/v1/$query'), headers: _supaHeaders)
-        .timeout(_timeout);
-    if (res.statusCode < 200 || res.statusCode >= 300) {
+    if (rawMsg.contains('INVALID_CREDENTIALS:')) {
       throw ApiException(
-        statusCode: res.statusCode,
-        code: 'SUPABASE_DELETE_ERROR',
-        message: 'Error al eliminar en Supabase (${res.statusCode}).',
+        statusCode: 401,
+        code: 'INVALID_CREDENTIALS',
+        message: rawMsg.split('INVALID_CREDENTIALS:').last.trim(),
       );
     }
+    if (rawMsg.contains('FORBIDDEN:')) {
+      throw ApiException(
+        statusCode: 403,
+        code: 'FORBIDDEN',
+        message: rawMsg.split('FORBIDDEN:').last.trim(),
+      );
+    }
+    if (rawMsg.contains('NOT_FOUND:')) {
+      throw ApiException(
+        statusCode: 404,
+        code: 'NOT_FOUND',
+        message: rawMsg.split('NOT_FOUND:').last.trim(),
+      );
+    }
+    if (rawMsg.contains('CONFLICT:')) {
+      throw ApiException(
+        statusCode: 409,
+        code: 'CONFLICT',
+        message: rawMsg.split('CONFLICT:').last.trim(),
+      );
+    }
+    if (rawMsg.contains('BUSINESS_RULE_VIOLATION:')) {
+      throw ApiException(
+        statusCode: 422,
+        code: 'BUSINESS_RULE_VIOLATION',
+        message: rawMsg.split('BUSINESS_RULE_VIOLATION:').last.trim(),
+      );
+    }
+    if (rawMsg.contains('BAD_REQUEST:')) {
+      throw ApiException(
+        statusCode: 400,
+        code: 'BAD_REQUEST',
+        message: rawMsg.split('BAD_REQUEST:').last.trim(),
+      );
+    }
+
+    throw ApiException(
+      statusCode: res.statusCode,
+      code: 'RPC_ERROR',
+      message: rawMsg,
+    );
   }
 
   static Map<String, dynamic> _decodeResponse(http.Response response) {
@@ -168,13 +195,30 @@ class ApiService {
     );
   }
 
+  static void _requireAdminSession() {
+    if (_currentSession == null || _currentSession!.token.isEmpty) {
+      throw ApiException(
+        statusCode: 401,
+        code: 'UNAUTHORIZED',
+        message: 'Debes iniciar sesión para realizar esta operación.',
+      );
+    }
+    if (!esAdmin) {
+      throw ApiException(
+        statusCode: 403,
+        code: 'FORBIDDEN',
+        message: 'Acceso restringido: esta operación requiere rol ADMIN.',
+      );
+    }
+  }
+
   // 1. GET /api/health
   static Future<Map<String, dynamic>> checkHealth() async {
     if (_useSupabaseDirect) {
       await _supaGet('complejos?select=id&limit=1');
       return {
         'ok': true,
-        'service': 'Luxxito Sports Cloud API + Supabase PostgreSQL (4G/Wi-Fi)',
+        'service': 'Luxxito Sports Cloud API + Supabase PostgreSQL (RLS + RPC)',
         'db_mode': 'SUPABASE_POSTGRES_CLOUD',
         'timestamp': DateTime.now().toIso8601String(),
       };
@@ -200,17 +244,17 @@ class ApiService {
   // 1b. GET /api/version
   static Future<Map<String, dynamic>> checkAppUpdate() async {
     return {
-      'version': '1.0.2',
-      'build_number': 3,
+      'version': '1.0.3',
+      'build_number': 4,
       'release_notes':
-          'Incluye Login inicial obligatorio, conexión directa en la nube (4.5G/Wi-Fi) con Supabase PostgreSQL y temporizador de 20 min.',
+          'Incluye control de acceso JWT por rol ADMIN (LX-201), Row Level Security (RLS), bucket privado comprobantes y RPCs en servidor.',
       'github_release_apk_url':
-          'https://github.com/Arbolito-ctrl/LuxxitoSports/releases/latest/download/luxxito-sports.apk',
+          'https://github.com/Arbolito-ctrl/LuxxitoSports/raw/main/release/luxxito-sports.apk',
       'server_apk_url': 'http://192.168.1.14:3000/api/apk/download',
     };
   }
 
-  // 1c. Login y Registro
+  // 1c. Login y Registro (validados en servidor / RPC sin exponer password_hash)
   static Future<UserSession> login({
     required String email,
     required String password,
@@ -248,20 +292,13 @@ class ApiService {
     }
 
     if (_useSupabaseDirect) {
-      final rows = await _supaGet(
-        'usuarios?select=*&email=ilike.${Uri.encodeComponent(cleanEmail)}&limit=1',
-      ) as List<dynamic>;
-      if (rows.isEmpty || rows.first['password_hash']?.toString() != cleanPass) {
-        throw ApiException(
-          statusCode: 401,
-          code: 'INVALID_CREDENTIALS',
-          message: 'Correo o contraseña incorrectos.',
-        );
-      }
-      final u = rows.first as Map<String, dynamic>;
+      final u = await _supaRpc('rpc_login_usuario', {
+        'p_email': cleanEmail,
+        'p_password': cleanPass,
+      }) as Map<String, dynamic>;
       final session = UserSession.fromJson(
         u,
-        tokenOverride: 'jwt-supa-${u['id']}-${DateTime.now().millisecondsSinceEpoch}',
+        tokenOverride: 'jwt-supa-${u['id']}-${u['rol']}-${DateTime.now().millisecondsSinceEpoch}',
       );
       _currentSession = session;
       return session;
@@ -326,28 +363,16 @@ class ApiService {
     }
 
     if (_useSupabaseDirect) {
-      final existing = await _supaGet(
-        'usuarios?select=id&or=(email.ilike.${Uri.encodeComponent(cleanEmail)},dni.eq.${dni.trim()})',
-      ) as List<dynamic>;
-      if (existing.isNotEmpty) {
-        throw ApiException(
-          statusCode: 409,
-          code: 'CONFLICT',
-          message: 'Ya existe un usuario registrado con ese correo o DNI.',
-        );
-      }
-      final created = await _supaPost('usuarios', {
-        'nombre': nombre.trim(),
-        'dni': dni.trim(),
-        'telefono': telefono.trim(),
-        'email': cleanEmail,
-        'password_hash': password.trim(),
-        'rol': 'JUGADOR',
-      }) as List<dynamic>;
-      final u = created.first as Map<String, dynamic>;
+      final u = await _supaRpc('rpc_registrar_usuario', {
+        'p_nombre': nombre.trim(),
+        'p_dni': dni.trim(),
+        'p_telefono': telefono.trim(),
+        'p_email': cleanEmail,
+        'p_password': password.trim(),
+      }) as Map<String, dynamic>;
       final session = UserSession.fromJson(
         u,
-        tokenOverride: 'jwt-supa-${u['id']}-${DateTime.now().millisecondsSinceEpoch}',
+        tokenOverride: 'jwt-supa-${u['id']}-${u['rol']}-${DateTime.now().millisecondsSinceEpoch}',
       );
       _currentSession = session;
       return session;
@@ -504,19 +529,16 @@ class ApiService {
       }
     }
 
-    final created = await _supaPost('canchas', {
-      'complejo_id': complejoId,
-      'nombre': nombre.trim(),
-      'deporte': deporte,
-      'superficie': superficie.trim(),
-      'techada': techada,
-      'iluminacion': true,
-      'precio_hora_diurno': precioDiurno,
-      'precio_hora_nocturno': precioNocturno,
-      'estado': 'ACTIVA',
-    }) as List<dynamic>;
-    final m = Map<String, dynamic>.from(created.first as Map<String, dynamic>);
-    return Cancha.fromJson(m);
+    final created = await _supaRpc('rpc_crear_cancha', {
+      'p_complejo_id': complejoId,
+      'p_nombre': nombre.trim(),
+      'p_deporte': deporte,
+      'p_superficie': superficie.trim(),
+      'p_techada': techada,
+      'p_precio_diurno': precioDiurno,
+      'p_precio_nocturno': precioNocturno,
+    }) as Map<String, dynamic>;
+    return Cancha.fromJson(created);
   }
 
   // 5. GET /api/canchas/:id/disponibilidad
@@ -692,7 +714,7 @@ class ApiService {
     };
   }
 
-  // 7. POST /api/reservas
+  // 7. POST /api/reservas (ejecutado en servidor / RPC rpc_crear_reserva)
   static Future<Reserva> crearReserva({
     required int canchaId,
     required String clienteNombre,
@@ -745,71 +767,20 @@ class ApiService {
       }
     }
 
-    // Verificar solapamiento en Supabase
-    final existentes = await _supaGet(
-      'reservas?select=*&cancha_id=eq.$canchaId&fecha=eq.$fecha',
-    ) as List<dynamic>;
-    for (final raw in existentes) {
-      final r = raw as Map<String, dynamic>;
-      final est = r['estado']?.toString() ?? '';
-      final hi = (r['hora_inicio'] as num).toInt();
-      final hf = (r['hora_fin'] as num).toInt();
-      if (['PENDIENTE_PAGO', 'EN_REVISION', 'CONFIRMADA'].contains(est) &&
-          hi < horaFin &&
-          hf > horaInicio) {
-        throw ApiException(
-          statusCode: 409,
-          code: 'CONFLICT',
-          message:
-              'El turno de $horaInicio:00 a $horaFin:00 ya se encuentra reservado o bloqueado (Reserva #${r['id']}).',
-        );
-      }
-    }
+    final created = await _supaRpc('rpc_crear_reserva', {
+      'p_cancha_id': canchaId,
+      'p_cliente_nombre': clienteNombre.trim(),
+      'p_cliente_dni': clienteDni.trim(),
+      'p_cliente_telefono': clienteTelefono.trim(),
+      'p_cliente_email': clienteEmail.trim(),
+      'p_fecha': fecha,
+      'p_hora_inicio': horaInicio,
+      'p_hora_fin': horaFin,
+      'p_notas': notas,
+      'p_extras': extras,
+    }) as Map<String, dynamic>;
 
-    final quote = await cotizarReserva(
-      canchaId: canchaId,
-      fecha: fecha,
-      horaInicio: horaInicio,
-      horaFin: horaFin,
-      extras: extras,
-    );
-
-    final expiresAt =
-        DateTime.now().add(const Duration(minutes: 20)).toIso8601String();
-    final inserted = await _supaPost('reservas', {
-      'cancha_id': canchaId,
-      'cliente_nombre': clienteNombre.trim(),
-      'cliente_dni': clienteDni.trim(),
-      'cliente_telefono': clienteTelefono.trim(),
-      'cliente_email': clienteEmail.trim(),
-      'fecha': fecha,
-      'hora_inicio': horaInicio,
-      'hora_fin': horaFin,
-      'subtotal_cancha': quote['subtotal_cancha'],
-      'subtotal_extras': quote['subtotal_extras'],
-      'total': quote['total'],
-      'monto_pagado': 0,
-      'monto_devolucion': 0,
-      'estado': 'PENDIENTE_PAGO',
-      'notas': notas,
-      'expires_at': expiresAt,
-    }) as List<dynamic>;
-
-    final resMap = Map<String, dynamic>.from(inserted.first as Map<String, dynamic>);
-    final newId = (resMap['id'] as num).toInt();
-
-    final desgloseExtras = quote['desglose_extras'] as List<dynamic>? ?? [];
-    for (final item in desgloseExtras) {
-      final m = item as Map<String, dynamic>;
-      await _supaPost('reserva_extras', {
-        'reserva_id': newId,
-        'extra_id': m['extra_id'],
-        'cantidad': m['cantidad'],
-        'precio_unitario': m['precio_unitario'],
-        'subtotal': m['subtotal'],
-      });
-    }
-
+    final newId = (created['id'] as num).toInt();
     final all = await getReservas();
     return all.firstWhere((r) => r.id == newId);
   }
@@ -916,10 +887,10 @@ class ApiService {
       }
     }
 
-    await _supaPatch('reservas?id=eq.$reservaId', {
-      'cliente_telefono': clienteTelefono,
-      'notas': notas,
-      'updated_at': DateTime.now().toIso8601String(),
+    await _supaRpc('rpc_actualizar_reserva', {
+      'p_reserva_id': reservaId,
+      'p_cliente_telefono': clienteTelefono,
+      'p_notas': notas,
     });
     final list = await getReservas();
     return list.firstWhere((r) => r.id == reservaId);
@@ -945,7 +916,7 @@ class ApiService {
         }
       }
     }
-    await _supaDelete('reservas?id=eq.$reservaId');
+    await _supaRpc('rpc_eliminar_reserva', {'p_reserva_id': reservaId});
   }
 
   // 11. POST /api/reservas/:id/pagos
@@ -992,29 +963,20 @@ class ApiService {
       }
     }
 
-    await _supaPost('pagos', {
-      'reserva_id': reservaId,
-      'metodo': metodo,
-      'modalidad': modalidad,
-      'monto': monto,
-      'numero_operacion': numeroOperacion.trim(),
-      'estado': autoAprobar ? 'APROBADO' : 'PENDIENTE_REVISION',
-    });
-
-    final qr =
-        'LUXXITO-QR-$reservaId-${numeroOperacion.trim().toUpperCase()}';
-    await _supaPatch('reservas?id=eq.$reservaId', {
-      'estado': autoAprobar ? 'CONFIRMADA' : 'EN_REVISION',
-      if (autoAprobar) 'monto_pagado': monto,
-      'codigo_qr': autoAprobar ? qr : null,
-      'updated_at': DateTime.now().toIso8601String(),
+    await _supaRpc('rpc_registrar_pago', {
+      'p_reserva_id': reservaId,
+      'p_metodo': metodo,
+      'p_modalidad': modalidad,
+      'p_monto': monto,
+      'p_numero_operacion': numeroOperacion.trim(),
+      'p_auto_aprobar': autoAprobar,
     });
 
     final list = await getReservas();
     return list.firstWhere((r) => r.id == reservaId);
   }
 
-  // 11b. GET /api/pagos?estado= (Bandeja de revisión del operador)
+  // 11b. GET /api/pagos?estado= (Bandeja de revisión del operador - requiere rol ADMIN)
   static Future<List<PagoEnRevision>> listarPagos({
     String estado = 'PENDIENTE_REVISION',
   }) async {
@@ -1038,6 +1000,8 @@ class ApiService {
         }
       }
     }
+
+    _requireAdminSession();
 
     final pagos = await _supaGet(
       'pagos?select=*&estado=eq.$estado&order=created_at.asc,id.asc',
@@ -1066,7 +1030,7 @@ class ApiService {
     }).toList();
   }
 
-  // 11c. PATCH /api/pagos/:id/aprobar (Aprobación idempotente + Ticket QR)
+  // 11c. PATCH /api/pagos/:id/aprobar (Aprobación idempotente + Ticket QR - requiere ADMIN)
   static Future<Reserva> aprobarPago(int pagoId) async {
     if (!_useSupabaseDirect) {
       try {
@@ -1088,31 +1052,18 @@ class ApiService {
       }
     }
 
-    final pago = await _pagoPendienteSupabase(pagoId, accion: 'aprobar');
-    final reservaId = (pago['reserva_id'] as num).toInt();
-    final r = (await getReservas()).firstWhere((item) => item.id == reservaId);
-    final montoPagado = (r.montoPagado + (pago['monto'] as num).toDouble())
-        .clamp(0, r.total)
-        .toDouble();
-    final numeroOperacion = pago['numero_operacion'].toString().toUpperCase();
-
-    await _supaPatch('pagos?id=eq.$pagoId', {
-      'estado': 'APROBADO',
-      'observacion': 'Comprobante verificado y conciliado.',
-      'reviewed_at': DateTime.now().toUtc().toIso8601String(),
-    });
-    await _supaPatch('reservas?id=eq.$reservaId', {
-      'estado': 'CONFIRMADA',
-      'monto_pagado': montoPagado,
-      'codigo_qr': r.codigoQr ?? 'LUXXITO-QR-$reservaId-$numeroOperacion',
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    });
+    _requireAdminSession();
+    final updated = await _supaRpc('rpc_aprobar_pago', {
+      'p_pago_id': pagoId,
+      'p_rol': _currentSession?.rol ?? '',
+    }) as Map<String, dynamic>;
+    final reservaId = (updated['id'] as num).toInt();
 
     final list = await getReservas();
     return list.firstWhere((item) => item.id == reservaId);
   }
 
-  // 11d. PATCH /api/pagos/:id/rechazar (Rechazo con observación obligatoria)
+  // 11d. PATCH /api/pagos/:id/rechazar (Rechazo con observación obligatoria - requiere ADMIN)
   static Future<Reserva> rechazarPago({
     required int pagoId,
     required String observacion,
@@ -1146,52 +1097,19 @@ class ApiService {
       }
     }
 
-    final pago = await _pagoPendienteSupabase(pagoId, accion: 'rechazar');
-    final reservaId = (pago['reserva_id'] as num).toInt();
-
-    await _supaPatch('pagos?id=eq.$pagoId', {
-      'estado': 'RECHAZADO',
-      'observacion': observacion.trim(),
-      'reviewed_at': DateTime.now().toUtc().toIso8601String(),
-    });
-    // La reserva vuelve a PENDIENTE_PAGO con un nuevo bloqueo de 20 min para reintentar
-    await _supaPatch('reservas?id=eq.$reservaId&estado=eq.EN_REVISION', {
-      'estado': 'PENDIENTE_PAGO',
-      'expires_at': DateTime.now()
-          .toUtc()
-          .add(const Duration(minutes: 20))
-          .toIso8601String(),
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    });
+    _requireAdminSession();
+    final updated = await _supaRpc('rpc_rechazar_pago', {
+      'p_pago_id': pagoId,
+      'p_observacion': observacion.trim(),
+      'p_rol': _currentSession?.rol ?? '',
+    }) as Map<String, dynamic>;
+    final reservaId = (updated['id'] as num).toInt();
 
     final list = await getReservas();
     return list.firstWhere((item) => item.id == reservaId);
   }
 
-  static Future<Map<String, dynamic>> _pagoPendienteSupabase(
-    int pagoId, {
-    required String accion,
-  }) async {
-    final rows = await _supaGet('pagos?select=*&id=eq.$pagoId') as List<dynamic>;
-    if (rows.isEmpty) {
-      throw ApiException(
-        statusCode: 404,
-        code: 'NOT_FOUND',
-        message: 'No se encontró el pago con ID $pagoId.',
-      );
-    }
-    final pago = rows.first as Map<String, dynamic>;
-    if (pago['estado'] != 'PENDIENTE_REVISION') {
-      throw ApiException(
-        statusCode: 409,
-        code: 'CONFLICT',
-        message: 'No se puede $accion un pago en estado ${pago['estado']}.',
-      );
-    }
-    return pago;
-  }
-
-  // 12. POST /api/reservas/:id/cancelar
+  // 12. POST /api/reservas/:id/cancelar (Regla de 24h ejecutada en servidor / RPC)
   static Future<Map<String, dynamic>> cancelarReserva({
     required int reservaId,
     required String motivo,
@@ -1216,40 +1134,10 @@ class ApiService {
       }
     }
 
-    final list = await getReservas();
-    final r = list.firstWhere((item) => item.id == reservaId);
-    final inicioTurno = DateTime.tryParse(
-          '${r.fecha}T${r.horaInicio.toString().padLeft(2, '0')}:00:00',
-        ) ??
-        DateTime.now().add(const Duration(hours: 48));
-    final horasRestantes =
-        inicioTurno.difference(DateTime.now()).inMinutes / 60.0;
-
-    double devolucion = 0;
-    String politica = 'SIN_PAGOS_PREVIOS';
-    if (r.montoPagado > 0) {
-      if (horasRestantes >= 24) {
-        devolucion = r.montoPagado;
-        politica = 'REEMBOLSO_100_MAYOR_24H';
-      } else {
-        devolucion = double.parse((r.montoPagado * 0.5).toStringAsFixed(2));
-        politica = 'RETENCION_50_MENOR_24H';
-      }
-    }
-
-    await _supaPatch('reservas?id=eq.$reservaId', {
-      'estado': 'CANCELADA',
-      'monto_devolucion': devolucion,
-      'codigo_qr': null,
-      'motivo_cancelacion': motivo.trim().isEmpty
-          ? 'Cancelada desde la app ($politica)'
-          : motivo.trim(),
-      'updated_at': DateTime.now().toIso8601String(),
-    });
-
-    return {
-      'politica_aplicada': politica,
-      'monto_devolucion': devolucion,
-    };
+    final result = await _supaRpc('rpc_cancelar_reserva', {
+      'p_reserva_id': reservaId,
+      'p_motivo': motivo.trim(),
+    }) as Map<String, dynamic>;
+    return result;
   }
 }

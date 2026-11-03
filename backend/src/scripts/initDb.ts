@@ -28,10 +28,21 @@ async function initDatabase() {
   );
 
   try {
-    console.log('[db:init] Creando tablas e índices en Supabase PostgreSQL...');
+    console.log('[db:init] Creando tablas, índices, RLS, bucket comprobantes y funciones RPC en Supabase PostgreSQL...');
     await pool.query(schemaSql);
     console.log('[db:init] Insertando datos semilla en Supabase PostgreSQL...');
     await pool.query(seedSql);
+
+    const rlsCheck = await pool.query(
+      "SELECT relname, relrowsecurity FROM pg_class WHERE relname IN ('usuarios','complejos','canchas','extras','reservas','reserva_extras','pagos') ORDER BY relname"
+    );
+    console.log('[db:init] Estado RLS en tablas:', rlsCheck.rows);
+
+    const bucketCheck = await pool.query(
+      "SELECT id, name, public FROM storage.buckets WHERE id = 'comprobantes'"
+    );
+    console.log('[db:init] Bucket Storage comprobantes:', bucketCheck.rows);
+
     console.log('[db:init] ¡Base de datos Supabase inicializada exitosamente!');
   } catch (error) {
     console.error('[db:init] Error al inicializar la base de datos:', error);

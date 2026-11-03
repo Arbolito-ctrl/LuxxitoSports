@@ -1,17 +1,43 @@
 openapi: 3.0.3
 info:
   title: Luxxito Sports REST API
-  version: 1.1.0
+  version: 1.2.0
   description: >
     Contrato OpenAPI de la API REST propia de Luxxito Sports (SI806 - Taller 3 UNI).
     El servidor es la autoridad sobre disponibilidad, precios, stock de extras por intervalo,
-    bloqueo de 20 minutos, aprobación idempotente de pagos manuales y política de cancelación de 24 horas.
+    bloqueo de 20 minutos, aprobación idempotente de pagos manuales (protegida con JWT y rol ADMIN)
+    y política de cancelación de 24 horas.
 servers:
   - url: http://localhost:3000/api
     description: Servidor de desarrollo local
   - url: http://10.0.2.2:3000/api
     description: Acceso desde Emulador Android
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT firmado con JWT_SECRET emitido por POST /api/auth/login o POST /api/auth/registro
 paths:
+  /auth/login:
+    post:
+      summary: Autenticación de usuario (Jugador o Administrador) y emisión de JWT
+      responses:
+        '200':
+          description: Inicio de sesión exitoso con token JWT y perfil del usuario
+        '401':
+          description: Credenciales inválidas
+  /auth/registro:
+    post:
+      summary: Registro de nuevo usuario (rol JUGADOR) y emisión de JWT
+      responses:
+        '201':
+          description: Cuenta creada exitosamente
+        '400':
+          description: Datos de entrada inválidos
+        '409':
+          description: Correo o DNI duplicado
   /health:
     get:
       summary: Diagnóstico de la API y modo de base de datos (Supabase / Local)
@@ -175,7 +201,9 @@ paths:
           description: Importe no coincide con la modalidad elegida (SENA_50 o TOTAL)
   /pagos:
     get:
-      summary: Bandeja de revisión del operador (pagos con resumen de su reserva)
+      summary: Bandeja de revisión del operador (requiere JWT con rol ADMIN)
+      security:
+        - bearerAuth: []
       parameters:
         - in: query
           name: estado
@@ -189,9 +217,15 @@ paths:
           description: Lista de pagos con `count` y el resumen `reserva` de cada uno
         '400':
           description: Estado de pago inválido
+        '401':
+          description: Token JWT ausente o inválido
+        '403':
+          description: Acceso denegado (se requiere rol ADMIN)
   /pagos/{id}/aprobar:
     patch:
-      summary: Aprobar pago de manera idempotente y emitir Ticket QR
+      summary: Aprobar pago de manera idempotente y emitir Ticket QR (requiere JWT con rol ADMIN)
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: id
@@ -201,13 +235,19 @@ paths:
       responses:
         '200':
           description: Pago aprobado y reserva confirmada con QR (idempotent=true si ya estaba aprobado)
+        '401':
+          description: Token JWT ausente o inválido
+        '403':
+          description: Acceso denegado (se requiere rol ADMIN)
         '404':
           description: Pago no encontrado
         '409':
           description: Pago RECHAZADO/REEMBOLSADO o reserva CANCELADA/VENCIDA
   /pagos/{id}/rechazar:
     patch:
-      summary: Rechazar comprobante con motivo obligatorio (idempotente)
+      summary: Rechazar comprobante con motivo obligatorio e idempotencia (requiere JWT con rol ADMIN)
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: id
@@ -234,6 +274,10 @@ paths:
             (idempotent=true si ya estaba rechazado).
         '400':
           description: Observación ausente o menor a 5 caracteres
+        '401':
+          description: Token JWT ausente o inválido
+        '403':
+          description: Acceso denegado (se requiere rol ADMIN)
         '404':
           description: Pago no encontrado
         '409':
@@ -250,4 +294,3 @@ paths:
       responses:
         '200':
           description: Reserva cancelada con cálculo de penalidad/reembolso y QR revocado
-

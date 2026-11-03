@@ -1,6 +1,6 @@
-import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import { getDbMode, getPgPool, getSupabaseClient } from '../config/database';
+import { signJwtToken } from '../middlewares/authMiddleware';
 import { Errors } from '../utils/errors';
 
 interface UsuarioRecord {
@@ -33,24 +33,6 @@ const memUsers: UsuarioRecord[] = [
     rol: 'ADMIN',
   },
 ];
-
-function signJwtToken(user: Omit<UsuarioRecord, 'password_hash'>): string {
-  const secret = process.env.JWT_SECRET || 'luxxito_sports_uni_si806_secret_key_2026';
-  const payload = Buffer.from(
-    JSON.stringify({
-      sub: user.id,
-      email: user.email,
-      dni: user.dni,
-      rol: user.rol,
-      iat: Math.floor(Date.now() / 1000),
-    })
-  ).toString('base64url');
-  const sig = crypto
-    .createHmac('sha256', secret)
-    .update(payload)
-    .digest('base64url');
-  return `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${payload}.${sig}`;
-}
 
 export class AuthController {
   async login(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -92,7 +74,10 @@ export class AuthController {
       }
 
       const { password_hash: _, ...safeUser } = found;
-      const token = signJwtToken(safeUser);
+      const token = signJwtToken({
+        ...safeUser,
+        id: Number(safeUser.id),
+      });
 
       res.status(200).json({
         ok: true,
