@@ -1,6 +1,7 @@
 # Plan del Proyecto Móvil — Luxxito Sports (SI806 · Taller 3)
 
-Actualizado el 2 de noviembre de 2026 (Perú).
+Actualizado el 3 de noviembre de 2026 (Perú).  
+**Plan operativo y asignación de tareas del equipo (Elvis · Juan · Steven):** Ver [PLAN_EQUIPO_STEVEN_JUAN_ELVIS.md](PLAN_EQUIPO_STEVEN_JUAN_ELVIS.md).
 
 ## 1. Objetivo y Alcance
 Desarrollar e integrar una **API REST propia** (Node.js + Express + TypeScript) con persistencia relacional en **Supabase (PostgreSQL)** y reglas de negocio del dominio deportivo, consumida por una **aplicación cliente móvil en Flutter + Dart**.
