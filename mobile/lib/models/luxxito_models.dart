@@ -348,6 +348,8 @@ class Reserva {
   final double montoDevolucion;
   final String estado;
   final String? codigoQr;
+  /// Fecha y hora en que el operador registró el ingreso con el QR.
+  final String? qrUsadoAt;
   final String? motivoCancelacion;
   final String? notas;
   final String expiresAt;
@@ -375,6 +377,7 @@ class Reserva {
     required this.montoDevolucion,
     required this.estado,
     this.codigoQr,
+    this.qrUsadoAt,
     this.motivoCancelacion,
     this.notas,
     required this.expiresAt,
@@ -411,6 +414,7 @@ class Reserva {
       montoDevolucion: (json['monto_devolucion'] as num?)?.toDouble() ?? 0.0,
       estado: json['estado']?.toString() ?? 'PENDIENTE_PAGO',
       codigoQr: json['codigo_qr']?.toString(),
+      qrUsadoAt: json['qr_usado_at']?.toString(),
       motivoCancelacion: json['motivo_cancelacion']?.toString(),
       notas: json['notas']?.toString(),
       expiresAt: json['expires_at']?.toString() ?? '',
