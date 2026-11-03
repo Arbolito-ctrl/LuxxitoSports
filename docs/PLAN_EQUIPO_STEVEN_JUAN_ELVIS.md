@@ -91,6 +91,6 @@
 - **Responsable:** Steven (con casos `LX-201..203` integrados por Juan)
 - **Rama:** `steven/qa-pruebas-y-postman`
 
-#### `LX-303` — Guion y Evidencia de Demostración en Vivo Taller 3 (`[~] Guion actualizado` · PR #7 · faltan capturas finales del paso 5)
+#### `LX-303` — Guion y Evidencia de Demostración en Vivo Taller 3 (`[x] Completado` · PR #7 · evidencia ejecutada el 03/11 con el APK de producción)
 - **Responsable:** Steven
 - **Rama:** `steven/evidencia-demostracion-taller3`

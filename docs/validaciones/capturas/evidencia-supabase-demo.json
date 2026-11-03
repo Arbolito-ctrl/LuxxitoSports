@@ -1,0 +1,68 @@
+{
+  "ejecucion": "2026-11-03 15:38-15:54 (America/Lima)",
+  "api": "https://luxxito-sports-api.onrender.com/api",
+  "db_mode": "POSTGRES_POOL",
+  "reservas": {
+    "19_tras_crear": {
+      "estado": "PENDIENTE_PAGO",
+      "cancha_id": 1,
+      "fecha": "2026-11-05",
+      "hora_inicio": 17,
+      "hora_fin": 19,
+      "total": 240,
+      "monto_pagado": 0
+    },
+    "19_reserva_extras": [
+      {
+        "extra": "Juego de Chalecos (x12)",
+        "cantidad": 2,
+        "subtotal": 30
+      }
+    ],
+    "19_tras_comprobante": {
+      "estado": "EN_REVISION"
+    },
+    "19_tras_aprobar": {
+      "estado": "CONFIRMADA",
+      "monto_pagado": 240,
+      "codigo_qr": "LUXXITO-QR-19-EAFECA58D7"
+    },
+    "19_tras_ingreso": {
+      "qr_usado_at": "2026-11-03T20:50:20.737Z"
+    },
+    "20_competidor": {
+      "estado": "PENDIENTE_PAGO",
+      "hora_inicio": 20,
+      "hora_fin": 21,
+      "nota": "reserva del cliente competidor del paso 4; vence sola a los 20 minutos"
+    },
+    "4_cancelada": {
+      "estado": "CANCELADA",
+      "monto_pagado": 120,
+      "monto_devolucion": 120,
+      "codigo_qr": null,
+      "motivo_cancelacion": "Ya no podré asistir"
+    }
+  },
+  "pagos": {
+    "5_tras_enviar": {
+      "estado": "PENDIENTE_REVISION",
+      "numero_operacion": "YAPE-8492014",
+      "comprobante_url": "supabase://comprobantes/reserva-19/voucher-1793738720689.jpg"
+    },
+    "5_tras_aprobar": {
+      "estado": "APROBADO",
+      "reviewed_at": "2026-11-03T20:48:30.557Z"
+    }
+  },
+  "storage": {
+    "bucket": "comprobantes (privado)",
+    "objeto": "reserva-19/voucher-1793738720689.jpg",
+    "tamano_bytes": 63792,
+    "tipo": "image/jpeg"
+  },
+  "verificaciones_api": {
+    "segundo_escaneo": "409 Este Ticket QR ya fue utilizado para ingresar (3/11, 03:50 p. m.)",
+    "qr_de_reserva_cancelada": "409 El Ticket QR fue revocado porque la reserva #4 se encuentra CANCELADA."
+  }
+}
