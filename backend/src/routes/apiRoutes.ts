@@ -6,9 +6,10 @@ import { requireAuth, requireRole } from '../middlewares/authMiddleware';
 
 const router = Router();
 
-// 0. Autenticación y Acceso (Login, Registro y Recuperación)
+// 0. Autenticación y Acceso (Login, Registro, Perfil /me y Recuperación - LX-201)
 router.post('/auth/login', (req, res, next) => authController.login(req, res, next));
 router.post('/auth/registro', (req, res, next) => authController.registro(req, res, next));
+router.get('/auth/me', requireAuth, (req, res, next) => authController.me(req, res, next));
 router.post('/auth/recuperar', (req, res, next) =>
   authController.recuperarAcceso(req, res, next)
 );
@@ -46,6 +47,9 @@ router.get('/canchas/:id/disponibilidad', (req, res, next) =>
 // 4. Reservas (CRUD + Cotización del Servidor + Bloqueo + Cancelación 24h)
 router.post('/reservas/cotizar', (req, res, next) =>
   reservationController.cotizarReserva(req, res, next)
+);
+router.post('/reservas/verificar-qr', (req, res, next) =>
+  reservationController.verificarQr(req, res, next)
 );
 router.get('/reservas', (req, res, next) =>
   reservationController.listarReservas(req, res, next)

@@ -499,6 +499,12 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     expect(login.body.data.user.rol).toBe('ADMIN');
     expect(login.body.data.user.password_hash).toBeUndefined();
 
+    const meRes = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${login.body.data.token}`);
+    expect(meRes.status).toBe(200);
+    expect(meRes.body.data.user.email).toBe('admin@luxxitosports.pe');
+
     const malaClave = await request(app)
       .post('/api/auth/login')
       .send({ email: 'admin@luxxitosports.pe', password: 'incorrecta' });
@@ -553,5 +559,98 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
       .set('Authorization', `Bearer ${jugadorToken}`)
       .send({ observacion: 'Intento sin permisos' });
     expect(jugadorRechazar.status).toBe(403);
+  });
+
+  it('Caso 19 (Éxito y Fallo - Verificación de Ticket QR - LX-202): Valida ingreso único con QR y rechaza duplicado o cancelado (200/404/409)', async () => {
+    const fecha = getFutureDate(4);
+    const createRes = await request(app)
+      .post('/api/reservas')
+      .send({ cancha_id: 1, ...titular('75551111'), fecha, hora_inicio: 15, hora_fin: 16 });
+    const reservaId = createRes.body.data.id;
+
+    const pagoRes = await request(app).post(`/api/reservas/${reservaId}/pagos`).send({
+      metodo: 'YAPE',
+      modalidad: 'TOTAL',
+      monto: createRes.body.data.total,
+      numero_operacion: 'YAPE-QR-001',
+      auto_aprobar: true,
+    });
+    const codigoQr = pagoRes.body.data.reserva.codigo_qr;
+    expect(codigoQr).toContain('LUXXITO-QR-');
+
+    // 1. Primer escaneo válido -> 200 OK
+    const check1 = await request(app)
+      .post('/api/reservas/verificar-qr')
+      .send({ codigo_qr: codigoQr });
+    expect(check1.status).toBe(200);
+    expect(check1.body.data.verificado).toBe(true);
+    expect(check1.body.data.estado_ingreso).toBe('INGRESO_REGISTRADO');
+
+    // 2. Segundo escaneo del mismo QR -> 409 Conflict (ya utilizado)
+    const check2 = await request(app)
+      .post('/api/reservas/verificar-qr')
+      .send({ codigo_qr: codigoQr });
+    expect(check2.status).toBe(409);
+    expect(check2.body.code).toBe('CONFLICT');
+
+    // 3. Cancelar la reserva y verificar que el QR revocado responde 409 Conflict
+    await request(app)
+      .post(`/api/reservas/${reservaId}/cancelar`)
+      .send({ motivo: 'Cancelación posterior' });
+    const checkCancelado = await request(app)
+      .post('/api/reservas/verificar-qr')
+      .send({ codigo_qr: codigoQr });
+    expect(checkCancelado.status).toBe(409);
+
+    // 4. QR inexistente -> 404 Not Found
+    const checkInexistente = await request(app)
+      .post('/api/reservas/verificar-qr')
+      .send({ codigo_qr: 'LUXXITO-QR-999999-NOEXISTE' });
+    expect(checkInexistente.status).toBe(404);
+  });
+
+  it('Caso 20 (Éxito - Expiración Automática de Bloqueos de 20 Minutos - LX-203): Vence PENDIENTE_PAGO tras 20 min y libera el turno, pero protege EN_REVISION', async () => {
+    const fecha = getFutureDate(9);
+    const t0 = Date.now();
+
+    // 1. Reserva A queda en PENDIENTE_PAGO (sin comprobante) en turno 14:00-15:00
+    const resA = await request(app)
+      .post('/api/reservas')
+      .send({ cancha_id: 1, ...titular('76661111'), fecha, hora_inicio: 14, hora_fin: 15 });
+    expect(resA.status).toBe(201);
+    const idA = resA.body.data.id;
+
+    // 2. Reserva B envía comprobante y pasa a EN_REVISION en turno 16:00-17:00
+    const resB = await request(app)
+      .post('/api/reservas')
+      .send({ cancha_id: 1, ...titular('76662222'), fecha, hora_inicio: 16, hora_fin: 17 });
+    const idB = resB.body.data.id;
+    await request(app).post(`/api/reservas/${idB}/pagos`).send({
+      metodo: 'PLIN',
+      modalidad: 'TOTAL',
+      monto: resB.body.data.total,
+      numero_operacion: 'PLIN-HOLD-20',
+    });
+
+    // Avanzar el reloj 21 minutos después de la creación
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(t0 + 21 * 60 * 1000));
+    try {
+      const checkA = await request(app).get(`/api/reservas/${idA}`);
+      expect(checkA.status).toBe(200);
+      expect(checkA.body.data.estado).toBe('VENCIDA');
+
+      const checkB = await request(app).get(`/api/reservas/${idB}`);
+      expect(checkB.status).toBe(200);
+      expect(checkB.body.data.estado).toBe('EN_REVISION');
+
+      // El turno 14:00-15:00 quedó liberado y otro jugador puede reservarlo
+      const nuevaEnTurnoLiberado = await request(app)
+        .post('/api/reservas')
+        .send({ cancha_id: 1, ...titular('76663333'), fecha, hora_inicio: 14, hora_fin: 15 });
+      expect(nuevaEnTurnoLiberado.status).toBe(201);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
