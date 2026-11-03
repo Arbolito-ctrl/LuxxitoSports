@@ -113,6 +113,9 @@ CREATE TABLE IF NOT EXISTS pagos (
 ALTER TABLE reservas ADD COLUMN IF NOT EXISTS qr_usado_at TIMESTAMPTZ;
 -- Foto propia de cada cancha (bucket público 'canchas'); sin foto se usa la del complejo
 ALTER TABLE canchas ADD COLUMN IF NOT EXISTS imagen_url TEXT;
+-- Dos canchas del mismo complejo no pueden llamarse igual (la API responde 409)
+CREATE UNIQUE INDEX IF NOT EXISTS canchas_nombre_unico_por_complejo
+    ON canchas (complejo_id, lower(btrim(nombre)));
 
 -- Concurrencia: dos reservas activas de la misma cancha no pueden cruzarse en fecha y horario,
 -- aunque dos solicitudes lleguen al mismo tiempo (la API responde 409 ante el error 23P01)
