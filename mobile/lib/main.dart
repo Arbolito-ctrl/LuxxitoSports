@@ -7,6 +7,7 @@ import 'screens/mis_reservas_screen.dart';
 import 'screens/perfil_config_screen.dart';
 import 'services/api_service.dart';
 import 'theme/luxxito_theme.dart';
+import 'widgets/actualizacion_dialog.dart';
 
 void main() {
   runApp(const LuxxitoSportsApp());
@@ -66,6 +67,14 @@ class MainShellScreen extends StatefulWidget {
 }
 
 class _MainShellScreenState extends State<MainShellScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => revisarActualizacionAlIniciar(context),
+    );
+  }
+
   int _selectedIndex = 0;
   final _misReservasKey = GlobalKey<MisReservasScreenState>();
 
