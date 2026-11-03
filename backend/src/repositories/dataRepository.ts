@@ -250,6 +250,7 @@ export class DataRepository {
       precio_hora_nocturno: Number(row.precio_hora_nocturno),
       techada: Boolean(row.techada),
       iluminacion: Boolean(row.iluminacion),
+      imagen_url: row.imagen_url ?? null,
     };
   }
 
@@ -523,6 +524,27 @@ export class DataRepository {
     this.memState.canchas.push(created);
     this.saveLocalState();
     return (await this.getCanchaById(nextId))!;
+  }
+
+  async actualizarImagenCancha(id: number, imagenUrl: string): Promise<Cancha | null> {
+    const mode = getDbMode();
+    if (mode === 'POSTGRES_POOL') {
+      await getPgPool().query('UPDATE canchas SET imagen_url = $1 WHERE id = $2', [imagenUrl, id]);
+      return this.getCanchaById(id);
+    }
+    if (mode === 'SUPABASE_REST') {
+      const { error } = await getSupabaseClient()
+        .from('canchas')
+        .update({ imagen_url: imagenUrl })
+        .eq('id', id);
+      if (error) throw error;
+      return this.getCanchaById(id);
+    }
+    const idx = this.memState.canchas.findIndex((c) => c.id === id);
+    if (idx === -1) return null;
+    this.memState.canchas[idx] = { ...this.memState.canchas[idx], imagen_url: imagenUrl };
+    this.saveLocalState();
+    return this.getCanchaById(id);
   }
 
   async updateCancha(

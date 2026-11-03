@@ -265,7 +265,7 @@ class _DisponibilidadReservaScreenState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           FotoComplejo(
-            url: complejo?.imagenUrl,
+            url: widget.cancha.imagenUrl ?? complejo?.imagenUrl,
             iconoRespaldo: iconoDeporte(widget.cancha.deporte),
             height: 140,
           ),

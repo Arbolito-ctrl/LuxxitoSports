@@ -82,6 +82,8 @@ class Cancha {
   final double precioHoraDiurno;
   final double precioHoraNocturno;
   final String estado;
+  /// Foto propia de la cancha; si es null se muestra la del complejo.
+  final String? imagenUrl;
 
   Cancha({
     required this.id,
@@ -97,6 +99,7 @@ class Cancha {
     required this.precioHoraDiurno,
     required this.precioHoraNocturno,
     required this.estado,
+    this.imagenUrl,
   });
 
   factory Cancha.fromJson(Map<String, dynamic> json) {
@@ -114,6 +117,7 @@ class Cancha {
       precioHoraDiurno: (json['precio_hora_diurno'] as num).toDouble(),
       precioHoraNocturno: (json['precio_hora_nocturno'] as num).toDouble(),
       estado: json['estado']?.toString() ?? 'ACTIVA',
+      imagenUrl: json['imagen_url']?.toString(),
     );
   }
 }

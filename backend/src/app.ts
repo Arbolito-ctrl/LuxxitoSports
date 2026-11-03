@@ -9,6 +9,7 @@ app.use(cors());
 // La foto del voucher viaja en base64: 5 MB del bucket equivalen a ~6,7 MB de JSON.
 // El resto de la API mantiene el límite por defecto de 100 KB.
 app.use('/api/pagos/comprobante', express.json({ limit: '8mb' }));
+app.use(/^\/api\/canchas\/\d+\/imagen$/, express.json({ limit: '8mb' }));
 app.use(express.json());
 
 // Rutas principales de la API REST
