@@ -2,14 +2,29 @@ import path from 'path';
 import fs from 'fs';
 import { Request, Response, NextFunction } from 'express';
 import { catalogService } from '../services/catalogService';
-import { getDbMode } from '../config/database';
+import { getDbMode, getPgPool, getSupabaseClient } from '../config/database';
 
 export class CatalogController {
   async healthCheck(_req: Request, res: Response): Promise<void> {
+    const mode = getDbMode();
+    try {
+      if (mode === 'POSTGRES_POOL') {
+        await getPgPool().query('SELECT 1');
+      } else if (mode === 'SUPABASE_REST') {
+        const { error } = await getSupabaseClient().from('complejos').select('id').limit(1);
+        if (error) throw error;
+      } else if (process.env.NODE_ENV === 'production') {
+        throw new Error('Persistent database is required in production');
+      }
+    } catch {
+      res.status(503).json({ ok: false, code: 'DATABASE_UNAVAILABLE', db_mode: mode });
+      return;
+    }
     res.status(200).json({
       ok: true,
       service: 'Luxxito Sports REST API (SI806 - Taller 3)',
-      db_mode: getDbMode(),
+      db_mode: mode,
+      db_ready: true,
       app_version: '1.0.1',
       apk_download_url:
         'https://github.com/Arbolito-ctrl/LuxxitoSports/releases/latest/download/luxxito-sports.apk',

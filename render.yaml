@@ -1,15 +1,18 @@
 services:
   - type: web
     name: luxxito-sports-api
-    env: node
+    runtime: node
+    branch: main
     rootDir: backend
     plan: free
-    buildCommand: npm install && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 22
       - key: PORT
         value: 3000
       - key: DATABASE_URL

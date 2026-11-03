@@ -22,6 +22,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-apk:
     name: Compilar y Publicar APK Descargable
@@ -62,15 +66,26 @@ jobs:
           flutter analyze
           flutter test
 
+      - name: Validar configuración pública del APK
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+        run: node .github/scripts/validate-apk-config.cjs
+
       - name: Compilar APK de Android con configuración de entorno
         working-directory: ./mobile
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
+          set -euo pipefail
           flutter build apk --release \
             --build-name=1.0.${{ github.run_number }} \
             --build-number=${{ github.run_number }} \
-            --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }} \
-            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
-            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+            --dart-define=ALLOW_SUPABASE_DIRECT=false
           cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/luxxito-sports.apk
           cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/luxxito-sports-${{ steps.env_info.outputs.ENV_NAME }}.apk
 
@@ -86,6 +101,7 @@ jobs:
       - name: Publicar APK para Descarga Directa en GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
+          target_commitish: ${{ github.sha }}
           tag_name: ${{ steps.env_info.outputs.TAG_NAME }}
           name: ${{ steps.env_info.outputs.RELEASE_TITLE }}
           body: |

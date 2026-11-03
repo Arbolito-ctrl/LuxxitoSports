@@ -38,6 +38,8 @@ export function getPgPool(): Pool {
     pgPool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10000,
+      statement_timeout: 10000,
     });
   }
   return pgPool;
