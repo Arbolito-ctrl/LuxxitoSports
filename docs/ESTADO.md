@@ -1,16 +1,18 @@
 # Estado Vigente del Proyecto — Luxxito Sports
 
 **Fecha de corte:** 3 de noviembre de 2026 (Perú)  
-**Etapa:** Infraestructura de entrega en validación (issue #14, PR #17). Los bloques están integrados, pero no se declara completada la prueba de punta a punta en Android físico.
+**Etapa:** Infraestructura publicada y acceso/catálogo/reserva validados en Android físico (issue #14, PR #17/#18). El recorrido completo pago/comprobante/QR permanece pendiente.
 
 ## Estado confirmado de infraestructura — Juan Medina
 
 - Servicio Render gratuito publicado: `https://luxxito-sports-api.onrender.com/api`.
 - Health verificado el 03/11/2026: HTTP 200 y `db_mode=POSTGRES_POOL`.
-- Primer despliegue Render: commit `f4a507a` de main (PR #16, enfoque solo Android).
+- Despliegue Render actualizado: commit `ac5a75c` de main (PR #18), activo el 03/11/2026 a las 07:38 de Perú; health 200 y `db_ready=true`.
 - Se corrigió la interpolación de variables en el workflow, se validó API_BASE_URL y se actualizó el secreto con la URL pública. No se publican valores privados en los informes.
-- PR #17: infraestructura, configuración de APK y documentación. El resultado final del workflow y la promoción se registra en [la evidencia](validaciones/2026-11-03-infra-issue14.md).
-- Prueba en teléfono físico: pendiente; no confundir tests/compilación con instalación y flujo real.
+- PR #17 integrado a develop con squash; PR #18 integrado a main con merge commit. Autor: Juan Medina (`jc2709`). El resultado del APK y la prueba física se registra en [la evidencia](validaciones/2026-11-03-infra-issue14.md).
+- APK de producción `1.0.22` (build 22), commit `ac5a75c`: workflow verde y publicado en [latest-apk](https://github.com/Arbolito-ctrl/LuxxitoSports/releases/tag/latest-apk).
+- TECNO KJ5, Android 13: instalación, login demo, 6 canchas, Perfil y reserva #1 con chalecos por S/105 comprobados. La reserva se recupera al reiniciar y volver a iniciar sesión; capturas en el informe de evidencia.
+- Registro de cuenta sintética y posterior login comprobados. Reserva #1 sin pago: VENCIDA tras 20 minutos reales, confirmada por API a las 08:05:58 y visible en el TECNO; el horario vuelve a estar libre.
 - Pagos, upload de comprobantes y persistencia QR: fallos conocidos aplazados expresamente por Juan; fuera de este cambio.
 
 La tabla siguiente conserva los resultados reportados previamente por el equipo. Las 21 pruebas API se repitieron en LOCAL_STORE; no prueban Storage ni PostgreSQL real.

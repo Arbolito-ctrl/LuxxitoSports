@@ -5,7 +5,13 @@
 
 **Infraestructura (Juan Medina, issue #14 / PR #17):** API pública en `https://luxxito-sports-api.onrender.com/api`; `/health` responde 200 con `POSTGRES_POOL`. Render Free, Node 22, ejecución compilada. El APK usa la API propia; la URL se valida y pasa como variable entre comillas al compilador. Evidencia en `docs/validaciones/2026-11-03-infra-issue14.md`.
 
-**Límites de esta entrega:** 21 pruebas aprobadas en almacenamiento local; no equivalen a pruebas PostgreSQL/Storage ni a una demo física. La instalación y el flujo completo en Android están pendientes de evidencia. Los fallos conocidos de pagos, comprobantes y QR fueron aplazados por Juan; no se declaran corregidos en el trabajo de infraestructura.
+**Validación física:** APK de producción `1.0.22` (build 22), commit `ac5a75c`, instalado en TECNO KJ5 con Android 13. Login demo, 6 canchas, Perfil, cotización con chalecos S/105 y creación/recuperación de reserva #1 correctos. Workflows de main verdes, PR #17/#18 integrados y API desplegada con `db_ready=true`.
+
+**Registro nuevo:** cuenta sintética creada desde el TECNO y posterior login correctos. Captura en el informe de validación.
+
+**Vencimiento real:** reserva #1 creada a las 07:45:39, sin pago ni comprobante; a las 08:05:58 la API confirma `VENCIDA` y el TECNO muestra el estado y el horario liberado. No se modificó el reloj ni el plazo de la reserva.
+
+**Límites de esta entrega:** 21 pruebas aprobadas en almacenamiento local; no equivalen a pruebas PostgreSQL/Storage. Los fallos conocidos de pagos, comprobantes y QR fueron aplazados por Juan; no se declaran corregidos. El recorrido pago/archivo/QR continúa pendiente. Capturas y resultados en el informe de validación.
 
 ---
 
@@ -48,4 +54,4 @@
    - Fechas u horas ya transcurridas, horarios fuera de atención o duración mayor a 4 horas (`422 Unprocessable Entity`).
    - Turnos ocupados/bloqueados, extras sin stock, doble escaneo de QR o QR de reserva cancelada (`409 Conflict`).
 8. **¿Cómo comprobarán cada resultado?**  
-   Mediante la suite automatizada de **20 pruebas de integración** con **Vitest y Supertest** (`npm test`), la colección **Postman** (`docs/LuxxitoSports.postman_collection.json` con 32 requests y 52 aserciones) y la demostración en vivo desde la app móvil **Flutter** contra **Supabase**.
+   Mediante **21 pruebas API locales** con **Vitest y Supertest** (`npm test`), la colección **Postman** (resultados previos del equipo: 32 requests y 52 aserciones) y pruebas físicas de Flutter contra la API Node pública respaldada por PostgreSQL de Supabase. El recorrido observado y sus límites se registran por separado en `validaciones/2026-11-03-infra-issue14.md`.
