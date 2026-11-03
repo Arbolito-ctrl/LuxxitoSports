@@ -4,6 +4,19 @@ Proyecto desarrollado para el **Taller 3: Desarrollo e Integración de una API R
 
 Implementa una **API REST propia en capas** (`Node.js + Express + TypeScript`) conectada a **PostgreSQL en Supabase** y consumida en tiempo real por una **aplicación cliente móvil en Flutter + Dart**.
 
+## API pública y estado de la entrega (issue #14)
+
+- API: `https://luxxito-sports-api.onrender.com/api`.
+- Diagnóstico: [GET /api/health](https://luxxito-sports-api.onrender.com/api/health), comprobado con HTTP 200 y `POSTGRES_POOL` el 03/11/2026.
+- Publicación del APK: [release latest-apk](https://github.com/Arbolito-ctrl/LuxxitoSports/releases/tag/latest-apk). Verificar el commit del release, no usar como referencia el APK antiguo guardado en `release/`.
+- El APK del taller consume la API propia y no cambia silenciosamente a Supabase directo. La instancia gratuita puede tardar al despertar; el timeout móvil es de 60 segundos.
+- La comprobación en Android físico sigue pendiente hasta registrar evidencia. Los fallos conocidos de pagos/comprobantes/QR no se corrigen como parte de infraestructura, por decisión del equipo.
+- Seguimiento actual: [validación de infraestructura #14](docs/validaciones/2026-11-03-infra-issue14.md).
+
+Para crear un servicio Render equivalente al configurado: repositorio público, rama `main`, Node 22, raíz `backend`, build `npm ci --include=dev && npm run build`, inicio `node dist/server.js`, plan Free y health `/api/health`. Cargar las variables privadas en Render; no se ejecuta `db:init` automáticamente contra una base existente.
+
+Prueba local Android por USB: `adb reverse tcp:3000 tcp:3000` y, desde `mobile/`, `flutter run --dart-define=API_BASE_URL=http://127.0.0.1:3000/api`. La base configurada en `backend/.env` determina si el backend usa PostgreSQL, REST o LOCAL_STORE. No presentar LOCAL_STORE como prueba de base real.
+
 ---
 
 ## 1. Estructura del Repositorio (Alineada con la Metodología Luxxito Sports)

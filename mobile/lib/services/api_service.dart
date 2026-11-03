@@ -23,15 +23,21 @@ class ApiService {
   static const String _supaUrl = String.fromEnvironment('SUPABASE_URL');
   static const String _supaKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
+  static const bool _allowSupabaseDirect = bool.fromEnvironment(
+    'ALLOW_SUPABASE_DIRECT',
+    defaultValue: false,
+  );
+
+  // El APK del taller usa la API propia incluso en Wi-Fi/datos móviles.
+  // Desarrollo local: --dart-define=API_BASE_URL=http://127.0.0.1:3000/api
   static String _baseUrl = _envBaseUrl.isNotEmpty
       ? _envBaseUrl
-      : (_supaUrl.isNotEmpty
-          ? 'SUPABASE_CLOUD ($_supaUrl)'
-          : 'http://192.168.1.14:3000/api');
+      : 'https://luxxito-sports-api.onrender.com/api';
 
   static String get baseUrl => _baseUrl;
 
   static bool get _useSupabaseDirect =>
+      _allowSupabaseDirect &&
       _supaUrl.isNotEmpty &&
       _supaKey.isNotEmpty &&
       (_baseUrl.startsWith('SUPABASE_CLOUD') || _baseUrl.contains('.supabase.co'));
@@ -53,12 +59,19 @@ class ApiService {
   }
 
   static void enableSupabaseCloudMode() {
+    if (!_allowSupabaseDirect) {
+      throw ApiException(
+        statusCode: 0,
+        code: 'NETWORK_ERROR',
+        message: 'No se pudo conectar con la API. Comprueba tu red e inténtalo nuevamente.',
+      );
+    }
     if (_supaUrl.isNotEmpty) {
       _baseUrl = 'SUPABASE_CLOUD ($_supaUrl)';
     }
   }
 
-  static const Duration _timeout = Duration(seconds: 8);
+  static const Duration _timeout = Duration(seconds: 60);
 
   static Map<String, String> get _headers {
     final map = <String, String>{
@@ -246,8 +259,8 @@ class ApiService {
       'release_notes':
           'Incluye control de acceso JWT por rol ADMIN (LX-201), Row Level Security (RLS), bucket privado comprobantes y RPCs en servidor.',
       'github_release_apk_url':
-          'https://github.com/Arbolito-ctrl/LuxxitoSports/raw/main/release/luxxito-sports.apk',
-      'server_apk_url': 'http://192.168.1.14:3000/api/apk/download',
+          'https://github.com/Arbolito-ctrl/LuxxitoSports/releases/download/latest-apk/luxxito-sports.apk',
+      'server_apk_url': null,
     };
   }
 

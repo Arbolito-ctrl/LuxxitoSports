@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-11-03T12:26:56.227Z",
+  "base": "https://luxxito-sports-api.onrender.com/api",
+  "checks": [
+    {
+      "path": "/health",
+      "status": 200,
+      "db_mode": "POSTGRES_POOL"
+    },
+    {
+      "path": "/complejos",
+      "status": 200,
+      "count": 3
+    },
+    {
+      "path": "/canchas",
+      "status": 200,
+      "count": 6
+    },
+    {
+      "path": "/pagos",
+      "status": 401
+    },
+    {
+      "path": "/auth/login",
+      "status": 200,
+      "role": "JUGADOR"
+    },
+    {
+      "path": "/auth/me",
+      "authenticated": true,
+      "status": 200
+    },
+    {
+      "path": "/pagos",
+      "authenticated": true,
+      "status": 403
+    }
+  ]
+}

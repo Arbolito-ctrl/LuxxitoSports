@@ -3,6 +3,10 @@
 **Proyecto:** Luxxito Sports (Gestión Móvil de Reservas de Canchas Deportivas, Equipamiento y Pagos)  
 **Fecha:** 3 de noviembre de 2026
 
+**Infraestructura (Juan Medina, issue #14 / PR #17):** API pública en `https://luxxito-sports-api.onrender.com/api`; `/health` responde 200 con `POSTGRES_POOL`. Render Free, Node 22, ejecución compilada. El APK usa la API propia; la URL se valida y pasa como variable entre comillas al compilador. Evidencia en `docs/validaciones/2026-11-03-infra-issue14.md`.
+
+**Límites de esta entrega:** 21 pruebas aprobadas en almacenamiento local; no equivalen a pruebas PostgreSQL/Storage ni a una demo física. La instalación y el flujo completo en Android están pendientes de evidencia. Los fallos conocidos de pagos, comprobantes y QR fueron aplazados por Juan; no se declaran corregidos en el trabajo de infraestructura.
+
 ---
 
 ## 1. Fundamentación del Problema y Análisis (Las 8 Preguntas Clave)

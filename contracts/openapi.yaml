@@ -8,6 +8,8 @@ info:
     bloqueo de 20 minutos, aprobación idempotente de pagos manuales (protegida con JWT y rol ADMIN)
     y política de cancelación de 24 horas.
 servers:
+  - url: https://luxxito-sports-api.onrender.com/api
+    description: API pública del Taller 3 en Render (plan gratuito)
   - url: http://localhost:3000/api
     description: Servidor de desarrollo local
   - url: http://10.0.2.2:3000/api
