@@ -230,7 +230,7 @@ class PanelAdminScreenState extends State<PanelAdminScreen> {
             children: [
               _accion(Icons.qr_code_scanner, 'Verificar QR', widget.onIrAIngreso),
               const SizedBox(width: 10),
-              _accion(Icons.stadium_outlined, 'Canchas', widget.onVerCatalogo),
+              _accion(Icons.stadium_outlined, 'Gestionar canchas', widget.onVerCatalogo),
             ],
           ),
           const SizedBox(height: 22),

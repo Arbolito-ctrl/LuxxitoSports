@@ -54,8 +54,8 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('Canchas del catálogo')),
-          body: ExplorarScreen(onNavigateToReservas: () {}),
+          appBar: AppBar(title: const Text('Gestión de canchas')),
+          body: ExplorarScreen(onNavigateToReservas: () {}, modoGestion: true),
         ),
       ),
     );
