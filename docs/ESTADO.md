@@ -8,7 +8,7 @@
 | Componente | Comando Ejecutado | Resultado |
 |---|---|---|
 | Compilación TypeScript Backend | `cd backend && npm run build` | `0 errores` |
-| Suite de Pruebas API REST | `cd backend && npm test` | `20 passed (20)` en Vitest + Supertest |
+| Suite de Pruebas API REST | `cd backend && npm test` | `21 passed (21)` en Vitest + Supertest |
 | Base de Datos Supabase + RLS + Storage | `cd backend && npm run db:init` | 7 tablas con `relrowsecurity: true`, bucket privado `comprobantes` y funciones RPC activas |
 | Colección Postman | `npx newman run docs/LuxxitoSports.postman_collection.json` | 32 requests y 52 aserciones sin fallos |
 | Análisis Estático Flutter | `cd mobile && flutter analyze` | `No issues found!` |

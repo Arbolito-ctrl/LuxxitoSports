@@ -1140,4 +1140,41 @@ class ApiService {
     }) as Map<String, dynamic>;
     return result;
   }
+
+  // 13. POST /api/reservas/verificar-qr (Verificación de ingreso único con QR - LX-202)
+  static Future<Map<String, dynamic>> verificarTicketQr(String codigoQr) async {
+    final clean = codigoQr.trim();
+    if (clean.isEmpty || !clean.toUpperCase().startsWith('LUXXITO-QR-')) {
+      throw ApiException(
+        statusCode: 400,
+        code: 'BAD_REQUEST',
+        message: 'Ingresa un código QR con formato LUXXITO-QR-...',
+      );
+    }
+
+    if (!_useSupabaseDirect) {
+      try {
+        final res = await http
+            .post(
+              Uri.parse('$_baseUrl/reservas/verificar-qr'),
+              headers: _headers,
+              body: jsonEncode({'codigo_qr': clean}),
+            )
+            .timeout(_timeout);
+        final body = _decodeResponse(res);
+        return body['data'] as Map<String, dynamic>;
+      } on ApiException {
+        rethrow;
+      } catch (_) {
+        if (_supaUrl.isNotEmpty && _supaKey.isNotEmpty) {
+          enableSupabaseCloudMode();
+        }
+      }
+    }
+
+    final result = await _supaRpc('rpc_verificar_qr', {
+      'p_codigo_qr': clean,
+    }) as Map<String, dynamic>;
+    return result;
+  }
 }

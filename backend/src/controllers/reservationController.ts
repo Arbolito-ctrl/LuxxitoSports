@@ -175,6 +175,19 @@ export class ReservationController {
       next(error);
     }
   }
+
+  async subirComprobante(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const resultado = await reservationService.subirComprobanteStorage(req.body || {});
+      res.status(201).json({
+        ok: true,
+        message: 'Comprobante almacenado en el bucket privado comprobantes.',
+        data: resultado,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const reservationController = new ReservationController();
