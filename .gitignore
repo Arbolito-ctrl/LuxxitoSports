@@ -31,3 +31,4 @@ Thumbs.db
 .idea/
 *.log
 *.apk
+!release/luxxito-sports.apk

@@ -9,23 +9,29 @@ const supaUrl = (process.env.SUPABASE_URL || '').trim();
 const supaAnonKey = (process.env.SUPABASE_ANON_KEY || '').trim();
 
 const mobileDir = path.join(__dirname, '../../../mobile');
-const rootApk = path.join(__dirname, '../../../luxxito-sports.apk');
-const builtApk = path.join(
+const releaseDir = path.join(__dirname, '../../../release');
+const releaseDest = path.join(releaseDir, 'luxxito-sports.apk');
+const builtReleaseApk = path.join(
   mobileDir,
-  'build/app/outputs/flutter-apk/app-debug.apk'
+  'build/app/outputs/flutter-apk/app-release.apk'
 );
 
-console.log('[APK Builder] Compilando APK con configuración Cloud de Supabase...');
+console.log('[APK Builder] Compilando APK Release optimizado con Supabase Cloud...');
 const defines: string[] = [];
 if (supaUrl) defines.push(`--dart-define=SUPABASE_URL=${supaUrl}`);
 if (supaAnonKey) defines.push(`--dart-define=SUPABASE_ANON_KEY=${supaAnonKey}`);
 
-execSync(`flutter build apk --debug ${defines.join(' ')}`, {
+execSync(`flutter build apk --release ${defines.join(' ')}`, {
   cwd: mobileDir,
   stdio: 'inherit',
 });
 
-if (fs.existsSync(builtApk)) {
-  fs.copyFileSync(builtApk, rootApk);
-  console.log(`[APK Builder] ¡Listo! APK copiado en: ${rootApk}`);
+if (!fs.existsSync(releaseDir)) {
+  fs.mkdirSync(releaseDir, { recursive: true });
+}
+
+if (fs.existsSync(builtReleaseApk)) {
+  fs.copyFileSync(builtReleaseApk, releaseDest);
+  const sizeMb = (fs.statSync(releaseDest).size / (1024 * 1024)).toFixed(2);
+  console.log(`[APK Builder] ¡Listo! APK Release (${sizeMb} MB) en: ${releaseDest}`);
 }
