@@ -4,8 +4,10 @@ import { reservationController } from '../controllers/reservationController';
 
 const router = Router();
 
-// 1. Estado del servicio y modo de base de datos (Supabase / Local)
+// 1. Estado del servicio, versión de APK y descarga OTA
 router.get('/health', (req, res) => catalogController.healthCheck(req, res));
+router.get('/version', (req, res) => catalogController.obtenerVersionApp(req, res));
+router.get('/apk/download', (req, res) => catalogController.descargarApkLocal(req, res));
 
 // 2. Complejos deportivos
 router.get('/complejos', (req, res, next) =>

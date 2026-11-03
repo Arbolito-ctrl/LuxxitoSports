@@ -1,0 +1,99 @@
+name: Build & Publish Android APK (Por Ambiente)
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/apk.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Ambiente de destino para el APK'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - development
+          - production
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Compilar y Publicar APK Descargable
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 17 para Android Gradle
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Configurar Flutter Stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Determinar ambiente (develop vs main)
+        id: env_info
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ] || [ "${{ inputs.environment }}" = "production" ]; then
+            echo "ENV_NAME=prod" >> $GITHUB_OUTPUT
+            echo "TAG_NAME=latest-apk" >> $GITHUB_OUTPUT
+            echo "RELEASE_TITLE=Luxxito Sports APK (Producción - ${{ github.sha }})" >> $GITHUB_OUTPUT
+          else
+            echo "ENV_NAME=dev" >> $GITHUB_OUTPUT
+            echo "TAG_NAME=dev-apk" >> $GITHUB_OUTPUT
+            echo "RELEASE_TITLE=Luxxito Sports APK (Desarrollo - ${{ github.sha }})" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Instalar dependencias Flutter y verificar tests
+        working-directory: ./mobile
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Compilar APK de Android
+        working-directory: ./mobile
+        run: |
+          flutter build apk --release \
+            --build-name=1.0.${{ github.run_number }} \
+            --build-number=${{ github.run_number }}
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/luxxito-sports.apk
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/luxxito-sports-${{ steps.env_info.outputs.ENV_NAME }}.apk
+
+      - name: Subir APK como Artefacto de GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: luxxito-sports-apk-${{ steps.env_info.outputs.ENV_NAME }}
+          path: |
+            mobile/build/app/outputs/flutter-apk/luxxito-sports.apk
+            mobile/build/app/outputs/flutter-apk/luxxito-sports-${{ steps.env_info.outputs.ENV_NAME }}.apk
+          retention-days: 30
+
+      - name: Publicar APK para Descarga Directa en GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.env_info.outputs.TAG_NAME }}
+          name: ${{ steps.env_info.outputs.RELEASE_TITLE }}
+          body: |
+            ### Actualización Automática de APK — Luxxito Sports
+            - **Ambiente:** `${{ steps.env_info.outputs.ENV_NAME }}`
+            - **Versión:** `1.0.${{ github.run_number }}` (Build #`${{ github.run_number }}`)
+            - **Commit:** `${{ github.sha }}`
+            - **Descarga directa:** Haz clic en `luxxito-sports.apk` abajo para instalar o actualizar la aplicación en tu dispositivo Android.
+          files: |
+            mobile/build/app/outputs/flutter-apk/luxxito-sports.apk
+            mobile/build/app/outputs/flutter-apk/luxxito-sports-${{ steps.env_info.outputs.ENV_NAME }}.apk
+          prerelease: ${{ steps.env_info.outputs.ENV_NAME == 'dev' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

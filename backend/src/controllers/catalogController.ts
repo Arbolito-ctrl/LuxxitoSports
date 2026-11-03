@@ -1,3 +1,5 @@
+import path from 'path';
+import fs from 'fs';
 import { Request, Response, NextFunction } from 'express';
 import { catalogService } from '../services/catalogService';
 import { getDbMode } from '../config/database';
@@ -8,8 +10,59 @@ export class CatalogController {
       ok: true,
       service: 'Luxxito Sports REST API (SI806 - Taller 3)',
       db_mode: getDbMode(),
+      app_version: '1.0.1',
+      apk_download_url:
+        'https://github.com/Arbolito-ctrl/LuxxitoSports/releases/latest/download/luxxito-sports.apk',
       timestamp: new Date().toISOString(),
     });
+  }
+
+  async obtenerVersionApp(req: Request, res: Response): Promise<void> {
+    const host = req.get('host') || 'localhost:3000';
+    const protocol = req.protocol || 'http';
+    const localApkPath = path.join(
+      __dirname,
+      '../../../mobile/build/app/outputs/flutter-apk/app-debug.apk'
+    );
+    const hasLocalApk = fs.existsSync(localApkPath);
+
+    res.status(200).json({
+      ok: true,
+      data: {
+        version: process.env.APP_VERSION || '1.0.1',
+        build_number: Number(process.env.APP_BUILD_NUMBER || 2),
+        mandatory: false,
+        release_notes:
+          'Actualización OTA/APK: conexión con Supabase PostgreSQL, cotización horaria día/noche, stock de extras por intervalo y Ticket QR verificable.',
+        github_release_apk_url:
+          'https://github.com/Arbolito-ctrl/LuxxitoSports/releases/latest/download/luxxito-sports.apk',
+        server_apk_url: hasLocalApk ? `${protocol}://${host}/api/apk/download` : null,
+      },
+    });
+  }
+
+  async descargarApkLocal(_req: Request, res: Response): Promise<void> {
+    const releaseApk = path.join(
+      __dirname,
+      '../../../mobile/build/app/outputs/flutter-apk/app-release.apk'
+    );
+    const debugApk = path.join(
+      __dirname,
+      '../../../mobile/build/app/outputs/flutter-apk/app-debug.apk'
+    );
+
+    if (fs.existsSync(releaseApk)) {
+      res.download(releaseApk, 'luxxito-sports.apk');
+      return;
+    }
+    if (fs.existsSync(debugApk)) {
+      res.download(debugApk, 'luxxito-sports.apk');
+      return;
+    }
+
+    res.redirect(
+      'https://github.com/Arbolito-ctrl/LuxxitoSports/releases/latest/download/luxxito-sports.apk'
+    );
   }
 
   async listarComplejos(req: Request, res: Response, next: NextFunction): Promise<void> {

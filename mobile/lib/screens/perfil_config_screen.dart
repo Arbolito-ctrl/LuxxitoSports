@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 
 class PerfilConfigScreen extends StatefulWidget {
@@ -9,16 +10,21 @@ class PerfilConfigScreen extends StatefulWidget {
 }
 
 class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
+  static const String currentInstalledVersion = '1.0.0';
+
   late TextEditingController _urlCtrl;
   Map<String, dynamic>? _healthInfo;
+  Map<String, dynamic>? _updateInfo;
   String? _errorMsg;
   bool _verificando = false;
+  bool _buscandoUpdate = false;
 
   @override
   void initState() {
     super.initState();
     _urlCtrl = TextEditingController(text: ApiService.baseUrl);
     _verificarConexion();
+    _verificarActualizacionApk();
   }
 
   @override
@@ -50,8 +56,78 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
     }
   }
 
+  Future<void> _verificarActualizacionApk() async {
+    setState(() {
+      _buscandoUpdate = true;
+    });
+    final info = await ApiService.checkAppUpdate();
+    if (!mounted) return;
+    setState(() {
+      _updateInfo = info;
+      _buscandoUpdate = false;
+    });
+  }
+
+  void _mostrarModalDescargaApk(String url, String origen) {
+    Clipboard.setData(ClipboardData(text: url));
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: Row(
+          children: [
+            const Icon(Icons.system_update, color: Color(0xFF10B981)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Descargar Actualización APK ($origen)',
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'El enlace directo al archivo APK actualizado ha sido copiado al portapapeles para abrirlo en el navegador de tu teléfono Android:',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF10B981)),
+              ),
+              child: SelectableText(
+                url,
+                style: const TextStyle(
+                  color: Color(0xFF34D399),
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final latestVersion = _updateInfo?['version']?.toString() ?? '1.0.1';
+    final hayNuevaVersion = latestVersion != currentInstalledVersion;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       body: ListView(
@@ -87,7 +163,7 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        'SI806 · Taller 3 · API REST + Supabase PostgreSQL',
+                        'Versión instalada: v1.0.0 · Distribución continua APK',
                         style: TextStyle(
                           color: Color(0xFF10B981),
                           fontSize: 12,
@@ -99,8 +175,106 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
 
+          // TARJETA DE ACTUALIZACIÓN DESCARGABLE DE APK (OTA / GITHUB RELEASES)
+          Container(
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: hayNuevaVersion
+                    ? const Color(0xFF10B981)
+                    : Colors.white24,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.android, color: Color(0xFF10B981)),
+                        SizedBox(width: 8),
+                        Text(
+                          'Actualizaciones de APK (OTA)',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      onPressed:
+                          _buscandoUpdate ? null : _verificarActualizacionApk,
+                      icon: const Icon(Icons.refresh, color: Colors.white70),
+                      tooltip: 'Buscar nueva versión de APK',
+                    ),
+                  ],
+                ),
+                Text(
+                  'Versión instalada: $currentInstalledVersion  |  Última en servidor: $latestVersion',
+                  style: const TextStyle(
+                    color: Color(0xFF6EE7B7),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _updateInfo?['release_notes']?.toString() ??
+                      'Cada push a main/develop compila y publica automáticamente el nuevo APK en GitHub Releases.',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.black,
+                      ),
+                      onPressed: () {
+                        final ghUrl = _updateInfo?['github_release_apk_url']
+                                ?.toString() ??
+                            'https://github.com/Arbolito-ctrl/LuxxitoSports/releases/latest/download/luxxito-sports.apk';
+                        _mostrarModalDescargaApk(ghUrl, 'GitHub Releases');
+                      },
+                      icon: const Icon(Icons.download, size: 18),
+                      label: const Text(
+                        'Descargar APK (GitHub Release)',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Color(0xFF0EA5E9)),
+                      ),
+                      onPressed: () {
+                        final srvUrl =
+                            _updateInfo?['server_apk_url']?.toString() ??
+                                '${ApiService.baseUrl}/apk/download';
+                        _mostrarModalDescargaApk(srvUrl, 'Servidor API');
+                      },
+                      icon: const Icon(Icons.cloud_download,
+                          size: 18, color: Color(0xFF38BDF8)),
+                      label: const Text('Descargar APK desde API'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 18),
           const Text(
             'Configuración de Conexión a la API REST',
             style: TextStyle(

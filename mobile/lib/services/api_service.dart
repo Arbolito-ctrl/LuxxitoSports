@@ -90,6 +90,28 @@ class ApiService {
     });
   }
 
+  // 1b. GET /api/version + GitHub Releases APK Update Check
+  static Future<Map<String, dynamic>> checkAppUpdate() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$_baseUrl/version'), headers: _headers)
+          .timeout(_timeout);
+      final body = _decodeResponse(res);
+      return body['data'] as Map<String, dynamic>;
+    } catch (_) {
+      // Fallback directo a GitHub Releases de Arbolito-ctrl/LuxxitoSports
+      return {
+        'version': '1.0.1',
+        'build_number': 2,
+        'release_notes':
+            'Descarga directa desde GitHub Releases (Arbolito-ctrl/LuxxitoSports).',
+        'github_release_apk_url':
+            'https://github.com/Arbolito-ctrl/LuxxitoSports/releases/latest/download/luxxito-sports.apk',
+        'server_apk_url': '$_baseUrl/apk/download',
+      };
+    }
+  }
+
   // 2. GET /api/complejos
   static Future<List<Complejo>> getComplejos({String? distrito}) {
     return _safeCall(() async {
