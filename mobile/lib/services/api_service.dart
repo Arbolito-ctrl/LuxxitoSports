@@ -41,6 +41,7 @@ class ApiService {
 
   static UserSession? _currentSession;
   static UserSession? get currentSession => _currentSession;
+  static bool get esAdmin => _currentSession?.rol == 'ADMIN';
 
   static void setSession(UserSession? session) {
     _currentSession = session;
@@ -814,12 +815,18 @@ class ApiService {
   }
 
   // 8. GET /api/reservas
-  static Future<List<Reserva>> getReservas({String? estado}) async {
+  static Future<List<Reserva>> getReservas({
+    String? estado,
+    String? clienteDni,
+  }) async {
+    final filtros = <String, String>{
+      if (estado != null && estado.isNotEmpty) 'estado': estado,
+      if (clienteDni != null && clienteDni.isNotEmpty) 'cliente_dni': clienteDni,
+    };
     if (!_useSupabaseDirect) {
       try {
         final uri = Uri.parse('$_baseUrl/reservas').replace(
-          queryParameters:
-              estado != null && estado.isNotEmpty ? {'estado': estado} : null,
+          queryParameters: filtros.isEmpty ? null : filtros,
         );
         final res = await http.get(uri, headers: _headers).timeout(_timeout);
         final body = _decodeResponse(res);
@@ -840,9 +847,9 @@ class ApiService {
     final canchaMap = {for (final c in canchas) c.id: c};
 
     var query = 'reservas?select=*&order=id.desc';
-    if (estado != null && estado.isNotEmpty) {
-      query += '&estado=eq.$estado';
-    }
+    filtros.forEach((campo, valor) {
+      query += '&$campo=eq.${Uri.encodeComponent(valor)}';
+    });
     final rows = await _supaGet(query) as List<dynamic>;
     final reRows = await _supaGet('reserva_extras?select=*') as List<dynamic>;
     final exRows = await _supaGet('extras?select=id,nombre') as List<dynamic>;
