@@ -680,4 +680,80 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     });
     expect(upBadMime.status).toBe(400);
   });
+  it('Caso 22 (Éxito y Fallo - Comprobante adjunto al pago - LX-301): Enlaza el voucher de la reserva y rechaza vouchers ajenos o reservas canceladas', async () => {
+    const fecha = getFutureDate(9);
+    const crear = (dni: string, hora: number) =>
+      request(app)
+        .post('/api/reservas')
+        .send({ cancha_id: 2, ...titular(dni), fecha, hora_inicio: hora, hora_fin: hora + 1 });
+    const reservaA = (await crear('71230001', 9)).body.data;
+    const reservaB = (await crear('71230002', 10)).body.data;
+
+    const voucher = Buffer.from('voucher-reserva-a').toString('base64');
+    const subida = await request(app)
+      .post('/api/pagos/comprobante')
+      .send({ reserva_id: reservaA.id, mime_type: 'image/jpeg', contenido_base64: voucher });
+    expect(subida.status).toBe(201);
+    expect(subida.body.data.almacenado).toBe(false); // sin Supabase Storage en pruebas
+    const comprobanteUrl = subida.body.data.comprobante_url;
+
+    // El voucher de la reserva A no puede usarse para pagar la reserva B
+    const ajeno = await request(app).post(`/api/reservas/${reservaB.id}/pagos`).send({
+      metodo: 'YAPE',
+      modalidad: 'TOTAL',
+      numero_operacion: 'YAPE-300001',
+      comprobante_url: comprobanteUrl,
+    });
+    expect(ajeno.status).toBe(400);
+
+    const propio = await request(app).post(`/api/reservas/${reservaA.id}/pagos`).send({
+      metodo: 'YAPE',
+      modalidad: 'TOTAL',
+      numero_operacion: 'YAPE-300002',
+      comprobante_url: comprobanteUrl,
+    });
+    expect(propio.status).toBe(201);
+    expect(propio.body.data.pago.comprobante_url).toBe(comprobanteUrl);
+
+    // Sin imagen adjunta el pago queda sin comprobante (no se inventa una URL)
+    const sinImagen = await request(app).post(`/api/reservas/${reservaB.id}/pagos`).send({
+      metodo: 'PLIN',
+      modalidad: 'TOTAL',
+      numero_operacion: 'PLIN-300003',
+    });
+    expect(sinImagen.body.data.pago.comprobante_url).toBeNull();
+
+    const bandeja = await request(app)
+      .get('/api/pagos?estado=PENDIENTE_REVISION')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const pagoA = bandeja.body.data.find((p: any) => p.reserva_id === reservaA.id);
+    expect(pagoA.comprobante_url).toBe(comprobanteUrl);
+    expect(pagoA).toHaveProperty('comprobante_url_firmada', null);
+
+    // No se aceptan comprobantes para reservas canceladas
+    await request(app).post(`/api/reservas/${reservaB.id}/cancelar`).send({ motivo: 'Prueba' });
+    const cancelada = await request(app)
+      .post('/api/pagos/comprobante')
+      .send({ reserva_id: reservaB.id, mime_type: 'image/jpeg', contenido_base64: voucher });
+    expect(cancelada.status).toBe(409);
+
+    // Una foto real (~400 KB en base64) entra; un cuerpo mayor a 8 MB responde 413
+    const fotoReal = Buffer.alloc(300 * 1024, 7).toString('base64');
+    const grande = await request(app)
+      .post('/api/pagos/comprobante')
+      .send({ reserva_id: reservaA.id, mime_type: 'image/jpeg', contenido_base64: fotoReal });
+    expect(grande.status).toBe(201);
+
+    const excesiva = await request(app)
+      .post('/api/pagos/comprobante')
+      .send({ reserva_id: reservaA.id, mime_type: 'image/jpeg', contenido_base64: 'A'.repeat(9 * 1024 * 1024) });
+    expect(excesiva.status).toBe(413);
+    expect(excesiva.body.code).toBe('PAYLOAD_TOO_LARGE');
+
+    // El resto de la API mantiene el límite de 100 KB
+    const notasGigantes = await request(app)
+      .put(`/api/reservas/${reservaA.id}`)
+      .send({ notas: 'x'.repeat(200 * 1024) });
+    expect(notasGigantes.status).toBe(413);
+  });
 });

@@ -33,6 +33,18 @@ export function getDbMode(): DbMode {
   return 'LOCAL_STORE';
 }
 
+/**
+ * Supabase Storage requiere la service role key: el bucket 'comprobantes' es privado
+ * y la anon key no tiene permisos de escritura. En pruebas se trabaja sin Storage.
+ */
+export function isStorageConfigured(): boolean {
+  if (process.env.NODE_ENV === 'test') return false;
+  return (
+    !isPlaceholder(process.env.SUPABASE_URL) &&
+    !isPlaceholder(process.env.SUPABASE_SERVICE_ROLE_KEY)
+  );
+}
+
 export function getPgPool(): Pool {
   if (!pgPool) {
     pgPool = new Pool({

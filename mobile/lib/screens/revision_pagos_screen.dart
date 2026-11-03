@@ -487,7 +487,10 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
   }
 
   Widget _vistaPreviaComprobante(Pago pago) {
-    final url = pago.comprobanteUrl;
+    // El bucket es privado: solo se puede mostrar el enlace firmado temporal.
+    final directa = pago.comprobanteUrl;
+    final url = pago.comprobanteUrlFirmada ??
+        (directa != null && directa.startsWith('http') ? directa : null);
     final placeholder = Container(
       height: 96,
       alignment: Alignment.center,

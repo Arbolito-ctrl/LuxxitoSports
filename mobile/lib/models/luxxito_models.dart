@@ -244,6 +244,8 @@ class Pago {
   final double monto;
   final String numeroOperacion;
   final String? comprobanteUrl;
+  /// Enlace temporal para ver el voucher (solo lo envía la bandeja del operador).
+  final String? comprobanteUrlFirmada;
   final String estado;
   final String? observacion;
   final String createdAt;
@@ -256,6 +258,7 @@ class Pago {
     required this.monto,
     required this.numeroOperacion,
     this.comprobanteUrl,
+    this.comprobanteUrlFirmada,
     required this.estado,
     this.observacion,
     required this.createdAt,
@@ -270,6 +273,7 @@ class Pago {
       monto: (json['monto'] as num).toDouble(),
       numeroOperacion: json['numero_operacion']?.toString() ?? '',
       comprobanteUrl: json['comprobante_url']?.toString(),
+      comprobanteUrlFirmada: json['comprobante_url_firmada']?.toString(),
       estado: json['estado']?.toString() ?? 'PENDIENTE_REVISION',
       observacion: json['observacion']?.toString(),
       createdAt: json['created_at']?.toString() ?? '',
