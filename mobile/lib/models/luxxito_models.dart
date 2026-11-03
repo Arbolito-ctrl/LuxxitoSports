@@ -1,3 +1,38 @@
+class UserSession {
+  final int id;
+  final String nombre;
+  final String dni;
+  final String telefono;
+  final String email;
+  final String rol;
+  final String token;
+
+  UserSession({
+    required this.id,
+    required this.nombre,
+    required this.dni,
+    required this.telefono,
+    required this.email,
+    required this.rol,
+    required this.token,
+  });
+
+  factory UserSession.fromJson(Map<String, dynamic> json, {String? tokenOverride}) {
+    final userMap = json['user'] is Map<String, dynamic>
+        ? json['user'] as Map<String, dynamic>
+        : json;
+    return UserSession(
+      id: (userMap['id'] as num?)?.toInt() ?? 1,
+      nombre: userMap['nombre']?.toString() ?? '',
+      dni: userMap['dni']?.toString() ?? '',
+      telefono: userMap['telefono']?.toString() ?? '',
+      email: userMap['email']?.toString() ?? '',
+      rol: userMap['rol']?.toString() ?? 'JUGADOR',
+      token: tokenOverride ?? json['token']?.toString() ?? '',
+    );
+  }
+}
+
 class Complejo {
   final int id;
   final String nombre;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/luxxito_models.dart';
 import '../services/api_service.dart';
@@ -9,11 +10,13 @@ class MisReservasScreen extends StatefulWidget {
   State<MisReservasScreen> createState() => _MisReservasScreenState();
 }
 
-class _MisReservasScreenState extends State<MisReservasScreen> {
+class _MisReservasScreenState extends State<MisReservasScreen>
+    with WidgetsBindingObserver {
   List<Reserva> _reservas = [];
   bool _cargando = true;
   String? _errorMsg;
   String _estadoFiltro = '';
+  Timer? _countdownTimer;
 
   final List<String> _estados = [
     '',
@@ -25,7 +28,41 @@ class _MisReservasScreenState extends State<MisReservasScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _cargarReservas();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted &&
+          _reservas.any((r) => r.estado == 'PENDIENTE_PAGO')) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  // LX-103: Recuperar expires_at y estado real desde el servidor al volver de segundo plano
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _cargarReservas();
+    }
+  }
+
+  String _formatearTiempoRestante(String expiresAtIso) {
+    final exp = DateTime.tryParse(expiresAtIso);
+    if (exp == null) return '20:00';
+    final diff = exp.difference(DateTime.now());
+    if (diff.isNegative) {
+      return 'Expirado (pendiente liberación)';
+    }
+    final mins = diff.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final secs = diff.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$mins:$secs';
   }
 
   Future<void> _cargarReservas() async {
@@ -569,6 +606,83 @@ class _MisReservasScreenState extends State<MisReservasScreen> {
                                               color: Colors.white60,
                                               fontStyle: FontStyle.italic,
                                               fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                        if (r.estado == 'PENDIENTE_PAGO') ...[
+                                          const SizedBox(height: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 6,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF59E0B)
+                                                  .withValues(alpha: 0.16),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                  color:
+                                                      const Color(0xFFF59E0B)),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.timer_outlined,
+                                                  size: 16,
+                                                  color: Color(0xFFFBBF24),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  child: Text(
+                                                    'Bloqueo de servidor (20 min) vence en: ${_formatearTiempoRestante(r.expiresAt)}',
+                                                    style: const TextStyle(
+                                                      color: Color(0xFFFDE68A),
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ] else if (r.estado == 'EN_REVISION') ...[
+                                          const SizedBox(height: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 6,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF0EA5E9)
+                                                  .withValues(alpha: 0.16),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                  color:
+                                                      const Color(0xFF38BDF8)),
+                                            ),
+                                            child: const Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.shield_outlined,
+                                                  size: 16,
+                                                  color: Color(0xFF38BDF8),
+                                                ),
+                                                SizedBox(width: 6),
+                                                Expanded(
+                                                  child: Text(
+                                                    'Comprobante enviado: turno protegido en revisión administrativa.',
+                                                    style: TextStyle(
+                                                      color: Color(0xFFBAE6FD),
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/api_service.dart';
+import 'auth_screen.dart';
 
 class PerfilConfigScreen extends StatefulWidget {
   const PerfilConfigScreen({super.key});
@@ -127,6 +128,7 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
   Widget build(BuildContext context) {
     final latestVersion = _updateInfo?['version']?.toString() ?? '1.0.1';
     final hayNuevaVersion = latestVersion != currentInstalledVersion;
+    final session = ApiService.currentSession;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
@@ -140,37 +142,88 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Colors.white12),
             ),
-            child: const Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: Color(0xFF10B981),
-                  child: Icon(Icons.sports_soccer,
-                      color: Colors.black, size: 32),
+                Row(
+                  children: [
+                    const CircleAvatar(
+                      radius: 28,
+                      backgroundColor: Color(0xFF10B981),
+                      child: Icon(Icons.sports_soccer,
+                          color: Colors.black, size: 32),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            session != null
+                                ? session.nombre
+                                : 'Luxxito Sports Mobile',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            session != null
+                                ? '${session.email} · DNI ${session.dni}'
+                                : 'Versión instalada: v1.0.0 · Sesión de Invitado',
+                            style: const TextStyle(
+                              color: Color(0xFF10B981),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Luxxito Sports Mobile',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    if (session == null)
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF10B981),
+                          foregroundColor: Colors.black,
                         ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Versión instalada: v1.0.0 · Distribución continua APK',
-                        style: TextStyle(
-                          color: Color(0xFF10B981),
-                          fontSize: 12,
+                        onPressed: () async {
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => AuthScreen(
+                                onAuthenticated: (_) {
+                                  setState(() {});
+                                },
+                              ),
+                            ),
+                          );
+                          setState(() {});
+                        },
+                        icon: const Icon(Icons.login, size: 18),
+                        label: const Text(
+                          'Iniciar Sesión / Crear Cuenta',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
+                      )
+                    else
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.redAccent,
+                          side: const BorderSide(color: Colors.redAccent),
+                        ),
+                        onPressed: () {
+                          ApiService.logout();
+                          setState(() {});
+                        },
+                        icon: const Icon(Icons.logout, size: 18),
+                        label: const Text('Cerrar Sesión'),
                       ),
-                    ],
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -318,6 +371,15 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
                     style: TextStyle(color: Colors.white, fontSize: 12)),
                 onPressed: () {
                   _urlCtrl.text = 'http://10.0.2.2:3000/api';
+                  _verificarConexion();
+                },
+              ),
+              ActionChip(
+                backgroundColor: const Color(0xFF064E3B),
+                label: const Text('Cloud Render (Producción)',
+                    style: TextStyle(color: Color(0xFF6EE7B7), fontSize: 12)),
+                onPressed: () {
+                  _urlCtrl.text = 'https://luxxito-sports-api.onrender.com/api';
                   _verificarConexion();
                 },
               ),

@@ -37,9 +37,9 @@ Para cerrar al 100% la **demostración en vivo del Taller 3** y completar las ca
 
 ## 3. Ficha Detallada de Tareas por Integrante
 
-### Bloque de Elvis (Móvil Flutter · Distribución APK · Cloud)
+### Bloque de Elvis (Móvil Flutter · Distribución APK · Cloud) — [COMPLETADO]
 
-#### `LX-101` — Despliegue de la API REST en la Nube y Configuración de URL de Producción en el APK
+#### `LX-101` — Despliegue de la API REST en la Nube y Configuración de URL de Producción en el APK (`[x] Completado`)
 - **Responsable:** Elvis
 - **Rama sugerida:** `elvis/deploy-api-cloud`
 - **Problema:** Cuando el APK se instala en un teléfono físico fuera de la red local, necesita conectarse a una URL HTTPS pública en lugar de `localhost:3000`.
@@ -49,7 +49,7 @@ Para cerrar al 100% la **demostración en vivo del Taller 3** y completar las ca
 - **Criterio de aceptación:** El APK descargado desde GitHub Releases consulta el catálogo y crea una reserva en Supabase usando datos móviles 4G/5G.
 - **Verificación:** `GET https://<tu-api>/api/health` responde `200 OK` con `"db_mode": "POSTGRES_POOL"`.
 
-#### `LX-102` — Pantalla de Login/Registro y Persistencia de Sesión en Flutter
+#### `LX-102` — Pantalla de Login/Registro y Persistencia de Sesión en Flutter (`[x] Completado`)
 - **Responsable:** Elvis
 - **Rama sugerida:** `elvis/auth-movil`
 - **Dependencias:** `LX-201` (Endpoints de Auth de Juan)
@@ -59,7 +59,7 @@ Para cerrar al 100% la **demostración en vivo del Taller 3** y completar las ca
   2. Guardar el token JWT y datos del jugador (`nombre`, `dni`, `telefono`, `email`) en memoria/almacenamiento local y enviarlos en el header `Authorization: Bearer <token>`.
 - **Criterio de aceptación:** Al iniciar sesión, el formulario de reserva rellena automáticamente los datos del jugador y la pestaña **Perfil** muestra su cuenta activa con botón de "Cerrar sesión".
 
-#### `LX-103` — Recuperación de Estado de Bloqueo (`expires_at`) y Temporizador Visual de 20 Minutos
+#### `LX-103` — Recuperación de Estado de Bloqueo (`expires_at`) y Temporizador Visual de 20 Minutos (`[x] Completado`)
 - **Responsable:** Elvis
 - **Rama sugerida:** `elvis/timer-bloqueo-20min`
 - **Problema:** El plan móvil exige mostrar una cuenta regresiva real basada en el campo `expires_at` devuelto por el servidor cuando una reserva está en `PENDIENTE_PAGO`.

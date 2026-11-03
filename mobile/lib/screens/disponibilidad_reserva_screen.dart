@@ -41,6 +41,13 @@ class _DisponibilidadReservaScreenState
   @override
   void initState() {
     super.initState();
+    final session = ApiService.currentSession;
+    if (session != null) {
+      _nombreCtrl.text = session.nombre;
+      _dniCtrl.text = session.dni;
+      _telefonoCtrl.text = session.telefono;
+      _emailCtrl.text = session.email;
+    }
     final manana = DateTime.now().add(const Duration(days: 1));
     _fechaSeleccionada = _formatDate(manana);
     _cargarDisponibilidad();
