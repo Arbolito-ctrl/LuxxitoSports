@@ -50,7 +50,10 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
   });
 
   it('Caso 2 (Éxito - CRUD): Creación y actualización de una cancha deportiva (201 y 200)', async () => {
-    const createRes = await request(app).post('/api/canchas').send({
+    const createRes = await request(app)
+      .post('/api/canchas')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
       complejo_id: 1,
       nombre: 'Cancha Sintética VIP 4',
       deporte: 'Futbol 5',
@@ -66,13 +69,17 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     const canchaId = createRes.body.data.id;
     const updateRes = await request(app)
       .put(`/api/canchas/${canchaId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ precio_hora_diurno: 85, precio_hora_nocturno: 115 });
     expect(updateRes.status).toBe(200);
     expect(updateRes.body.data.precio_hora_diurno).toBe(85);
   });
 
   it('Caso 3 (Fallo - Validación 400): Rechaza creación de cancha con precio nocturno menor al diurno', async () => {
-    const res = await request(app).post('/api/canchas').send({
+    const res = await request(app)
+      .post('/api/canchas')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
       complejo_id: 1,
       nombre: 'Cancha Inválida',
       deporte: 'Futbol 7',
@@ -797,5 +804,34 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
       .get('/api/pagos')
       .set('Authorization', `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${payload}.${firma}`);
     expect(sinVencimiento.status).toBe(401);
+  });
+  it('Caso 24 (Seguridad y Éxito - Catálogo y foto de cancha): Solo el ADMIN crea, edita o cambia la foto de una cancha (401/403/200/400/404)', async () => {
+    const nueva = { complejo_id: 1, nombre: 'Cancha Prueba', deporte: 'Futbol 5', precio_hora_diurno: 60, precio_hora_nocturno: 80 };
+    expect((await request(app).post('/api/canchas').send(nueva)).status).toBe(401);
+    expect(
+      (await request(app).put('/api/canchas/1').set('Authorization', `Bearer ${jugadorToken}`).send({ precio_hora_diurno: 1 })).status
+    ).toBe(403);
+
+    const foto = { mime_type: 'image/png', contenido_base64: Buffer.from('foto-de-la-cancha').toString('base64') };
+    expect((await request(app).post('/api/canchas/1/imagen').send(foto)).status).toBe(401);
+    expect(
+      (await request(app).post('/api/canchas/1/imagen').set('Authorization', `Bearer ${jugadorToken}`).send(foto)).status
+    ).toBe(403);
+
+    const subida = await request(app).post('/api/canchas/1/imagen').set('Authorization', `Bearer ${adminToken}`).send(foto);
+    expect(subida.status).toBe(200);
+    expect(subida.body.data.imagen_url).toMatch(/^local:\/\/canchas\/cancha-1\/foto-\d+\.png$/);
+
+    const detalle = await request(app).get('/api/canchas/1');
+    expect(detalle.body.data.imagen_url).toBe(subida.body.data.imagen_url);
+
+    const formato = await request(app)
+      .post('/api/canchas/1/imagen')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ ...foto, mime_type: 'application/pdf' });
+    expect(formato.status).toBe(400);
+
+    const inexistente = await request(app).post('/api/canchas/999/imagen').set('Authorization', `Bearer ${adminToken}`).send(foto);
+    expect(inexistente.status).toBe(404);
   });
 });

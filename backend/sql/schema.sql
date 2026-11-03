@@ -1,7 +1,7 @@
 -- ============================================================================
 -- LUXXITO SPORTS - ESQUEMA DE BASE DE DATOS POSTGRESQL (SUPABASE)
 -- Curso: SI806 Desarrollo Adaptativo e Integrado del Software - Taller 3 (UNI)
--- Incluye: 7 Tablas Relacionadas, Bucket Privado 'comprobantes', RLS y RPCs
+-- Incluye: 7 Tablas Relacionadas, Bucket Privado 'comprobantes', Bucket Público 'canchas', RLS y RPCs
 -- ============================================================================
 
 -- 0. Tabla de Usuarios (Jugadores y Administradores)
@@ -111,6 +111,8 @@ CREATE TABLE IF NOT EXISTS pagos (
 );
 
 ALTER TABLE reservas ADD COLUMN IF NOT EXISTS qr_usado_at TIMESTAMPTZ;
+-- Foto propia de cada cancha (bucket público 'canchas'); sin foto se usa la del complejo
+ALTER TABLE canchas ADD COLUMN IF NOT EXISTS imagen_url TEXT;
 
 -- Índices para optimizar consultas de disponibilidad y cruce de horarios
 CREATE INDEX IF NOT EXISTS idx_canchas_complejo ON canchas(complejo_id);
@@ -135,6 +137,14 @@ BEGIN
         )
         ON CONFLICT (id) DO UPDATE SET
             public = false,
+            file_size_limit = 5242880,
+            allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp'];
+
+        -- Fotos de las canchas: públicas porque se muestran en el catálogo
+        INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+        VALUES ('canchas', 'canchas', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp'])
+        ON CONFLICT (id) DO UPDATE SET
+            public = true,
             file_size_limit = 5242880,
             allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp'];
     END IF;

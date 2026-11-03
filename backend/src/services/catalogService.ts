@@ -9,6 +9,11 @@ import {
   TurnoDisponibilidad,
 } from '../types/models';
 import { Errors } from '../utils/errors';
+import { getDbMode, getSupabaseClient, isStorageConfigured } from '../config/database';
+
+const BUCKET_CANCHAS = 'canchas';
+const MIMES_IMAGEN = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_BYTES_IMAGEN = 5 * 1024 * 1024;
 
 const VALID_DEPORTES: DeporteTipo[] = [
   'Futbol 5',
@@ -111,6 +116,53 @@ export class CatalogService {
       precio_hora_nocturno: precioNocturno,
       estado,
     });
+  }
+
+  /**
+   * Foto propia de una cancha (solo ADMIN): se guarda en el bucket público 'canchas'
+   * y su URL pública queda en canchas.imagen_url.
+   */
+  async subirImagenCancha(id: number, payload: any): Promise<Cancha> {
+    if (!Number.isInteger(id) || id <= 0) {
+      throw Errors.badRequest('El ID de la cancha debe ser un entero positivo.');
+    }
+    const cancha = await dataRepository.getCanchaById(id);
+    if (!cancha) throw Errors.notFound(`No se encontró la cancha con ID ${id}.`);
+
+    const mimeType = String(payload?.mime_type || 'image/jpeg').trim().toLowerCase();
+    if (!MIMES_IMAGEN.includes(mimeType)) {
+      throw Errors.badRequest(`Formato de imagen no permitido (${mimeType}). Usa JPEG, PNG o WEBP.`);
+    }
+    const base64 = String(payload?.contenido_base64 || '')
+      .replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '')
+      .trim();
+    if (base64.length < 8) {
+      throw Errors.badRequest('Debes adjuntar la imagen de la cancha en base64.');
+    }
+    const buffer = Buffer.from(base64, 'base64');
+    if (buffer.byteLength > MAX_BYTES_IMAGEN) {
+      throw Errors.unprocessable('La imagen supera el límite máximo permitido de 5 MB.');
+    }
+
+    const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
+    const ruta = `cancha-${id}/foto-${Date.now()}.${ext}`;
+    let imagenUrl: string;
+
+    if (isStorageConfigured()) {
+      const storage = getSupabaseClient().storage.from(BUCKET_CANCHAS);
+      const { error } = await storage.upload(ruta, buffer, { contentType: mimeType, upsert: false });
+      if (error) throw Errors.storage(`No se pudo guardar la foto en Storage: ${error.message}`);
+      imagenUrl = storage.getPublicUrl(ruta).data.publicUrl;
+    } else if (getDbMode() === 'LOCAL_STORE') {
+      // Pruebas y modo local: se valida sin subir el archivo
+      imagenUrl = `local://${BUCKET_CANCHAS}/${ruta}`;
+    } else {
+      throw Errors.storage(
+        'Supabase Storage no está configurado en el servidor (falta SUPABASE_SERVICE_ROLE_KEY).'
+      );
+    }
+
+    return (await dataRepository.actualizarImagenCancha(id, imagenUrl))!;
   }
 
   async actualizarCancha(id: number, payload: any): Promise<Cancha> {

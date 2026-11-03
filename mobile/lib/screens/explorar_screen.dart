@@ -1,9 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../models/luxxito_models.dart';
 import '../services/api_service.dart';
 import '../theme/luxxito_theme.dart';
 import '../widgets/luxxito_widgets.dart';
+import '../widgets/selector_foto.dart';
 import 'disponibilidad_reserva_screen.dart';
 
 class ExplorarScreen extends StatefulWidget {
@@ -99,6 +102,30 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
     if (ok == true) widget.onNavigateToReservas();
   }
 
+  Future<void> _cambiarFoto(Cancha cancha) async {
+    final foto = await elegirFoto(context);
+    if (foto == null || !mounted) return;
+    mostrarAviso(
+      context,
+      'Subiendo foto de ${cancha.nombre}…',
+      tipo: TipoAviso.info,
+    );
+    try {
+      await ApiService.subirImagenCancha(
+        canchaId: cancha.id,
+        bytes: foto.$1,
+        mimeType: foto.$2,
+      );
+      if (!mounted) return;
+      mostrarAviso(context, 'Foto de ${cancha.nombre} actualizada.');
+      _cargarCatalogo();
+    } catch (e) {
+      if (mounted) {
+        mostrarAviso(context, mensajeError(e), tipo: TipoAviso.error);
+      }
+    }
+  }
+
   Future<void> _mostrarDialogoNuevaCancha() async {
     final formKey = GlobalKey<FormState>();
     final nombreCtrl = TextEditingController();
@@ -109,6 +136,7 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
     String deporteSel = 'Futbol 7';
     bool techada = false;
     bool guardando = false;
+    (Uint8List, String)? fotoNueva;
 
     final creado = await showModalBottomSheet<bool>(
       context: context,
@@ -116,12 +144,7 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
       useSafeArea: true,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            0,
-            20,
-            20 + espacioInferior(ctx),
-          ),
+          padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + espacioInferior(ctx)),
           child: Form(
             key: formKey,
             child: SingleChildScrollView(
@@ -250,6 +273,50 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
                     value: techada,
                     onChanged: (v) => setSheetState(() => techada = v),
                   ),
+                  if (fotoNueva == null)
+                    OutlinedButton.icon(
+                      onPressed: guardando
+                          ? null
+                          : () async {
+                              final foto = await elegirFoto(ctx);
+                              if (foto != null) {
+                                setSheetState(() => fotoNueva = foto);
+                              }
+                            },
+                      icon: const Icon(Icons.add_a_photo_outlined),
+                      label: const Text('Agregar foto de la cancha (opcional)'),
+                    )
+                  else
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Stack(
+                        children: [
+                          Image.memory(
+                            fotoNueva!.$1,
+                            height: 140,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                          Positioned(
+                            top: 6,
+                            right: 6,
+                            child: IconButton.filled(
+                              tooltip: 'Quitar foto',
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.black54,
+                              ),
+                              onPressed: guardando
+                                  ? null
+                                  : () => setSheetState(() => fotoNueva = null),
+                              icon: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   const SizedBox(height: 8),
                   FilledButton(
                     onPressed: guardando
@@ -258,7 +325,7 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
                             if (!formKey.currentState!.validate()) return;
                             setSheetState(() => guardando = true);
                             try {
-                              await ApiService.crearCancha(
+                              final creada = await ApiService.crearCancha(
                                 complejoId: complejoSel!,
                                 nombre: nombreCtrl.text.trim(),
                                 deporte: deporteSel,
@@ -267,6 +334,24 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
                                 precioDiurno: double.parse(diurnoCtrl.text),
                                 precioNocturno: double.parse(nocturnoCtrl.text),
                               );
+                              if (fotoNueva != null) {
+                                try {
+                                  await ApiService.subirImagenCancha(
+                                    canchaId: creada.id,
+                                    bytes: fotoNueva!.$1,
+                                    mimeType: fotoNueva!.$2,
+                                  );
+                                } catch (_) {
+                                  // La cancha ya existe: la foto se puede agregar luego con "Cambiar foto"
+                                  if (ctx.mounted) {
+                                    mostrarAviso(
+                                      ctx,
+                                      'Cancha creada, pero no se pudo subir la foto.',
+                                      tipo: TipoAviso.info,
+                                    );
+                                  }
+                                }
+                              }
                               if (!ctx.mounted) return;
                               Navigator.of(ctx).pop(true);
                             } catch (e) {
@@ -289,7 +374,6 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
       ),
     );
 
-
     if (creado == true && mounted) {
       mostrarAviso(context, 'Cancha publicada en el catálogo.');
       _cargarCatalogo();
@@ -307,8 +391,8 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
             widget.modoGestion
                 ? 'Catálogo de canchas'
                 : nombre.isEmpty
-                    ? '¡Hola!'
-                    : '¡Hola, $nombre!',
+                ? '¡Hola!'
+                : '¡Hola, $nombre!',
             style: const TextStyle(
               color: LuxxitoColors.texto,
               fontSize: 22,
@@ -386,14 +470,16 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: activa && !widget.modoGestion ? () => _abrirReserva(cancha) : null,
+        onTap: activa && !widget.modoGestion
+            ? () => _abrirReserva(cancha)
+            : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Stack(
               children: [
                 FotoComplejo(
-                  url: _fotos[cancha.complejoId],
+                  url: cancha.imagenUrl ?? _fotos[cancha.complejoId],
                   iconoRespaldo: iconoDeporte(cancha.deporte),
                 ),
                 Positioned(
@@ -531,14 +617,31 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
                         ),
                       ),
                       if (widget.modoGestion)
-                        Insignia(
-                          activa ? 'Activa' : 'Inactiva',
-                          color: activa ? LuxxitoColors.exito : LuxxitoColors.error,
-                          icono: activa ? Icons.check_circle : Icons.block,
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Insignia(
+                              activa ? 'Activa' : 'Inactiva',
+                              color: activa
+                                  ? LuxxitoColors.exito
+                                  : LuxxitoColors.error,
+                              icono: activa ? Icons.check_circle : Icons.block,
+                            ),
+                            TextButton.icon(
+                              onPressed: () => _cambiarFoto(cancha),
+                              icon: const Icon(
+                                Icons.add_a_photo_outlined,
+                                size: 18,
+                              ),
+                              label: const Text('Cambiar foto'),
+                            ),
+                          ],
                         )
                       else
                         FilledButton.icon(
-                          onPressed: activa ? () => _abrirReserva(cancha) : null,
+                          onPressed: activa
+                              ? () => _abrirReserva(cancha)
+                              : null,
                           icon: const Icon(Icons.calendar_month, size: 18),
                           label: const Text('Reservar'),
                         ),
@@ -590,10 +693,12 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
         if (idx == 0) {
           return Text(
             _canchas.length == 1
-                ? (widget.modoGestion ? '1 cancha en el catálogo' : '1 cancha disponible')
+                ? (widget.modoGestion
+                      ? '1 cancha en el catálogo'
+                      : '1 cancha disponible')
                 : widget.modoGestion
-                    ? '${_canchas.length} canchas en el catálogo'
-                    : '${_canchas.length} canchas disponibles',
+                ? '${_canchas.length} canchas en el catálogo'
+                : '${_canchas.length} canchas disponibles',
             style: const TextStyle(
               color: LuxxitoColors.textoTenue,
               fontSize: 13,
