@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import '../services/actualizacion_service.dart';
 import '../services/api_service.dart';
 import '../theme/luxxito_theme.dart';
+import '../widgets/actualizacion_dialog.dart';
 import '../widgets/luxxito_widgets.dart';
 
 class PerfilConfigScreen extends StatefulWidget {
@@ -15,69 +16,42 @@ class PerfilConfigScreen extends StatefulWidget {
 }
 
 class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
-  static const String currentInstalledVersion = '1.0.0';
+  String _versionInstalada = '…';
   bool _buscandoUpdate = false;
 
   @override
   void initState() {
     super.initState();
+    ActualizacionService.versionInstalada().then((v) {
+      if (mounted) setState(() => _versionInstalada = v);
+    });
   }
 
   Future<void> _buscarActualizacion() async {
+    if (!ActualizacionService.disponible) {
+      mostrarAviso(
+        context,
+        'Esta versión se instaló desde la laptop. La actualización automática '
+        'funciona en el APK descargado de GitHub.',
+        tipo: TipoAviso.info,
+      );
+      return;
+    }
     setState(() => _buscandoUpdate = true);
-    final info = await ApiService.checkAppUpdate();
-    if (!mounted) return;
-    setState(() => _buscandoUpdate = false);
-
-    final ultima = info['version']?.toString() ?? currentInstalledVersion;
-    final hayNueva = ultima != currentInstalledVersion;
-    final url =
-        info['github_release_apk_url']?.toString() ??
-        'https://github.com/Arbolito-ctrl/LuxxitoSports/releases/latest/download/luxxito-sports.apk';
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        icon: Icon(
-          hayNueva ? Icons.system_update : Icons.verified,
-          color: LuxxitoColors.primario,
-          size: 40,
-        ),
-        title: Text(
-          hayNueva
-              ? 'Nueva versión $ultima disponible'
-              : 'Tienes la última versión',
-        ),
-        content: Text(
-          hayNueva
-              ? (info['release_notes']?.toString() ??
-                    'Descarga el APK e instálalo sobre la versión actual.')
-              : 'Luxxito Sports $currentInstalledVersion está al día.',
-          textAlign: TextAlign.center,
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cerrar'),
-          ),
-          if (hayNueva)
-            FilledButton.icon(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: url));
-                Navigator.of(ctx).pop();
-                mostrarAviso(
-                  context,
-                  'Enlace copiado. Pégalo en tu navegador para descargar el APK.',
-                  tipo: TipoAviso.info,
-                );
-              },
-              icon: const Icon(Icons.link),
-              label: const Text('Copiar enlace'),
-            ),
-        ],
-      ),
-    );
+    try {
+      final info = await ActualizacionService.buscar();
+      if (!mounted) return;
+      setState(() => _buscandoUpdate = false);
+      if (info == null) {
+        mostrarAviso(context, 'Tienes la última versión de Luxxito Sports.');
+      } else {
+        await ofrecerActualizacion(context, info);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _buscandoUpdate = false);
+      mostrarAviso(context, mensajeError(e), tipo: TipoAviso.error);
+    }
   }
 
   void _mostrarPoliticas() {
@@ -373,7 +347,7 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
             _opcion(
               icono: Icons.info_outline,
               titulo: 'Versión',
-              subtitulo: 'Luxxito Sports $currentInstalledVersion',
+              subtitulo: 'Luxxito Sports $_versionInstalada',
               trailing: const SizedBox.shrink(),
             ),
           ]),

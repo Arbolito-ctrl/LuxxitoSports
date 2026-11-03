@@ -71,12 +71,33 @@ jobs:
           API_BASE_URL: ${{ secrets.API_BASE_URL }}
         run: node .github/scripts/validate-apk-config.cjs
 
+      # Clave de firma fija: sin ella cada APK sale firmado con una clave temporal
+      # distinta y Android no permite instalarlo encima del anterior.
+      - name: Preparar clave de firma del APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ANDROID_KEYSTORE_BASE64}" ]; then
+            if [ "${{ steps.env_info.outputs.ENV_NAME }}" = "prod" ]; then
+              echo "::error::Falta el secret ANDROID_KEYSTORE_BASE64: el APK de producción debe firmarse con la clave fija."
+              exit 1
+            fi
+            echo "::warning::Sin ANDROID_KEYSTORE_BASE64: el APK de desarrollo se firma con una clave temporal."
+            exit 0
+          fi
+          # Quita espacios y saltos de línea (por ejemplo \r si el secret se guardó desde Windows)
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$RUNNER_TEMP/luxxito-release.jks"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/luxxito-release.jks" >> "$GITHUB_ENV"
+
       - name: Compilar APK de Android con configuración de entorno
         working-directory: ./mobile
         env:
           API_BASE_URL: ${{ secrets.API_BASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           set -euo pipefail
           flutter build apk --release \
@@ -85,7 +106,12 @@ jobs:
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
-            --dart-define=ALLOW_SUPABASE_DIRECT=false
+            --dart-define=ALLOW_SUPABASE_DIRECT=false \
+            --dart-define=APK_CANAL=${{ steps.env_info.outputs.TAG_NAME }}
+          # Versión publicada que la app consulta para ofrecer la actualización
+          printf '{"version":"1.0.%s","build_number":%s,"commit":"%s","canal":"%s"}\n' \
+            "${{ github.run_number }}" "${{ github.run_number }}" "${{ github.sha }}" \
+            "${{ steps.env_info.outputs.TAG_NAME }}" > build/app/outputs/flutter-apk/version.json
           cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/luxxito-sports.apk
           cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/luxxito-sports-${{ steps.env_info.outputs.ENV_NAME }}.apk
 
@@ -112,6 +138,7 @@ jobs:
             - **Descarga directa:** Haz clic en `luxxito-sports.apk` abajo para instalar o actualizar la aplicación en tu dispositivo Android.
           files: |
             mobile/build/app/outputs/flutter-apk/luxxito-sports.apk
+            mobile/build/app/outputs/flutter-apk/version.json
             mobile/build/app/outputs/flutter-apk/luxxito-sports-${{ steps.env_info.outputs.ENV_NAME }}.apk
           prerelease: ${{ steps.env_info.outputs.ENV_NAME == 'dev' }}
         env:

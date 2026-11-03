@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../theme/luxxito_theme.dart';
 import '../explorar_screen.dart';
 import '../mis_reservas_screen.dart';
@@ -6,6 +7,7 @@ import '../perfil_config_screen.dart';
 import '../revision_pagos_screen.dart';
 import 'panel_admin_screen.dart';
 import 'verificar_qr_screen.dart';
+import '../../widgets/actualizacion_dialog.dart';
 
 /// Navegación propia del ADMIN: operar el complejo en lugar de reservar canchas.
 class AdminShellScreen extends StatefulWidget {
@@ -18,6 +20,14 @@ class AdminShellScreen extends StatefulWidget {
 }
 
 class _AdminShellScreenState extends State<AdminShellScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => revisarActualizacionAlIniciar(context),
+    );
+  }
+
   static const _inicio = 0;
   static const _pagos = 1;
   static const _ingreso = 2;
@@ -99,7 +109,9 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
             key: _pagosKey,
             mostrarAppBar: false,
             onPendientes: (n) {
-              if (mounted && n != _pagosPendientes) setState(() => _pagosPendientes = n);
+              if (mounted && n != _pagosPendientes) {
+                setState(() => _pagosPendientes = n);
+              }
             },
           ),
           VerificarQrScreen(activa: _seleccion == _ingreso),
@@ -125,13 +137,19 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
             selectedIcon: Badge(
               isLabelVisible: _pagosPendientes > 0,
               label: Text('$_pagosPendientes'),
-              child: const Icon(Icons.fact_check, color: LuxxitoColors.primario),
+              child: const Icon(
+                Icons.fact_check,
+                color: LuxxitoColors.primario,
+              ),
             ),
             label: 'Pagos',
           ),
           const NavigationDestination(
             icon: Icon(Icons.qr_code_scanner),
-            selectedIcon: Icon(Icons.qr_code_scanner, color: LuxxitoColors.primario),
+            selectedIcon: Icon(
+              Icons.qr_code_scanner,
+              color: LuxxitoColors.primario,
+            ),
             label: 'Ingreso',
           ),
           const NavigationDestination(
