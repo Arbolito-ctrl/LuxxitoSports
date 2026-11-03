@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../models/luxxito_models.dart';
@@ -108,6 +109,34 @@ class MisReservasScreenState extends State<MisReservasScreen>
   // Pago con comprobante
   // ---------------------------------------------------------------------------
 
+  /// Foto del voucher reducida para no superar el límite de 5 MB del bucket.
+  Future<(Uint8List, String)?> _elegirFoto(ImageSource origen) async {
+    try {
+      final foto = await ImagePicker().pickImage(
+        source: origen,
+        maxWidth: 1600,
+        imageQuality: 80,
+      );
+      if (foto == null) return null;
+      final nombre = foto.name.toLowerCase();
+      final mime = nombre.endsWith('.png')
+          ? 'image/png'
+          : nombre.endsWith('.webp')
+              ? 'image/webp'
+              : 'image/jpeg';
+      return (await foto.readAsBytes(), mime);
+    } catch (_) {
+      if (mounted) {
+        mostrarAviso(
+          context,
+          'No pudimos abrir la cámara o la galería. Revisa los permisos de la app.',
+          tipo: TipoAviso.error,
+        );
+      }
+      return null;
+    }
+  }
+
   Future<void> _mostrarHojaPago(Reserva r) async {
     final formKey = GlobalKey<FormState>();
     final opCtrl = TextEditingController();
@@ -115,6 +144,10 @@ class MisReservasScreenState extends State<MisReservasScreen>
     String metodo = 'YAPE';
     String modalidad = 'TOTAL';
     bool enviando = false;
+    String? estadoEnvio;
+    Uint8List? fotoBytes;
+    String fotoMime = 'image/jpeg';
+    String? fotoSubidaUrl;
 
     final ok = await showModalBottomSheet<bool>(
       context: context,
@@ -283,6 +316,73 @@ class MisReservasScreenState extends State<MisReservasScreen>
                           ? 'Ingresa al menos 4 caracteres'
                           : null,
                     ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      '3. Adjunta la captura del pago (recomendado)',
+                      style: TextStyle(
+                        color: LuxxitoColors.texto,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (fotoBytes == null)
+                      Row(
+                        children: [
+                          for (final (origen, icono, etiqueta) in const [
+                            (ImageSource.camera, Icons.photo_camera_outlined, 'Cámara'),
+                            (ImageSource.gallery, Icons.photo_library_outlined, 'Galería'),
+                          ]) ...[
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: enviando
+                                    ? null
+                                    : () async {
+                                        final foto = await _elegirFoto(origen);
+                                        if (foto == null) return;
+                                        setSheetState(() {
+                                          (fotoBytes, fotoMime) = foto;
+                                          fotoSubidaUrl = null;
+                                        });
+                                      },
+                                icon: Icon(icono),
+                                label: Text(etiqueta),
+                              ),
+                            ),
+                            if (origen == ImageSource.camera) const SizedBox(width: 10),
+                          ],
+                        ],
+                      )
+                    else
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.memory(
+                              fotoBytes!,
+                              height: 160,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Positioned(
+                            top: 6,
+                            right: 6,
+                            child: IconButton.filled(
+                              tooltip: 'Quitar foto',
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.black54,
+                              ),
+                              onPressed: enviando
+                                  ? null
+                                  : () => setSheetState(() {
+                                      fotoBytes = null;
+                                      fotoSubidaUrl = null;
+                                    }),
+                              icon: const Icon(Icons.close, color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
                     const SizedBox(height: 18),
                     FilledButton.icon(
                       onPressed: enviando
@@ -291,17 +391,31 @@ class MisReservasScreenState extends State<MisReservasScreen>
                               if (!formKey.currentState!.validate()) return;
                               setSheetState(() => enviando = true);
                               try {
+                                // Si el registro falla, el reintento reutiliza la foto ya subida
+                                if (fotoBytes != null && fotoSubidaUrl == null) {
+                                  setSheetState(() => estadoEnvio = 'Subiendo foto…');
+                                  fotoSubidaUrl = await ApiService.subirComprobante(
+                                    reservaId: r.id,
+                                    bytes: fotoBytes!,
+                                    mimeType: fotoMime,
+                                  );
+                                }
+                                setSheetState(() => estadoEnvio = 'Enviando…');
                                 await ApiService.registrarPago(
                                   reservaId: r.id,
                                   metodo: metodo,
                                   modalidad: modalidad,
                                   monto: monto,
                                   numeroOperacion: opCtrl.text.trim(),
+                                  comprobanteUrl: fotoSubidaUrl,
                                 );
                                 if (!ctx.mounted) return;
                                 Navigator.of(ctx).pop(true);
                               } catch (e) {
-                                setSheetState(() => enviando = false);
+                                setSheetState(() {
+                                  enviando = false;
+                                  estadoEnvio = null;
+                                });
                                 if (!ctx.mounted) return;
                                 mostrarAviso(
                                   ctx,
@@ -321,7 +435,7 @@ class MisReservasScreenState extends State<MisReservasScreen>
                             )
                           : const Icon(Icons.send),
                       label: Text(
-                        enviando ? 'Enviando…' : 'Enviar comprobante',
+                        enviando ? (estadoEnvio ?? 'Enviando…') : 'Enviar comprobante',
                       ),
                     ),
                   ],

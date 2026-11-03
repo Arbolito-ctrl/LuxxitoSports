@@ -11,6 +11,7 @@ import {
   ReservaExtraItem,
 } from '../types/models';
 import { Errors } from '../utils/errors';
+import { getSupabaseClient, isStorageConfigured } from '../config/database';
 
 const VALID_METODOS_PAGO: MetodoPago[] = ['YAPE', 'PLIN', 'TRANSFERENCIA'];
 const VALID_MODALIDADES: ModalidadPago[] = ['SENA_50', 'TOTAL'];
@@ -22,8 +23,13 @@ const VALID_ESTADOS_PAGO: EstadoPago[] = [
 ];
 const BLOQUEO_MINUTOS = 20;
 const MIN_OBSERVACION_RECHAZO = 5;
+const BUCKET_COMPROBANTES = 'comprobantes';
+const PREFIJO_STORAGE = `supabase://${BUCKET_COMPROBANTES}/`;
+const VIGENCIA_URL_FIRMADA_SEG = 60 * 60;
 
 export type PagoConReserva = Pago & {
+  /** Enlace temporal (1 h) para ver el voucher del bucket privado; null si no hay imagen. */
+  comprobante_url_firmada: string | null;
   reserva: Pick<
     Reserva,
     | 'id'
@@ -408,9 +414,7 @@ export class ReservationService {
       modalidad,
       monto,
       numero_operacion: numeroOperacion,
-      comprobante_url: payload.comprobante_url
-        ? String(payload.comprobante_url).trim()
-        : `https://storage.luxxitosports.pe/comprobantes/op-${numeroOperacion}.jpg`,
+      comprobante_url: this.validarComprobanteUrl(reservaId, payload.comprobante_url),
       estado: 'PENDIENTE_REVISION',
       observacion: payload.observacion ? String(payload.observacion).trim() : null,
     });
@@ -427,6 +431,19 @@ export class ReservationService {
     }
 
     return { pago, reserva: reservaActualizada };
+  }
+
+  /**
+   * El voucher adjunto debe ser uno subido para esta misma reserva
+   * (evita enlazar el comprobante de otra reserva).
+   */
+  private validarComprobanteUrl(reservaId: number, valor: unknown): string | null {
+    if (valor === undefined || valor === null || String(valor).trim() === '') return null;
+    const url = String(valor).trim();
+    if (url.startsWith(PREFIJO_STORAGE) && !url.startsWith(`${PREFIJO_STORAGE}reserva-${reservaId}/`)) {
+      throw Errors.badRequest('El comprobante adjunto no pertenece a esta reserva.');
+    }
+    return url;
   }
 
   /**
@@ -509,10 +526,13 @@ export class ReservationService {
       }
     }
 
+    const firmadas = await this.firmarComprobantes(pagos);
+
     return pagos.map((pago) => {
       const r = reservas.get(pago.reserva_id);
       return {
         ...pago,
+        comprobante_url_firmada: firmadas.get(pago.id) ?? null,
         reserva: r
           ? {
               id: r.id,
@@ -531,6 +551,27 @@ export class ReservationService {
           : null,
       };
     });
+  }
+
+  /**
+   * Genera enlaces firmados temporales para los vouchers guardados en el bucket privado.
+   * Si Storage no está configurado o falla, el pago se lista igual sin vista previa.
+   */
+  private async firmarComprobantes(pagos: Pago[]): Promise<Map<number, string>> {
+    const firmadas = new Map<number, string>();
+    const conArchivo = pagos.filter((p) => p.comprobante_url?.startsWith(PREFIJO_STORAGE));
+    if (!isStorageConfigured() || conArchivo.length === 0) return firmadas;
+
+    const rutas = conArchivo.map((p) => p.comprobante_url!.slice(PREFIJO_STORAGE.length));
+    const { data, error } = await getSupabaseClient()
+      .storage.from(BUCKET_COMPROBANTES)
+      .createSignedUrls(rutas, VIGENCIA_URL_FIRMADA_SEG);
+    if (error || !data) return firmadas;
+
+    data.forEach((item, i) => {
+      if (item.signedUrl) firmadas.set(conArchivo[i].id, item.signedUrl);
+    });
+    return firmadas;
   }
 
   /**
@@ -736,12 +777,18 @@ export class ReservationService {
     comprobante_url: string;
     mime_type: string;
     size_bytes: number;
+    almacenado: boolean;
   }> {
     const reservaId = Number(payload?.reserva_id);
     if (!Number.isInteger(reservaId) || reservaId <= 0) {
       throw Errors.badRequest('El campo reserva_id debe ser un entero positivo.');
     }
-    await this.obtenerReserva(reservaId);
+    const reserva = await this.obtenerReserva(reservaId);
+    if (reserva.estado === 'CANCELADA' || reserva.estado === 'VENCIDA') {
+      throw Errors.conflict(
+        `No se pueden adjuntar comprobantes a una reserva en estado ${reserva.estado}.`
+      );
+    }
 
     const mimeType = String(payload?.mime_type || 'image/jpeg').trim().toLowerCase();
     const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
@@ -769,14 +816,27 @@ export class ReservationService {
 
     const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
     const objectPath = `reserva-${reservaId}/voucher-${Date.now()}.${ext}`;
-    const comprobanteUrl = `supabase://comprobantes/${objectPath}`;
+    const comprobanteUrl = `${PREFIJO_STORAGE}${objectPath}`;
+
+    // Con Supabase configurado se guarda el archivo en el bucket privado;
+    // en pruebas y modo local solo se valida y se devuelve la ruta.
+    const almacenado = isStorageConfigured();
+    if (almacenado) {
+      const { error } = await getSupabaseClient()
+        .storage.from(BUCKET_COMPROBANTES)
+        .upload(objectPath, buffer, { contentType: mimeType, upsert: false });
+      if (error) {
+        throw Errors.storage(`No se pudo guardar el comprobante en Storage: ${error.message}`);
+      }
+    }
 
     return {
-      bucket: 'comprobantes',
+      bucket: BUCKET_COMPROBANTES,
       path: objectPath,
       comprobante_url: comprobanteUrl,
       mime_type: mimeType,
       size_bytes: buffer.byteLength,
+      almacenado,
     };
   }
 }
