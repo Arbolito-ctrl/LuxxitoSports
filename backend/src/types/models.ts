@@ -107,6 +107,7 @@ export interface Reserva {
   monto_devolucion: number;
   estado: EstadoReserva;
   codigo_qr: string | null;
+  qr_usado_at?: string | null;
   motivo_cancelacion: string | null;
   notas: string | null;
   expires_at: string;

@@ -554,4 +554,52 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
       .send({ observacion: 'Intento sin permisos' });
     expect(jugadorRechazar.status).toBe(403);
   });
+
+  it('Caso 19 (Éxito y Fallo - Verificación de Ticket QR - LX-202): Valida ingreso único con QR y rechaza duplicado o cancelado (200/404/409)', async () => {
+    const fecha = getFutureDate(4);
+    const createRes = await request(app)
+      .post('/api/reservas')
+      .send({ cancha_id: 1, ...titular('75551111'), fecha, hora_inicio: 15, hora_fin: 16 });
+    const reservaId = createRes.body.data.id;
+
+    const pagoRes = await request(app).post(`/api/reservas/${reservaId}/pagos`).send({
+      metodo: 'YAPE',
+      modalidad: 'TOTAL',
+      monto: createRes.body.data.total,
+      numero_operacion: 'YAPE-QR-001',
+      auto_aprobar: true,
+    });
+    const codigoQr = pagoRes.body.data.reserva.codigo_qr;
+    expect(codigoQr).toContain('LUXXITO-QR-');
+
+    // 1. Primer escaneo válido -> 200 OK
+    const check1 = await request(app)
+      .post('/api/reservas/verificar-qr')
+      .send({ codigo_qr: codigoQr });
+    expect(check1.status).toBe(200);
+    expect(check1.body.data.verificado).toBe(true);
+    expect(check1.body.data.estado_ingreso).toBe('INGRESO_REGISTRADO');
+
+    // 2. Segundo escaneo del mismo QR -> 409 Conflict (ya utilizado)
+    const check2 = await request(app)
+      .post('/api/reservas/verificar-qr')
+      .send({ codigo_qr: codigoQr });
+    expect(check2.status).toBe(409);
+    expect(check2.body.code).toBe('CONFLICT');
+
+    // 3. Cancelar la reserva y verificar que el QR revocado responde 409 Conflict
+    await request(app)
+      .post(`/api/reservas/${reservaId}/cancelar`)
+      .send({ motivo: 'Cancelación posterior' });
+    const checkCancelado = await request(app)
+      .post('/api/reservas/verificar-qr')
+      .send({ codigo_qr: codigoQr });
+    expect(checkCancelado.status).toBe(409);
+
+    // 4. QR inexistente -> 404 Not Found
+    const checkInexistente = await request(app)
+      .post('/api/reservas/verificar-qr')
+      .send({ codigo_qr: 'LUXXITO-QR-999999-NOEXISTE' });
+    expect(checkInexistente.status).toBe(404);
+  });
 });
