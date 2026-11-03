@@ -114,7 +114,7 @@ cd mobile
 flutter pub get
 flutter run
 ```
-- Si ejecutas en **Windows / Web / iOS Simulator**, la app se conecta automáticamente a `http://localhost:3000/api`.
+- La aplicación se desarrolla y distribuye **únicamente para Android** (APK). No se incluyen las plataformas iOS, macOS, Web, Windows ni Linux.
 - Si ejecutas en **Emulador Android**, la app se conecta automáticamente a `http://10.0.2.2:3000/api` (y puedes cambiar la URL desde la pestaña **Perfil** con un toque).
 
 ---

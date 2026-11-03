@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/luxxito_models.dart';
 
@@ -28,9 +27,7 @@ class ApiService {
       ? _envBaseUrl
       : (_supaUrl.isNotEmpty
           ? 'SUPABASE_CLOUD ($_supaUrl)'
-          : ((!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
-              ? 'http://192.168.1.14:3000/api'
-              : 'http://localhost:3000/api'));
+          : 'http://192.168.1.14:3000/api');
 
   static String get baseUrl => _baseUrl;
 
