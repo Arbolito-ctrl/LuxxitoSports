@@ -11,7 +11,7 @@ import {
   ReservaExtraItem,
 } from '../types/models';
 import { Errors } from '../utils/errors';
-import { getSupabaseClient, isStorageConfigured } from '../config/database';
+import { getDbMode, getSupabaseClient, isStorageConfigured } from '../config/database';
 
 const VALID_METODOS_PAGO: MetodoPago[] = ['YAPE', 'PLIN', 'TRANSFERENCIA'];
 const VALID_MODALIDADES: ModalidadPago[] = ['SENA_50', 'TOTAL'];
@@ -821,6 +821,11 @@ export class ReservationService {
     // Con Supabase configurado se guarda el archivo en el bucket privado;
     // en pruebas y modo local solo se valida y se devuelve la ruta.
     const almacenado = isStorageConfigured();
+    if (!almacenado && getDbMode() !== 'LOCAL_STORE') {
+      throw Errors.storage(
+        'Supabase Storage no está configurado en el servidor (falta SUPABASE_SERVICE_ROLE_KEY).'
+      );
+    }
     if (almacenado) {
       const { error } = await getSupabaseClient()
         .storage.from(BUCKET_COMPROBANTES)
