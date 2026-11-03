@@ -58,8 +58,10 @@ LuxxitoSports/
 │   │   ├── validos/reserva_exitosa.json
 │   │   └── invalidos/conflicto_horario.json
 │   └── CHANGELOG.md
-├── docs/                             # Entregables obligatorios y documentación metodológica
-│   ├── DOCUMENTO_TECNICO_TALLER3.pdf # Documento Técnico en PDF (<= 5 páginas sin carátula)
+├── entregables/                      # Índice de entregables del Taller 3
+│   ├── README.md                     # Dónde está cada entregable
+│   └── DOCUMENTO_TECNICO_TALLER3.pdf # Documento Técnico (carátula + 5 páginas)
+├── docs/                             # Documentación técnica y metodológica
 │   ├── DOCUMENTO_TECNICO_TALLER3.md  # Versión Markdown del Documento Técnico
 │   ├── API_DOCUMENTATION.md          # Documentación detallada de rutas, JSON y códigos HTTP
 │   ├── LuxxitoSports.postman_collection.json # Colección Postman lista para importar

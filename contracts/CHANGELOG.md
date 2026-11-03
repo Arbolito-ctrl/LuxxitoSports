@@ -1,5 +1,18 @@
 # Historial de Cambios de Contratos — Luxxito Sports API
 
+## [1.6.0] - 2026-11-03 (Entregables y seguridad)
+
+### Añadido
+- `POST /canchas/{id}/imagen` documentado (solo ADMIN): sube la foto al bucket público `canchas`.
+- `GET /version` documentado: devuelve la última versión publicada del APK leyendo `version.json` de GitHub Releases (`502` si GitHub no responde). Ya no devuelve valores fijos.
+
+### Cambiado
+- `POST /canchas` y `PUT /canchas/{id}` documentan que son solo ADMIN (`401`/`403`) y responden `409` si el nombre de la cancha ya existe en el complejo.
+- `POST /reservas` documenta el `409` ante un pedido simultáneo por el mismo turno.
+- `GET /health` informa `api_version` (de `package.json`) y `commit` (el desplegado en Render) en lugar de una versión fija; responde `503` si la base de datos no responde.
+- Las contraseñas se guardan con hash `scrypt` y sal por usuario. Las cuentas antiguas en texto plano se migran en su primer login.
+- El JWT incluye `exp` (30 días); un token vencido responde `401`.
+
 ## [1.5.0] - 2026-11-03 (Titularidad de reservas)
 
 ### Cambiado
