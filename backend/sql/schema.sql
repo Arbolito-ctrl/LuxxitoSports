@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS reservas (
     estado VARCHAR(30) NOT NULL DEFAULT 'PENDIENTE_PAGO'
         CHECK (estado IN ('PENDIENTE_PAGO', 'EN_REVISION', 'CONFIRMADA', 'CANCELADA', 'VENCIDA')),
     codigo_qr VARCHAR(120),
+    qr_usado_at TIMESTAMPTZ,
     motivo_cancelacion TEXT,
     notas TEXT,
     expires_at TIMESTAMPTZ NOT NULL,
@@ -108,6 +109,8 @@ CREATE TABLE IF NOT EXISTS pagos (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     reviewed_at TIMESTAMPTZ
 );
+
+ALTER TABLE reservas ADD COLUMN IF NOT EXISTS qr_usado_at TIMESTAMPTZ;
 
 -- Índices para optimizar consultas de disponibilidad y cruce de horarios
 CREATE INDEX IF NOT EXISTS idx_canchas_complejo ON canchas(complejo_id);
@@ -327,6 +330,7 @@ DECLARE
     v_cant INT;
     v_reserva reservas%ROWTYPE;
 BEGIN
+    UPDATE reservas SET estado = 'VENCIDA', updated_at = NOW() WHERE estado = 'PENDIENTE_PAGO' AND expires_at < NOW();
     SELECT * INTO v_cancha FROM canchas WHERE id = p_cancha_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION 'NOT_FOUND: Cancha no encontrada.';
@@ -659,6 +663,53 @@ BEGIN
         'politica_aplicada', v_politica,
         'horas_anticipacion', v_horas,
         'monto_devolucion', v_devolucion,
+        'reserva', to_jsonb(v_reserva)
+    );
+END;
+$$;
+
+
+-- 9.9 Verificación única de Ticket QR en puerta (LX-202)
+CREATE OR REPLACE FUNCTION rpc_verificar_qr(p_codigo_qr TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_clean TEXT;
+    v_reserva reservas%ROWTYPE;
+BEGIN
+    v_clean := TRIM(COALESCE(p_codigo_qr, ''));
+    IF v_clean = '' OR UPPER(v_clean) NOT LIKE 'LUXXITO-QR-%' THEN
+        RAISE EXCEPTION 'BAD_REQUEST: Formato de código QR inválido.';
+    END IF;
+
+    SELECT * INTO v_reserva
+    FROM reservas
+    WHERE UPPER(codigo_qr) = UPPER(v_clean)
+    LIMIT 1;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'NOT_FOUND: El código QR no corresponde a ninguna reserva activa.';
+    END IF;
+    IF v_reserva.estado <> 'CONFIRMADA' THEN
+        RAISE EXCEPTION 'CONFLICT: La reserva no está confirmada (estado: %).', v_reserva.estado;
+    END IF;
+    IF v_reserva.qr_usado_at IS NOT NULL THEN
+        RAISE EXCEPTION 'CONFLICT: Este Ticket QR ya fue utilizado previamente para registrar el ingreso.';
+    END IF;
+
+    UPDATE reservas
+    SET qr_usado_at = NOW(),
+        updated_at = NOW()
+    WHERE id = v_reserva.id
+    RETURNING * INTO v_reserva;
+
+    RETURN jsonb_build_object(
+        'verificado', TRUE,
+        'estado_ingreso', 'INGRESO_REGISTRADO',
+        'verificado_en', v_reserva.qr_usado_at,
         'reserva', to_jsonb(v_reserva)
     );
 END;

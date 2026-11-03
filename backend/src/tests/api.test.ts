@@ -653,4 +653,31 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
       vi.useRealTimers();
     }
   });
+
+  it('Caso 21 (Éxito y Fallo - Subida de Comprobante a Bucket Privado - LX-301/Infra): Valida MIME y almacena voucher asociado a la reserva', async () => {
+    const fecha = getFutureDate(5);
+    const createRes = await request(app)
+      .post('/api/reservas')
+      .send({ cancha_id: 1, ...titular('78889999'), fecha, hora_inicio: 12, hora_fin: 13 });
+    const reservaId = createRes.body.data.id;
+
+    // 1. Subida válida en PNG base64 -> 201 Created
+    const pngBase64 = Buffer.from('fake-voucher-image-binary-content').toString('base64');
+    const upOk = await request(app).post('/api/pagos/comprobante').send({
+      reserva_id: reservaId,
+      mime_type: 'image/png',
+      contenido_base64: pngBase64,
+    });
+    expect(upOk.status).toBe(201);
+    expect(upOk.body.data.bucket).toBe('comprobantes');
+    expect(upOk.body.data.comprobante_url).toContain(`supabase://comprobantes/reserva-${reservaId}/`);
+
+    // 2. MIME no permitido (application/pdf) -> 400 Bad Request
+    const upBadMime = await request(app).post('/api/pagos/comprobante').send({
+      reserva_id: reservaId,
+      mime_type: 'application/pdf',
+      contenido_base64: pngBase64,
+    });
+    expect(upBadMime.status).toBe(400);
+  });
 });
