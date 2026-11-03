@@ -6,9 +6,10 @@ import { requireAuth, requireRole } from '../middlewares/authMiddleware';
 
 const router = Router();
 
-// 0. Autenticación y Acceso (Login, Registro y Recuperación)
+// 0. Autenticación y Acceso (Login, Registro, Perfil /me y Recuperación - LX-201)
 router.post('/auth/login', (req, res, next) => authController.login(req, res, next));
 router.post('/auth/registro', (req, res, next) => authController.registro(req, res, next));
+router.get('/auth/me', requireAuth, (req, res, next) => authController.me(req, res, next));
 router.post('/auth/recuperar', (req, res, next) =>
   authController.recuperarAcceso(req, res, next)
 );
