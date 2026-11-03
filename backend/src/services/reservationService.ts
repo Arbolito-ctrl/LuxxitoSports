@@ -49,6 +49,7 @@ export class ReservationService {
    * valida pertenencia y stock de extras por intervalo, y calcula el adelanto del 50%.
    */
   async cotizarReserva(input: CotizacionInput): Promise<CotizacionOutput> {
+    await dataRepository.expireOverdueReservas();
     const canchaId = Number(input.cancha_id);
     if (!Number.isInteger(canchaId) || canchaId <= 0) {
       throw Errors.badRequest('El campo cancha_id debe ser un entero positivo.');
@@ -279,6 +280,7 @@ export class ReservationService {
     cliente_dni?: string;
     fecha?: string;
   }): Promise<Reserva[]> {
+    await dataRepository.expireOverdueReservas();
     return dataRepository.getReservas(filters);
   }
 
@@ -286,6 +288,7 @@ export class ReservationService {
     if (!Number.isInteger(id) || id <= 0) {
       throw Errors.badRequest('El ID de la reserva debe ser un entero positivo.');
     }
+    await dataRepository.expireOverdueReservas();
     const reserva = await dataRepository.getReservaById(id);
     if (!reserva) {
       throw Errors.notFound(`No se encontró la reserva con ID ${id}.`);
