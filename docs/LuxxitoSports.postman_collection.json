@@ -50,6 +50,14 @@
     {
       "key": "pagoId",
       "value": ""
+    },
+    {
+      "key": "comprobanteUrl",
+      "value": ""
+    },
+    {
+      "key": "codigoQr",
+      "value": ""
     }
   ],
   "item": [
@@ -156,6 +164,37 @@
                   "pm.test('Rol ADMIN', () => pm.expect(data.user.rol).to.eql('ADMIN'));",
                   "pm.test('No expone la contraseña', () => pm.expect(data.user).to.not.have.property('password_hash'));",
                   "pm.collectionVariables.set('token', data.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Validar sesión (GET /auth/me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Devuelve el perfil del ADMIN', () => pm.expect(pm.response.json().data.user.rol).to.eql('ADMIN'));",
                   "}"
                 ]
               }
@@ -1077,6 +1116,98 @@
           ]
         },
         {
+          "name": "Subir foto del comprobante",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pagos/comprobante",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pagos",
+                "comprobante"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reserva_id\": {{reservaId}},\n  \"mime_type\": \"image/png\",\n  \"contenido_base64\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const data = pm.response.json().data;",
+                  "pm.test('Ruta del voucher en el bucket comprobantes', () =>",
+                  "  pm.expect(data.comprobante_url).to.include('supabase://comprobantes/reserva-' + pm.collectionVariables.get('reservaId') + '/'));",
+                  "pm.collectionVariables.set('comprobanteUrl', data.comprobante_url);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Borde] Foto con formato no permitido → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pagos/comprobante",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pagos",
+                "comprobante"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reserva_id\": {{reservaId}},\n  \"mime_type\": \"application/pdf\",\n  \"contenido_base64\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Reenviar comprobante válido",
           "request": {
             "method": "POST",
@@ -1099,7 +1230,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"metodo\": \"PLIN\",\n  \"modalidad\": \"TOTAL\",\n  \"numero_operacion\": \"PLIN-5521890\"\n}",
+              "raw": "{\n  \"metodo\": \"PLIN\",\n  \"modalidad\": \"TOTAL\",\n  \"numero_operacion\": \"PLIN-5521890\",\n  \"comprobante_url\": \"{{comprobanteUrl}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1115,8 +1246,9 @@
                 "exec": [
                   "{",
                   "pm.test('Responde 201', () => pm.response.to.have.status(201));",
-                  "",
-                  "pm.collectionVariables.set('pagoId', pm.response.json().data.pago.id);",
+                  "const pago = pm.response.json().data.pago;",
+                  "pm.test('El pago lleva la foto adjunta', () => pm.expect(pago.comprobante_url).to.eql(pm.collectionVariables.get('comprobanteUrl')));",
+                  "pm.collectionVariables.set('pagoId', pago.id);",
                   "}"
                 ]
               }
@@ -1155,6 +1287,7 @@
                   "  pm.expect(r.codigo_qr).to.match(/^LUXXITO-QR-/);",
                   "  pm.expect(r.monto_pagado).to.eql(r.total);",
                   "});",
+                  "pm.collectionVariables.set('codigoQr', r.codigo_qr);",
                   "}"
                 ]
               }
@@ -1233,6 +1366,149 @@
                 "exec": [
                   "{",
                   "pm.test('Responde 409', () => pm.response.to.have.status(409));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4b. Ingreso con QR",
+      "description": "Verificación del Ticket QR en la puerta: un solo uso y solo el ADMIN.",
+      "item": [
+        {
+          "name": "[Borde] Verificar QR sin token → 401",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservas/verificar-qr",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas",
+                "verificar-qr"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo_qr\": \"{{codigoQr}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 401', () => pm.response.to.have.status(401));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar ingreso con el QR",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservas/verificar-qr",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas",
+                "verificar-qr"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo_qr\": \"{{codigoQr}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Ingreso registrado', () => pm.expect(pm.response.json().data.estado_ingreso).to.eql('INGRESO_REGISTRADO'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Borde] Mismo QR por segunda vez → 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservas/verificar-qr",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservas",
+                "verificar-qr"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo_qr\": \"{{codigoQr}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "{",
+                  "pm.test('Responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Indica que ya fue usado', () => pm.expect(pm.response.json().message).to.include('ya fue utilizado'));",
                   "}"
                 ]
               }

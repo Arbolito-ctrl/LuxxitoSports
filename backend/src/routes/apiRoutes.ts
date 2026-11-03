@@ -34,11 +34,15 @@ router.get('/canchas', (req, res, next) =>
 router.get('/canchas/:id', (req, res, next) =>
   catalogController.obtenerCancha(req, res, next)
 );
-router.post('/canchas', (req, res, next) =>
+router.post('/canchas', requireAuth, requireRole('ADMIN'), (req, res, next) =>
   catalogController.crearCancha(req, res, next)
 );
-router.put('/canchas/:id', (req, res, next) =>
+router.put('/canchas/:id', requireAuth, requireRole('ADMIN'), (req, res, next) =>
   catalogController.actualizarCancha(req, res, next)
+);
+// Foto propia de la cancha (bucket público 'canchas'); solo el ADMIN administra el catálogo
+router.post('/canchas/:id/imagen', requireAuth, requireRole('ADMIN'), (req, res, next) =>
+  catalogController.subirImagenCancha(req, res, next)
 );
 router.get('/canchas/:id/disponibilidad', (req, res, next) =>
   catalogController.consultarDisponibilidad(req, res, next)

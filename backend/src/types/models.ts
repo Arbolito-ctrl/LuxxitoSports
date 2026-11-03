@@ -47,6 +47,8 @@ export interface Cancha {
   precio_hora_diurno: number;
   precio_hora_nocturno: number;
   estado: EstadoCancha;
+  /** Foto propia de la cancha (bucket público 'canchas'); null usa la del complejo. */
+  imagen_url?: string | null;
   created_at?: string;
 }
 

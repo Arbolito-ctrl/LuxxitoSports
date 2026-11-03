@@ -79,18 +79,18 @@
 
 ### Bloque de Steven (FrontEnd UI · Pagos/Comprobantes · QA y Demostración Taller 3) — [COMPLETADO]
 
-#### `LX-300` — Desarrollo y Pulido de FrontEnd Móvil (`[x] Completado` · PR #4)
+#### `LX-300` — Desarrollo y Pulido de FrontEnd Móvil (`[x] Completado` · PR #4, #25, #27, #30 y #32)
 - **Responsable:** Steven
-- **Rama:** `steven/frontend-ui-admin`
+- **Entregado:** diseño "Claro deportivo", panel propio del ADMIN (Inicio, Pagos, Ingreso, Reservas), verificador de Ticket QR con cámara, actualización desde la app con firma fija del APK, sesión persistente e ícono oficial.
 
-#### `LX-301` — Bandeja Administrativa de Revisión de Comprobantes y Bucket Storage (`[x] Completado` · PR #3 · Issue #5)
+#### `LX-301` — Bandeja Administrativa de Revisión de Comprobantes y Bucket Storage (`[x] Completado` · PR #3, #21 · Issue #5)
 - **Responsable:** Steven
-- **Rama:** `steven/comprobantes-y-revision`
+- **Entregado:** bandeja de revisión con aprobación y rechazo, subida real de la foto del voucher al bucket privado `comprobantes` con enlace firmado para el ADMIN.
 
-#### `LX-302` — Suite de Pruebas Automatizadas (20 Casos) y Colección Postman Ejecutable (`[x] Completado` · PR #6 y PR #10)
+#### `LX-302` — Suite de Pruebas Automatizadas (23 Casos) y Colección Postman Ejecutable (38 requests, 63 aserciones) (`[x] Completado` · PR #6 y PR #10)
 - **Responsable:** Steven (con casos `LX-201..203` integrados por Juan)
 - **Rama:** `steven/qa-pruebas-y-postman`
 
-#### `LX-303` — Guion y Evidencia de Demostración en Vivo Taller 3 (`[x] Completado` · PR #7)
+#### `LX-303` — Guion y Evidencia de Demostración en Vivo Taller 3 (`[~] Guion actualizado` · PR #7 · faltan capturas finales del paso 5)
 - **Responsable:** Steven
 - **Rama:** `steven/evidencia-demostracion-taller3`

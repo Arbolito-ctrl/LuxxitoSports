@@ -485,6 +485,23 @@ class ApiService {
   }
 
   // 4. POST /api/canchas
+  // POST /api/canchas/:id/imagen (solo ADMIN): foto propia de la cancha
+  static Future<Cancha> subirImagenCancha({
+    required int canchaId,
+    required List<int> bytes,
+    required String mimeType,
+  }) async {
+    final res = await http
+        .post(
+          Uri.parse('$_baseUrl/canchas/$canchaId/imagen'),
+          headers: _headers,
+          body: jsonEncode({'mime_type': mimeType, 'contenido_base64': base64Encode(bytes)}),
+        )
+        .timeout(const Duration(seconds: 30));
+    final body = _decodeResponse(res);
+    return Cancha.fromJson(body['data'] as Map<String, dynamic>);
+  }
+
   static Future<Cancha> crearCancha({
     required int complejoId,
     required String nombre,

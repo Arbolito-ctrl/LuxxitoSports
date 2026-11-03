@@ -166,6 +166,15 @@ export class CatalogController {
     }
   }
 
+  async subirImagenCancha(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const cancha = await catalogService.subirImagenCancha(Number(req.params.id), req.body);
+      res.status(200).json({ ok: true, message: 'Foto de la cancha actualizada.', data: cancha });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async consultarDisponibilidad(
     req: Request,
     res: Response,
