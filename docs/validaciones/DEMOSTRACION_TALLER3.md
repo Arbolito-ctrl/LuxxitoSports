@@ -16,22 +16,21 @@
 
 ### 0.1 Checklist
 
-- [ ] `backend/.env` con `DATABASE_URL` (o `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`). Las credenciales las entrega Elvis por privado y **nunca** se suben al repositorio.
-- [ ] Backend levantado y conectado a Supabase:
-  ```bash
-  cd backend && npm run dev
-  curl http://localhost:3000/api/health      # debe decir "db_mode": "POSTGRES_POOL"
-  ```
-- [ ] App instalada apuntando a la API:
-  - **Con cable USB:**
-    ```bash
-    adb reverse tcp:3000 tcp:3000
-    cd mobile && flutter run --dart-define=API_BASE_URL=http://localhost:3000/api
-    ```
-  - **API desplegada (issue #5):** `flutter run --dart-define=API_BASE_URL=https://<api>/api`
-- [ ] Supabase abierto en el navegador: **Table Editor** con las tablas `reservas`, `reserva_extras` y `pagos`, y una pestaña de **SQL Editor** con las consultas de la [sección 3](#3-consultas-sql-de-respaldo).
-- [ ] Postman abierto con la colección `docs/LuxxitoSports.postman_collection.json` (sirve para el paso 4 y como respaldo).
+**Opción recomendada: APK de producción** (sin laptop ni cable; la app usa la API pública en Render, conectada a Supabase).
+- [ ] Celular con la última versión de `latest-apk`. Si la app avisa "Nueva versión disponible", actualizar antes de presentar.
+- [ ] API en línea: `https://luxxito-sports-api.onrender.com/api/health` responde `"db_mode": "POSTGRES_POOL"`. El plan gratuito de Render "duerme": abrir este enlace 1 o 2 minutos antes para despertarla.
+- [ ] Dos sesiones a mano: el **jugador** en la app y el **ADMIN** en otro celular. Con un solo celular, se cierra y abre sesión entre los pasos.
+- [ ] Supabase abierto en el navegador: **Table Editor** con `reservas`, `reserva_extras` y `pagos`, una pestaña de **SQL Editor** con las consultas de la [sección 3](#3-consultas-sql-de-respaldo) y **Storage → comprobantes** para mostrar el voucher.
+- [ ] Postman con la colección `docs/LuxxitoSports.postman_collection.json` (para el paso 4 y como respaldo). Usar `baseUrl = https://luxxito-sports-api.onrender.com/api`.
+- [ ] Una foto o captura de un voucher de Yape o Plin guardada en el celular (para el paso 5.1).
 - [ ] Brillo del celular al máximo y la pantalla duplicada en el proyector (por ejemplo con `scrcpy`).
+
+**Alternativa sin internet: backend local por cable**
+```bash
+cd backend && npm run dev                      # con backend/.env de Supabase (lo entrega Elvis)
+adb reverse tcp:3000 tcp:3000
+cd mobile && flutter run --dart-define=API_BASE_URL=http://127.0.0.1:3000/api
+```
 
 ### 0.2 Datos de la demo
 
@@ -107,34 +106,45 @@ Cuerpo para Postman (reemplazar la fecha por la de la demo):
 }
 ```
 
-### Paso 5 — Pago, revisión del operador, Ticket QR y cancelación ⭐
+### Paso 5 — Pago con foto, revisión del ADMIN, ingreso con QR y cancelación ⭐
 
-**5.1 El jugador envía el comprobante**
-
-| | |
-|---|---|
-| **Acción** | En **Mis reservas**, tocar **Pagar** → *Pago total* → *Yape* → N° de operación `YAPE-8492014` → **Enviar comprobante**. |
-| **Qué decir** | "`POST /api/reservas/:id/pagos` registra el comprobante y protege el turno mientras se revisa." |
-| **Verificar** | La reserva pasa a **En revisión**. En Supabase: `pagos.estado = PENDIENTE_REVISION` y `reservas.estado = EN_REVISION`. |
-| **Captura** | `05a-pago-en-revision.png` |
-
-**5.2 El operador aprueba y se genera el Ticket QR**
+**5.1 El jugador envía el comprobante con foto**
 
 | | |
 |---|---|
-| **Acción** | Cerrar sesión y entrar como **administrador**. **Perfil → Administración → Revisión de pagos** → **Aprobar** → *Sí, aprobar*. Volver a entrar como jugador → **Mis reservas** → **Ticket**. |
-| **Qué decir** | "`PATCH /api/pagos/:id/aprobar` confirma la reserva y emite un código QR único. Es idempotente: aprobar dos veces no duplica el pago." |
-| **Verificar** | Reserva **Confirmada** con código QR visible. En Supabase: `pagos.estado = APROBADO` con `reviewed_at`; `reservas.estado = CONFIRMADA`, `monto_pagado = 240`, `codigo_qr = LUXXITO-QR-…`. |
-| **Capturas** | `05b-bandeja-operador.png`, `05c-ticket-qr.png`, `05d-supabase-confirmada.png` |
+| **Acción** | En **Mis reservas**, tocar **Pagar** → *Pago total* → *Yape* → N° de operación `YAPE-8492014` → en **"3. Adjunta la captura del pago"** elegir la foto del voucher (**Galería** o **Cámara**) → **Enviar comprobante**. |
+| **Qué decir** | "La foto se sube a un bucket **privado** de Supabase Storage (`POST /api/pagos/comprobante`) y luego `POST /api/reservas/:id/pagos` registra el pago con esa foto. El turno queda protegido mientras se revisa." |
+| **Verificar** | La reserva pasa a **En revisión**. En Supabase: `pagos.estado = PENDIENTE_REVISION` con `comprobante_url = supabase://comprobantes/reserva-…`, `reservas.estado = EN_REVISION`, y el archivo aparece en **Storage → comprobantes**. |
+| **Capturas** | `05a-pago-con-foto.png`, `05b-storage-comprobante.png` |
 
-**5.3 Cancelación con política de 24 horas**
+**5.2 El ADMIN revisa el voucher y aprueba**
 
 | | |
 |---|---|
-| **Acción** | En la reserva confirmada, menú **⋮ → Cancelar reserva**. El diálogo muestra "Te devolveremos S/ 240.00". Confirmar con **Sí, cancelar**. |
+| **Acción** | Entrar como **administrador**. En la barra inferior: **Inicio** muestra "1 pago por revisar" → pestaña **Pagos** → ver la foto del voucher (tocarla para ampliar) → **Aprobar** → *Sí, aprobar*. |
+| **Qué decir** | "El ADMIN tiene su propia app. Solo un token con rol `ADMIN` puede usar `GET /api/pagos` y `PATCH /api/pagos/:id/aprobar`; con rol de jugador responde `403`. Como el bucket es privado, la foto se ve con un enlace firmado que vence en 1 hora. Aprobar dos veces no duplica el pago." |
+| **Verificar** | En Supabase: `pagos.estado = APROBADO` con `reviewed_at`; `reservas.estado = CONFIRMADA`, `monto_pagado = 240` y `codigo_qr = LUXXITO-QR-…`. El jugador ve **Confirmada** y el botón **Ticket** con el código QR. |
+| **Capturas** | `05c-inicio-admin.png`, `05d-bandeja-pagos-foto.png`, `05e-ticket-qr.png`, `05f-supabase-confirmada.png` |
+
+**5.3 Ingreso al complejo con el Ticket QR**
+
+| | |
+|---|---|
+| **Acción** | El jugador muestra **Mis reservas → Ticket**. El ADMIN abre la pestaña **Ingreso** y escanea el QR con la cámara (o escribe el código `LUXXITO-QR-…`). Luego **escanea el mismo QR otra vez**. |
+| **Qué decir** | "`POST /api/reservas/verificar-qr` registra el ingreso **una sola vez**: el segundo escaneo responde `409`. La marca se guarda con una única operación en PostgreSQL, así que ni dos escaneos simultáneos dejan entrar dos veces." |
+| **Verificar** | 1.er escaneo: **"Ingreso registrado"** en verde, con el jugador, la cancha y el horario. 2.º escaneo: **"Ticket no válido para ingresar"** en rojo. En Supabase: `reservas.qr_usado_at` con la hora. En **Inicio**, el turno aparece como **Ingresó**. |
+| **Capturas** | `05g-ingreso-registrado.png`, `05h-qr-ya-usado.png`, `05i-supabase-qr-usado.png` |
+
+**5.4 Cancelación con política de 24 horas**
+
+Usar **otra reserva confirmada** que todavía no haya ingresado (por ejemplo, la del paso extra o una creada con Postman), para mostrar el reembolso.
+
+| | |
+|---|---|
+| **Acción** | En la reserva confirmada, menú **⋮ → Cancelar reserva**. El diálogo muestra "Te devolveremos S/ …". Confirmar con **Sí, cancelar**. |
 | **Qué decir** | "`POST /api/reservas/:id/cancelar` aplica la política: con más de 24 h se devuelve el 100%; con menos, se retiene el 50%. El QR se revoca para que no pueda usarse." |
-| **Verificar** | Reserva **Cancelada** con "Reembolso: S/ 240.00". En Supabase: `estado = CANCELADA`, `monto_devolucion = 240`, `codigo_qr = NULL` y `motivo_cancelacion`. |
-| **Capturas** | `05e-cancelacion-app.png`, `05f-supabase-cancelada.png` |
+| **Verificar** | Reserva **Cancelada** con el reembolso. En Supabase: `estado = CANCELADA`, `monto_devolucion`, `codigo_qr = NULL` y `motivo_cancelacion`. Si se intenta verificar su QR, responde `409` (ticket revocado). |
+| **Capturas** | `05j-cancelacion-app.png`, `05k-supabase-cancelada.png` |
 
 ### Paso extra (si sobra tiempo) — Rechazo de comprobante
 
@@ -152,9 +162,10 @@ Completar al ejecutar la demo con Supabase:
 | 2 | `POST /api/reservas/cotizar` | 200 | `02-cotizacion-servidor.png` | — | ☐ |
 | 3 | `POST /api/reservas` | 201 | `03a-reserva-creada-app.png` | `03b`, `03c` | ☐ |
 | 4 | `POST /api/reservas` (mismo turno) | 409 | `04a-turnos-bloqueados.png`, `04b-conflicto-409-*.png` | — | ☐ |
-| 5.1 | `POST /api/reservas/:id/pagos` | 201 | `05a-pago-en-revision.png` | — | ☐ |
-| 5.2 | `PATCH /api/pagos/:id/aprobar` | 200 | `05b`, `05c` | `05d-supabase-confirmada.png` | ☐ |
-| 5.3 | `POST /api/reservas/:id/cancelar` | 200 | `05e-cancelacion-app.png` | `05f-supabase-cancelada.png` | ☐ |
+| 5.1 | `POST /api/pagos/comprobante` + `POST /api/reservas/:id/pagos` | 201 | `05a-pago-con-foto.png` | `05b-storage-comprobante.png` | ☐ |
+| 5.2 | `PATCH /api/pagos/:id/aprobar` (ADMIN) | 200 | `05c`, `05d`, `05e` | `05f-supabase-confirmada.png` | ☐ |
+| 5.3 | `POST /api/reservas/verificar-qr` (1.º y 2.º) | 200 / 409 | `05g`, `05h` | `05i-supabase-qr-usado.png` | ☐ |
+| 5.4 | `POST /api/reservas/:id/cancelar` | 200 | `05j-cancelacion-app.png` | `05k-supabase-cancelada.png` | ☐ |
 
 **Datos de la ejecución:** fecha `____` · reserva `#____` · pago `#____` · `db_mode` = `POSTGRES_POOL`
 
@@ -167,7 +178,7 @@ Para mostrar la persistencia en el **SQL Editor** de Supabase (reemplazar `:id` 
 ```sql
 -- Últimas reservas creadas desde la app
 SELECT id, cliente_nombre, fecha, hora_inicio, hora_fin, total, monto_pagado,
-       monto_devolucion, estado, codigo_qr, expires_at, updated_at
+       monto_devolucion, estado, codigo_qr, qr_usado_at, expires_at, updated_at
 FROM reservas
 ORDER BY id DESC
 LIMIT 5;
@@ -179,7 +190,7 @@ JOIN extras e ON e.id = re.extra_id
 WHERE re.reserva_id = :id;
 
 -- Historial de pagos de la reserva (envío, rechazo, aprobación)
-SELECT id, metodo, modalidad, monto, numero_operacion, estado, observacion, created_at, reviewed_at
+SELECT id, metodo, modalidad, monto, numero_operacion, comprobante_url, estado, observacion, created_at, reviewed_at
 FROM pagos
 WHERE reserva_id = :id
 ORDER BY id;
@@ -195,5 +206,7 @@ ORDER BY id;
 | `/api/health` dice `LOCAL_STORE` | Falta `backend/.env` o tiene valores de ejemplo | Revisar `DATABASE_URL` y reiniciar el backend |
 | "Ese horario ya no está libre" en el paso 3 | Ya existe una reserva activa en ese horario | Elegir otra fecha u horario (o cancelar la anterior) |
 | "No se pueden registrar reservas en fechas u horas que ya han transcurrido" | Se eligió una hora pasada | Usar una fecha futura |
-| No aparece "Revisión de pagos" en Perfil | La sesión es de jugador | Entrar con la cuenta de administrador |
+| No aparecen las pestañas Pagos e Ingreso | La sesión es de jugador | Cerrar sesión y entrar con la cuenta de administrador |
+| La app tarda en responder al inicio | Render (plan gratuito) estaba dormido | Abrir `/api/health` 1 o 2 minutos antes de la demo |
+| La cámara no abre en Ingreso | Falta el permiso de cámara | Aceptar el permiso, o escribir el código del ticket |
 | Supabase no muestra la fila nueva | La vista del Table Editor no se refrescó | Botón *Refresh* o usar las consultas de la sección 3 |

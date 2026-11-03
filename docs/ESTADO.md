@@ -22,9 +22,9 @@ La tabla siguiente conserva los resultados reportados previamente por el equipo.
 | Componente | Comando Ejecutado | Resultado |
 |---|---|---|
 | Compilación TypeScript Backend | `cd backend && npm run build` | `0 errores` |
-| Suite de Pruebas API REST | `cd backend && npm test` | `21 passed (21)` en Vitest + Supertest |
+| Suite de Pruebas API REST | `cd backend && npm test` | `23 passed (23)` en Vitest + Supertest |
 | Base de Datos Supabase + RLS + Storage | `cd backend && npm run db:init` | 7 tablas con `relrowsecurity: true`, bucket privado `comprobantes` y funciones RPC activas |
-| Colección Postman | `npx newman run docs/LuxxitoSports.postman_collection.json` | 32 requests y 52 aserciones sin fallos |
+| Colección Postman | `npx newman run docs/LuxxitoSports.postman_collection.json` | 38 requests y 63 aserciones sin fallos |
 | Análisis Estático Flutter | `cd mobile && flutter analyze` | `No issues found!` |
 | Pruebas de Widgets Flutter | `cd mobile && flutter test` | `All tests passed!` |
 | APK Release Android | `cd backend && npm run apk:build` | `release/luxxito-sports.apk` compilado y publicado |
