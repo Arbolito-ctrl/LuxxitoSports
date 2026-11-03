@@ -5,7 +5,9 @@ import 'screens/auth_screen.dart';
 import 'screens/explorar_screen.dart';
 import 'screens/mis_reservas_screen.dart';
 import 'screens/perfil_config_screen.dart';
+import 'models/luxxito_models.dart';
 import 'services/api_service.dart';
+import 'services/sesion_service.dart';
 import 'theme/luxxito_theme.dart';
 import 'widgets/actualizacion_dialog.dart';
 
@@ -35,25 +37,45 @@ class AuthGateScreen extends StatefulWidget {
 }
 
 class _AuthGateScreenState extends State<AuthGateScreen> {
+  bool _restaurando = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _restaurarSesion();
+  }
+
+  Future<void> _restaurarSesion() async {
+    final sesion = await SesionService.restaurar();
+    if (!mounted) return;
+    ApiService.setSession(sesion);
+    setState(() => _restaurando = false);
+  }
+
+  void _alIniciarSesion(UserSession sesion) {
+    SesionService.guardar(sesion);
+    setState(() {});
+  }
+
+  void _cerrarSesion() {
+    ApiService.logout();
+    SesionService.borrar();
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_restaurando) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     if (ApiService.currentSession == null) {
-      return AuthScreen(
-        onAuthenticated: (_) {
-          setState(() {});
-        },
-      );
+      return AuthScreen(onAuthenticated: _alIniciarSesion);
     }
-    void cerrarSesion() {
-      ApiService.logout();
-      setState(() {});
-    }
-
     // El operador del complejo tiene su propia navegación
     if (ApiService.esAdmin) {
-      return AdminShellScreen(onLogout: cerrarSesion);
+      return AdminShellScreen(onLogout: _cerrarSesion);
     }
-    return MainShellScreen(onLogout: cerrarSesion);
+    return MainShellScreen(onLogout: _cerrarSesion);
   }
 }
 

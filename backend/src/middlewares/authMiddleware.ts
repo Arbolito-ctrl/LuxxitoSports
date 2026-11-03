@@ -7,7 +7,11 @@ export interface JwtUserPayload {
   dni: string;
   rol: 'JUGADOR' | 'ADMIN';
   iat?: number;
+  exp?: number;
 }
+
+/** La app guarda la sesión en el celular: el token debe vencer. */
+const DIAS_VIGENCIA_TOKEN = Number(process.env.JWT_DIAS_VIGENCIA) || 30;
 
 declare global {
   namespace Express {
@@ -36,6 +40,7 @@ export function signJwtToken(user: {
       dni: user.dni,
       rol: user.rol,
       iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + DIAS_VIGENCIA_TOKEN * 24 * 60 * 60,
     })
   ).toString('base64url');
 
@@ -74,6 +79,10 @@ export function verifyJwtToken(token: string): JwtUserPayload | null {
       typeof decoded.sub !== 'number' ||
       (decoded.rol !== 'JUGADOR' && decoded.rol !== 'ADMIN')
     ) {
+      return null;
+    }
+    // Tokens vencidos o emitidos sin vencimiento (versiones anteriores) ya no son válidos
+    if (typeof decoded.exp !== 'number' || decoded.exp <= Math.floor(Date.now() / 1000)) {
       return null;
     }
     return decoded as JwtUserPayload;

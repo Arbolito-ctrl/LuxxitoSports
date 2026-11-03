@@ -1,7 +1,8 @@
+import crypto from 'crypto';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import app from '../app';
-import { signJwtToken } from '../middlewares/authMiddleware';
+import { getJwtSecret, signJwtToken } from '../middlewares/authMiddleware';
 import { dataRepository } from '../repositories/dataRepository';
 
 // Generar una fecha futura (dentro de 5 días) para pruebas de reservas válidas
@@ -771,5 +772,30 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
       .put(`/api/reservas/${reservaA.id}`)
       .send({ notas: 'x'.repeat(200 * 1024) });
     expect(notasGigantes.status).toBe(413);
+  });
+  it('Caso 23 (Seguridad - Vigencia del token): /auth/me acepta un token vigente y rechaza uno vencido o sin vencimiento (401)', async () => {
+    const vigente = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${adminToken}`);
+    expect(vigente.status).toBe(200);
+    expect(vigente.body.data.user.rol).toBe('ADMIN');
+
+    // A los 31 días el mismo token ya no es válido
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(Date.now() + 31 * 24 * 60 * 60 * 1000));
+    try {
+      const vencido = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${adminToken}`);
+      expect(vencido.status).toBe(401);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    // Token firmado correctamente pero sin "exp" (versiones anteriores de la API)
+    const payload = Buffer.from(
+      JSON.stringify({ sub: 2, email: 'admin@luxxitosports.pe', dni: '70001111', rol: 'ADMIN', iat: Math.floor(Date.now() / 1000) })
+    ).toString('base64url');
+    const firma = crypto.createHmac('sha256', getJwtSecret()).update(payload).digest('base64url');
+    const sinVencimiento = await request(app)
+      .get('/api/pagos')
+      .set('Authorization', `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${payload}.${firma}`);
+    expect(sinVencimiento.status).toBe(401);
   });
 });
