@@ -1,40 +1,67 @@
 {
-  "timestamp": "2026-11-03T12:26:56.227Z",
-  "base": "https://luxxito-sports-api.onrender.com/api",
+  "checked_at": "2026-11-03T12:53:54.591859+00:00",
+  "base_url": "https://luxxito-sports-api.onrender.com/api",
+  "deployed_commit": "ac5a75ca541d98fec4bb3aed70966246dc4ed4d0",
   "checks": [
     {
+      "method": "GET",
       "path": "/health",
       "status": 200,
-      "db_mode": "POSTGRES_POOL"
+      "body": {
+        "ok": true,
+        "service": "Luxxito Sports REST API (SI806 - Taller 3)",
+        "db_mode": "POSTGRES_POOL",
+        "db_ready": true,
+        "app_version": "1.0.1",
+        "apk_download_url": "https://github.com/Arbolito-ctrl/LuxxitoSports/releases/latest/download/luxxito-sports.apk",
+        "timestamp": "2026-11-03T12:53:54.093Z"
+      }
     },
     {
+      "method": "GET",
       "path": "/complejos",
       "status": 200,
       "count": 3
     },
     {
+      "method": "GET",
       "path": "/canchas",
       "status": 200,
       "count": 6
     },
     {
+      "method": "GET",
       "path": "/pagos",
       "status": 401
     },
     {
+      "method": "POST",
       "path": "/auth/login",
-      "status": 200,
-      "role": "JUGADOR"
-    },
-    {
-      "path": "/auth/me",
-      "authenticated": true,
       "status": 200
     },
     {
+      "method": "GET",
+      "path": "/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
       "path": "/pagos",
-      "authenticated": true,
       "status": 403
+    },
+    {
+      "method": "PATCH",
+      "path": "/pagos/0/aprobar",
+      "status": 403,
+      "expected": 403,
+      "note": "Jugador rechazado por middleware; ID 0 sin pago real."
+    },
+    {
+      "method": "PATCH",
+      "path": "/pagos/0/rechazar",
+      "status": 403,
+      "expected": 403,
+      "note": "Jugador rechazado por middleware; ID 0 sin pago real."
     }
   ]
 }

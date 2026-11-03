@@ -136,7 +136,7 @@ function generatePdf() {
     .text(
       '• Cliente Móvil (Flutter + Dart en mobile/): Implementa las pantallas Explorar (filtros por distrito y deporte + creación CRUD de cancha), Disponibilidad y Reserva (selector de fecha, turnos, extras y cotización del servidor), Mis Reservas (pago Yape/Plin, Ticket QR, edición PUT, cancelación 24h y borrado DELETE) y Perfil.\n' +
         '• Capa de Controladores (backend/src/controllers/): Recibe solicitudes HTTP, formatea respuestas JSON y traduce excepciones de dominio a códigos HTTP estandarizados (200, 201, 400, 404, 409, 422, 500).\n' +
-        '• Capa de Servicios (backend/src/services/): Contiene toda la lógica de negocio y validaciones en CatalogService y ReservationService.\n' +
+        '• Capa de Servicios (backend/src/services/): Contiene lógica de negocio, identidad y validaciones en AuthService, CatalogService y ReservationService.\n' +
         '• Capa de Acceso a Datos (backend/src/repositories/): Encapsula las consultas SQL y transacciones hacia PostgreSQL de Supabase.'
     );
 
@@ -170,10 +170,14 @@ function generatePdf() {
     '6. Tabla pagos:',
     'id (PK), reserva_id (FK -> reservas.id ON DELETE CASCADE), metodo (YAPE, PLIN, TRANSFERENCIA), modalidad (SENA_50, TOTAL), monto, numero_operacion, comprobante_url, estado (PENDIENTE_REVISION, APROBADO, RECHAZADO, REEMBOLSADO).'
   );
+  p('7. Tabla usuarios:', 'id (PK), nombre, dni, telefono, email, password_hash, rol (JUGADOR/ADMIN). Autenticación del jugador y del administrador.');
 
   h1('4. CATÁLOGO DE ENDPOINTS PROPIOS (OPERACIONES CRUD + NEGOCIO)');
   const endpoints = [
     ['GET /api/health', 'Estado del servidor y modo de conexión a Supabase (200)'],
+    ['POST /api/auth/registro', 'Registro de jugador con validación de datos (201, 400, 409)'],
+    ['POST /api/auth/login', 'Inicio de sesión y emisión de JWT (200, 401)'],
+    ['GET /api/auth/me', 'Perfil del usuario autenticado mediante JWT (200, 401)'],
     ['GET /api/complejos', 'Lista complejos deportivos activos, filtrable por distrito (200)'],
     ['GET /api/canchas', 'CRUD Read: Lista canchas con filtros de complejo, distrito y deporte (200)'],
     ['POST /api/canchas', 'CRUD Create: Registra nueva cancha validando tarifas diurna/nocturna (201, 400)'],
@@ -193,6 +197,7 @@ function generatePdf() {
     ],
     ['PUT /api/reservas/:id', 'CRUD Update: Modifica teléfono de contacto o notas de la reserva (200, 404, 409)'],
     ['DELETE /api/reservas/:id', 'CRUD Delete: Elimina físicamente una reserva no confirmada (200, 404, 409)'],
+    ['POST /api/reservas/verificar-qr', 'Verificación de ticket; persistencia de uso y segundo escaneo pendientes de validación real (200, 409)'],
     [
       'POST /api/reservas/:id/pagos',
       'Negocio 4: Registra comprobante Yape/Plin/Transferencia y protege reserva en revisión (201, 409, 422)',
@@ -274,16 +279,17 @@ function generatePdf() {
 
   doc.addPage();
   h1('7. DESPLIEGUE Y VALIDACIÓN DE INFRAESTRUCTURA - ISSUE #14');
-  p('Responsable:', 'Juan Medina (jc2709). Rama juan/despliegue-apk-validacion y PR #17 a develop. Revisión: 3 de noviembre de 2026.');
-  p('API pública:', 'https://luxxito-sports-api.onrender.com/api. GET /health comprobado con HTTP 200 y db_mode POSTGRES_POOL. Primer despliegue Render del commit f4a507a de main.');
+  p('Responsable:', 'Juan Medina (jc2709). PR #17 integrado a develop con squash; PR #18 a main con merge commit. Revisión: 3 de noviembre de 2026.');
+  p('API pública:', 'https://luxxito-sports-api.onrender.com/api. GET /health comprobado con HTTP 200, db_mode POSTGRES_POOL y db_ready=true. Commit ac5a75c de main activo en Render a las 07:38 de Perú.');
   p('Servicio:', 'Render Free, Node 22, raíz backend, build npm ci --include=dev && npm run build, inicio node dist/server.js y health /api/health. Las variables privadas solo se configuran en Render; no están en Git.');
   p('Workflow del APK:', 'Los secretos pasan por env y los argumentos --dart-define se entrecomillan. Una validación previa rechaza URLs con espacios/paréntesis o IPs locales. API_BASE_URL apunta a la API pública.');
   p('Consumo de API propia:', 'El APK no cambia silenciosamente a Supabase directo. El teléfono usa HTTPS y dispone de 60 segundos de timeout para el despertar del servicio gratuito. La descarga debe provenir del release latest-apk actualizado.');
   p('Historial integrado:', 'PR #11: promoción de identidad, QR y expiración; PR #12: endpoint comprobantes/RPC; PR #13: promoción; PR #15/#16: enfoque solo Android. La integración de un endpoint no demuestra por sí sola que su función esté completa.');
-  p('Comprobaciones de este cambio:', 'Build backend correcto; 21/21 pruebas API locales y 3/3 pruebas de configuración. CI del PR verde para el commit 2a2b341. Resultado final del APK y promoción: consultar el informe de validación actualizado.');
-  p('Pendiente Android físico:', 'Instalar el APK actual, registrar modelo/versión y capturar el recorrido. No se declara completada la prueba de punta a punta sin esa evidencia.');
+  p('Comprobaciones de este cambio:', 'Build backend correcto; 21/21 pruebas API locales y 3/3 pruebas de configuración. CI y workflow APK de main verdes. Release latest-apk del commit ac5a75c: versión 1.0.22, build 22.');
+  p('Android físico comprobado:', 'TECNO KJ5, Android 13: instalación, registro de cuenta sintética, login demo/nuevo, 6 canchas y Perfil correctos. Reserva #1 del 04/11/2026, 07:00-08:00, con 1 juego de chalecos: S/105. Se recupera tras cerrar la app y volver a iniciar sesión.');
   p('Fuera de este cambio:', 'Los fallos de pagos, upload de comprobantes y persistencia QR se atenderán después, por indicación de Juan. No se presentan aquí como corregidos; el criterio completo de aceptación de la issue sigue abierto.');
-  p('Evidencia:', 'docs/validaciones/2026-11-03-infra-issue14.md y capturas/infra-render-live.jpg. El PDF distingue pruebas locales, servicio publicado y validación física pendiente.');
+  p('Vencimiento real comprobado:', 'Reserva #1 creada a las 07:45:39 de Perú, sin pagos ni comprobante. A las 08:05:58, la consulta API confirma VENCIDA. El TECNO muestra Vencida y el horario 07:00 libre de nuevo, sin alterar reloj ni plazo.');
+  p('Evidencia y límites:', 'docs/validaciones/2026-11-03-infra-issue14.md y capturas/. Las pruebas físicas cubren registro, acceso, catálogo, reserva y vencimiento. Pago, upload y QR permanecen pendientes.');
 
   doc.end();
 
