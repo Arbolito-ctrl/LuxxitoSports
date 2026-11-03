@@ -6,6 +6,10 @@ Implementa una **API REST propia en capas** (`Node.js + Express + TypeScript`) c
 
 ## API pública y estado de la entrega (issue #14)
 
+El backend se despliega automáticamente desde GitHub Actions: push/merge a `main` → pruebas backend y Flutter correctas → hook privado de Render con el SHA probado. Los PR y `develop` no publican el servicio. El secreto `RENDER_DEPLOY_HOOK_URL` se configura en GitHub Actions y nunca se guarda en el código. Si main avanzó durante una ejecución antigua, esa ejecución no despliega. El job confirma que Render aceptó la petición; el estado final se consulta en el panel Render y `/api/health`. La automatización no instala APK en los teléfonos ni ejecuta migraciones de base de datos.
+
+En el panel Render, Auto-Deploy nativo queda en `Off`: el disparador automático es el job `Publicar backend en Render tras pruebas` de `.github/workflows/ci.yml`. Esto permite usar el repositorio público sin instalar la integración GitHub de Render y evita tener dos mecanismos publicando a la vez.
+
 - API: `https://luxxito-sports-api.onrender.com/api`.
 - Diagnóstico: [GET /api/health](https://luxxito-sports-api.onrender.com/api/health), comprobado con HTTP 200 y `POSTGRES_POOL` el 03/11/2026.
 - Publicación del APK: [release latest-apk](https://github.com/Arbolito-ctrl/LuxxitoSports/releases/tag/latest-apk). Verificar el commit del release, no usar como referencia el APK antiguo guardado en `release/`.
