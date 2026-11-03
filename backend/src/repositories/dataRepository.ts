@@ -831,6 +831,27 @@ export class DataRepository {
     return this.memState.pagos.filter((p) => p.reserva_id === reservaId);
   }
 
+  async getPagos(estado?: EstadoPago): Promise<Pago[]> {
+    const mode = getDbMode();
+    if (mode === 'POSTGRES_POOL') {
+      const res = estado
+        ? await getPgPool().query(
+            'SELECT * FROM pagos WHERE estado = $1 ORDER BY created_at ASC, id ASC',
+            [estado]
+          )
+        : await getPgPool().query('SELECT * FROM pagos ORDER BY created_at ASC, id ASC');
+      return res.rows.map((r) => this.normalizePago(r));
+    }
+    if (mode === 'SUPABASE_REST') {
+      let query = getSupabaseClient().from('pagos').select('*');
+      if (estado) query = query.eq('estado', estado);
+      const { data, error } = await query.order('created_at').order('id');
+      if (error) throw error;
+      return (data || []).map((r) => this.normalizePago(r));
+    }
+    return this.memState.pagos.filter((p) => !estado || p.estado === estado);
+  }
+
   async getReservaById(id: number): Promise<Reserva | null> {
     const mode = getDbMode();
     if (mode === 'POSTGRES_POOL') {
@@ -1025,6 +1046,7 @@ export class DataRepository {
         | 'monto_devolucion'
         | 'codigo_qr'
         | 'motivo_cancelacion'
+        | 'expires_at'
       >
     >
   ): Promise<Reserva | null> {
@@ -1041,8 +1063,8 @@ export class DataRepository {
         `UPDATE reservas
          SET cliente_nombre = $1, cliente_telefono = $2, cliente_email = $3,
              notas = $4, estado = $5, monto_pagado = $6, monto_devolucion = $7,
-             codigo_qr = $8, motivo_cancelacion = $9, updated_at = NOW()
-         WHERE id = $10`,
+             codigo_qr = $8, motivo_cancelacion = $9, expires_at = $10, updated_at = NOW()
+         WHERE id = $11`,
         [
           merged.cliente_nombre,
           merged.cliente_telefono,
@@ -1053,6 +1075,7 @@ export class DataRepository {
           merged.monto_devolucion,
           merged.codigo_qr,
           merged.motivo_cancelacion,
+          merged.expires_at,
           id,
         ]
       );
@@ -1071,6 +1094,7 @@ export class DataRepository {
           monto_devolucion: merged.monto_devolucion,
           codigo_qr: merged.codigo_qr,
           motivo_cancelacion: merged.motivo_cancelacion,
+          expires_at: merged.expires_at,
           updated_at: merged.updated_at,
         })
         .eq('id', id);

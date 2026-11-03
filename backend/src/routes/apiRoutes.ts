@@ -65,12 +65,18 @@ router.post('/reservas/:id/cancelar', (req, res, next) =>
   reservationController.cancelarReserva(req, res, next)
 );
 
-// 5. Pagos manuales (Yape / Plin / Transferencia) y aprobación idempotente
+// 5. Pagos manuales (Yape / Plin / Transferencia), bandeja de revisión y aprobación/rechazo idempotentes
 router.post('/reservas/:id/pagos', (req, res, next) =>
   reservationController.registrarPago(req, res, next)
 );
+router.get('/pagos', (req, res, next) =>
+  reservationController.listarPagos(req, res, next)
+);
 router.patch('/pagos/:id/aprobar', (req, res, next) =>
   reservationController.aprobarPago(req, res, next)
+);
+router.patch('/pagos/:id/rechazar', (req, res, next) =>
+  reservationController.rechazarPago(req, res, next)
 );
 
 export default router;

@@ -230,4 +230,124 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     expect(cancelRes.body.data.reserva.estado).toBe('CANCELADA');
     expect(cancelRes.body.data.reserva.codigo_qr).toBeNull();
   });
+  it('Caso 9 (Éxito - Bandeja de revisión): Lista pagos PENDIENTE_REVISION con resumen de la reserva', async () => {
+    const createRes = await request(app).post('/api/reservas').send({
+      cancha_id: 1,
+      cliente_nombre: 'Rosa Quispe',
+      cliente_dni: '71112223',
+      cliente_telefono: '911222333',
+      cliente_email: 'rosa@uni.pe',
+      fecha: getFutureDate(6),
+      hora_inicio: 9,
+      hora_fin: 10,
+    });
+    const reservaId = createRes.body.data.id;
+    await request(app).post(`/api/reservas/${reservaId}/pagos`).send({
+      metodo: 'YAPE',
+      modalidad: 'TOTAL',
+      monto: createRes.body.data.total,
+      numero_operacion: 'YAPE-554433',
+    });
+
+    const res = await request(app).get('/api/pagos?estado=PENDIENTE_REVISION');
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.count).toBe(res.body.data.length);
+    expect(res.body.data.every((p: any) => p.estado === 'PENDIENTE_REVISION')).toBe(true);
+    const pago = res.body.data.find((p: any) => p.reserva_id === reservaId);
+    expect(pago.reserva.cliente_nombre).toBe('Rosa Quispe');
+    expect(pago.reserva.estado).toBe('EN_REVISION');
+
+    const invalido = await request(app).get('/api/pagos?estado=INEXISTENTE');
+    expect(invalido.status).toBe(400);
+    expect(invalido.body.ok).toBe(false);
+  });
+
+  it('Caso 10 (Éxito - Rechazo con motivo e idempotencia): Devuelve la reserva a PENDIENTE_PAGO y permite reintentar', async () => {
+    const createRes = await request(app).post('/api/reservas').send({
+      cancha_id: 2,
+      cliente_nombre: 'Pedro Huamán',
+      cliente_dni: '72223334',
+      cliente_telefono: '922333444',
+      cliente_email: 'pedro@uni.pe',
+      fecha: getFutureDate(7),
+      hora_inicio: 18,
+      hora_fin: 19,
+    });
+    const reservaId = createRes.body.data.id;
+    const total = createRes.body.data.total;
+    const pagoRes = await request(app).post(`/api/reservas/${reservaId}/pagos`).send({
+      metodo: 'PLIN',
+      modalidad: 'TOTAL',
+      monto: total,
+      numero_operacion: 'PLIN-000111',
+    });
+    const pagoId = pagoRes.body.data.pago.id;
+
+    const rechazo = await request(app)
+      .patch(`/api/pagos/${pagoId}/rechazar`)
+      .send({ observacion: 'Número de operación no coincide con el voucher' });
+    expect(rechazo.status).toBe(200);
+    expect(rechazo.body.data.idempotent).toBe(false);
+    expect(rechazo.body.data.pago.estado).toBe('RECHAZADO');
+    expect(rechazo.body.data.pago.observacion).toBe('Número de operación no coincide con el voucher');
+    expect(rechazo.body.data.reserva.estado).toBe('PENDIENTE_PAGO');
+    expect(Date.parse(rechazo.body.data.reserva.expires_at)).toBeGreaterThan(Date.now());
+
+    const rechazo2 = await request(app)
+      .patch(`/api/pagos/${pagoId}/rechazar`)
+      .send({ observacion: 'Segundo intento de rechazo' });
+    expect(rechazo2.status).toBe(200);
+    expect(rechazo2.body.data.idempotent).toBe(true);
+
+    // Un pago rechazado no puede aprobarse después
+    const aprobarRechazado = await request(app).patch(`/api/pagos/${pagoId}/aprobar`);
+    expect(aprobarRechazado.status).toBe(409);
+
+    // El jugador reenvía un comprobante válido
+    const reintento = await request(app).post(`/api/reservas/${reservaId}/pagos`).send({
+      metodo: 'PLIN',
+      modalidad: 'TOTAL',
+      monto: total,
+      numero_operacion: 'PLIN-000222',
+    });
+    expect(reintento.status).toBe(201);
+    expect(reintento.body.data.reserva.estado).toBe('EN_REVISION');
+  });
+
+  it('Caso 11 (Fallo - Validación 400/404/409): Rechazo sin motivo, pago inexistente o ya aprobado', async () => {
+    const createRes = await request(app).post('/api/reservas').send({
+      cancha_id: 1,
+      cliente_nombre: 'Ana Torres',
+      cliente_dni: '73334445',
+      cliente_telefono: '933444555',
+      cliente_email: 'ana@uni.pe',
+      fecha: getFutureDate(8),
+      hora_inicio: 11,
+      hora_fin: 12,
+    });
+    const reservaId = createRes.body.data.id;
+    const pagoRes = await request(app).post(`/api/reservas/${reservaId}/pagos`).send({
+      metodo: 'YAPE',
+      modalidad: 'TOTAL',
+      monto: createRes.body.data.total,
+      numero_operacion: 'YAPE-777888',
+    });
+    const pagoId = pagoRes.body.data.pago.id;
+
+    const sinMotivo = await request(app).patch(`/api/pagos/${pagoId}/rechazar`).send({});
+    expect(sinMotivo.status).toBe(400);
+
+    const inexistente = await request(app)
+      .patch('/api/pagos/999999/rechazar')
+      .send({ observacion: 'Comprobante ilegible' });
+    expect(inexistente.status).toBe(404);
+
+    await request(app).patch(`/api/pagos/${pagoId}/aprobar`);
+    const yaAprobado = await request(app)
+      .patch(`/api/pagos/${pagoId}/rechazar`)
+      .send({ observacion: 'Comprobante ilegible' });
+    expect(yaAprobado.status).toBe(409);
+    expect(yaAprobado.body.ok).toBe(false);
+  });
 });

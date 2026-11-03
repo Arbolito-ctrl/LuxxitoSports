@@ -27,7 +27,9 @@
 | 14 | `DELETE` | `/api/reservas/:id` | **CRUD (Delete):** Eliminar físicamente una reserva no confirmada | `200`, `400`, `404`, `409` |
 | 15 | `POST` | `/api/reservas/:id/pagos` | **Lógica de Negocio 4:** Registrar comprobante Yape/Plin/Transferencia y proteger reserva en revisión | `201`, `400`, `404`, `409`, `422` |
 | 16 | `PATCH` | `/api/pagos/:id/aprobar` | **Lógica de Negocio 5:** Aprobación idempotente de pago y emisión de Ticket QR (`LUXXITO-QR-...`) | `200`, `400`, `404`, `409` |
-| 17 | `POST` | `/api/reservas/:id/cancelar` | **Lógica de Negocio 6:** Cancelación con política de 24 horas (100% reembolso >= 24h; 50% retención < 24h) y revocación de QR | `200`, `400`, `404`, `409` |
+| 17 | `GET` | `/api/pagos?estado=PENDIENTE_REVISION` | **Bandeja del operador:** Listar pagos (filtro opcional por `estado`) con el resumen de su reserva | `200`, `400` |
+| 18 | `PATCH` | `/api/pagos/:id/rechazar` | **Rechazo de comprobante:** `observacion` obligatoria; la reserva vuelve a `PENDIENTE_PAGO` con nuevo bloqueo de 20 min (idempotente) | `200`, `400`, `404`, `409` |
+| 19 | `POST` | `/api/reservas/:id/cancelar` | **Lógica de Negocio 6:** Cancelación con política de 24 horas (100% reembolso >= 24h; 50% retención < 24h) y revocación de QR | `200`, `400`, `404`, `409` |
 
 ---
 
@@ -191,7 +193,53 @@ Registra el comprobante de pago (`YAPE`, `PLIN` o `TRANSFERENCIA`) bajo modalida
 
 ---
 
-### 2.4. `POST /api/reservas/:id/cancelar`
+### 2.4. `GET /api/pagos?estado=PENDIENTE_REVISION` y `PATCH /api/pagos/:id/rechazar`
+Bandeja de revisión del operador. Cada pago incluye un resumen de su reserva (cancha, jugador, fecha y horario) para revisarlo sin consultas adicionales. Un `estado` fuera de `PENDIENTE_REVISION`, `APROBADO`, `RECHAZADO` o `REEMBOLSADO` responde `400`.
+
+**Respuesta `200 OK` (`GET /api/pagos?estado=PENDIENTE_REVISION`):**
+```json
+{
+  "ok": true,
+  "count": 1,
+  "data": [
+    {
+      "id": 3,
+      "reserva_id": 2,
+      "metodo": "PLIN",
+      "modalidad": "TOTAL",
+      "monto": 95,
+      "numero_operacion": "PLIN-000111",
+      "estado": "PENDIENTE_REVISION",
+      "reserva": {
+        "id": 2,
+        "estado": "EN_REVISION",
+        "cancha_nombre": "Cancha 2",
+        "cliente_nombre": "Pedro Huamán",
+        "fecha": "2026-11-10",
+        "hora_inicio": 18,
+        "hora_fin": 19,
+        "total": 95
+      }
+    }
+  ]
+}
+```
+
+**Cuerpo de Solicitud (`PATCH /api/pagos/3/rechazar`):**
+```json
+{ "observacion": "Número de operación no coincide con el voucher" }
+```
+
+**Reglas:**
+- `observacion` es obligatoria (mínimo 5 caracteres) → `400` si falta.
+- Solo se rechazan pagos `PENDIENTE_REVISION`; un pago `APROBADO` o `REEMBOLSADO` responde `409`.
+- Repetir el rechazo devuelve `200` con `idempotent: true` sin modificar nada.
+- Si la reserva estaba `EN_REVISION`, vuelve a `PENDIENTE_PAGO` con un nuevo `expires_at` de 20 minutos para que el jugador reenvíe el comprobante.
+- Un pago `RECHAZADO` ya no puede aprobarse (`409`).
+
+---
+
+### 2.5. `POST /api/reservas/:id/cancelar`
 Cancela una reserva aplicando la regla de las 24 horas y revocando el QR.
 
 **Cuerpo de Solicitud:**

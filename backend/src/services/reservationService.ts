@@ -3,6 +3,7 @@ import { dataRepository } from '../repositories/dataRepository';
 import {
   CotizacionInput,
   CotizacionOutput,
+  EstadoPago,
   MetodoPago,
   ModalidadPago,
   Pago,
@@ -13,6 +14,32 @@ import { Errors } from '../utils/errors';
 
 const VALID_METODOS_PAGO: MetodoPago[] = ['YAPE', 'PLIN', 'TRANSFERENCIA'];
 const VALID_MODALIDADES: ModalidadPago[] = ['SENA_50', 'TOTAL'];
+const VALID_ESTADOS_PAGO: EstadoPago[] = [
+  'PENDIENTE_REVISION',
+  'APROBADO',
+  'RECHAZADO',
+  'REEMBOLSADO',
+];
+const BLOQUEO_MINUTOS = 20;
+const MIN_OBSERVACION_RECHAZO = 5;
+
+export type PagoConReserva = Pago & {
+  reserva: Pick<
+    Reserva,
+    | 'id'
+    | 'estado'
+    | 'cancha_nombre'
+    | 'complejo_nombre'
+    | 'cliente_nombre'
+    | 'cliente_dni'
+    | 'cliente_telefono'
+    | 'fecha'
+    | 'hora_inicio'
+    | 'hora_fin'
+    | 'total'
+    | 'monto_pagado'
+  > | null;
+};
 
 export class ReservationService {
   /**
@@ -222,7 +249,7 @@ export class ReservationService {
     }
 
     // Bloqueo temporal de 20 minutos según especificación de Luxxito Sports
-    const expiresAt = new Date(Date.now() + 20 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + BLOQUEO_MINUTOS * 60 * 1000).toISOString();
 
     return dataRepository.createReserva(
       {
@@ -423,6 +450,11 @@ export class ReservationService {
     if (pago.estado === 'APROBADO') {
       return { pago, reserva, idempotent: true };
     }
+    if (pago.estado !== 'PENDIENTE_REVISION') {
+      throw Errors.conflict(
+        `No se puede aprobar un pago en estado ${pago.estado}; el jugador debe enviar un nuevo comprobante.`
+      );
+    }
 
     const pagoAprobado = (await dataRepository.updatePagoEstado(
       pagoId,
@@ -449,6 +481,113 @@ export class ReservationService {
     }))!;
 
     return { pago: pagoAprobado, reserva: reservaConfirmada, idempotent: false };
+  }
+
+  /**
+   * Bandeja de revisión del operador: lista los pagos (opcionalmente filtrados por estado)
+   * con el resumen de su reserva para poder aprobarlos o rechazarlos sin consultas extra.
+   */
+  async listarPagos(estado?: string): Promise<PagoConReserva[]> {
+    let estadoFiltro: EstadoPago | undefined;
+    if (estado !== undefined) {
+      estadoFiltro = String(estado).toUpperCase() as EstadoPago;
+      if (!VALID_ESTADOS_PAGO.includes(estadoFiltro)) {
+        throw Errors.badRequest(
+          `Estado de pago inválido. Permitidos: ${VALID_ESTADOS_PAGO.join(', ')}.`
+        );
+      }
+    }
+
+    const pagos = await dataRepository.getPagos(estadoFiltro);
+    const reservas = new Map<number, Reserva | null>();
+    for (const pago of pagos) {
+      if (!reservas.has(pago.reserva_id)) {
+        reservas.set(pago.reserva_id, await dataRepository.getReservaById(pago.reserva_id));
+      }
+    }
+
+    return pagos.map((pago) => {
+      const r = reservas.get(pago.reserva_id);
+      return {
+        ...pago,
+        reserva: r
+          ? {
+              id: r.id,
+              estado: r.estado,
+              cancha_nombre: r.cancha_nombre,
+              complejo_nombre: r.complejo_nombre,
+              cliente_nombre: r.cliente_nombre,
+              cliente_dni: r.cliente_dni,
+              cliente_telefono: r.cliente_telefono,
+              fecha: r.fecha,
+              hora_inicio: r.hora_inicio,
+              hora_fin: r.hora_fin,
+              total: r.total,
+              monto_pagado: r.monto_pagado,
+            }
+          : null,
+      };
+    });
+  }
+
+  /**
+   * Rechazo idempotente de pago con motivo obligatorio:
+   * - Solo se rechazan pagos en PENDIENTE_REVISION (un pago APROBADO o REEMBOLSADO responde 409).
+   * - Si la reserva estaba EN_REVISION, vuelve a PENDIENTE_PAGO con un nuevo bloqueo de 20 min
+   *   para que el jugador reenvíe un comprobante válido.
+   */
+  async rechazarPago(
+    pagoId: number,
+    observacion: unknown
+  ): Promise<{ pago: Pago; reserva: Reserva; idempotent: boolean }> {
+    if (!Number.isInteger(pagoId) || pagoId <= 0) {
+      throw Errors.badRequest('El ID del pago debe ser un entero positivo.');
+    }
+    const motivo = typeof observacion === 'string' ? observacion.trim() : '';
+    if (motivo.length < MIN_OBSERVACION_RECHAZO) {
+      throw Errors.badRequest(
+        `La observación del rechazo es obligatoria (mínimo ${MIN_OBSERVACION_RECHAZO} caracteres).`
+      );
+    }
+
+    const pago = await dataRepository.getPagoById(pagoId);
+    if (!pago) {
+      throw Errors.notFound(`No se encontró el pago con ID ${pagoId}.`);
+    }
+    const reserva = await this.obtenerReserva(pago.reserva_id);
+
+    if (pago.estado === 'RECHAZADO') {
+      return { pago, reserva, idempotent: true };
+    }
+    if (pago.estado !== 'PENDIENTE_REVISION') {
+      throw Errors.conflict(`No se puede rechazar un pago en estado ${pago.estado}.`);
+    }
+    if (reserva.estado === 'CANCELADA' || reserva.estado === 'VENCIDA') {
+      throw Errors.conflict(
+        `No se puede rechazar un pago de una reserva en estado ${reserva.estado}.`
+      );
+    }
+
+    const pagoRechazado = (await dataRepository.updatePagoEstado(
+      pagoId,
+      'RECHAZADO',
+      motivo
+    ))!;
+
+    let reservaActualizada = reserva;
+    if (reserva.estado === 'EN_REVISION') {
+      const otrosPendientes = (await dataRepository.getPagosByReserva(reserva.id)).some(
+        (p) => p.id !== pagoId && p.estado === 'PENDIENTE_REVISION'
+      );
+      if (!otrosPendientes) {
+        reservaActualizada = (await dataRepository.updateReserva(reserva.id, {
+          estado: 'PENDIENTE_PAGO',
+          expires_at: new Date(Date.now() + BLOQUEO_MINUTOS * 60 * 1000).toISOString(),
+        }))!;
+      }
+    }
+
+    return { pago: pagoRechazado, reserva: reservaActualizada, idempotent: false };
   }
 
   /**

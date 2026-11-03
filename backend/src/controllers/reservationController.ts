@@ -118,6 +118,36 @@ export class ReservationController {
     }
   }
 
+  async listarPagos(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const estado = req.query.estado ? String(req.query.estado) : undefined;
+      const pagos = await reservationService.listarPagos(estado);
+      res.status(200).json({
+        ok: true,
+        count: pagos.length,
+        data: pagos,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async rechazarPago(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const pagoId = Number(req.params.id);
+      const resultado = await reservationService.rechazarPago(pagoId, req.body?.observacion);
+      res.status(200).json({
+        ok: true,
+        message: resultado.idempotent
+          ? 'El pago ya había sido rechazado previamente (operación idempotente).'
+          : 'Pago rechazado. El jugador puede enviar un nuevo comprobante.',
+        data: resultado,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async cancelarReserva(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const reservaId = Number(req.params.id);
