@@ -834,4 +834,52 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     const inexistente = await request(app).post('/api/canchas/999/imagen').set('Authorization', `Bearer ${adminToken}`).send(foto);
     expect(inexistente.status).toBe(404);
   });
+  it('Caso 25 (Concurrencia): Solicitudes simultáneas no duplican turnos, extras, comprobantes ni pagos aprobados', async () => {
+    const fecha = getFutureDate(12);
+
+    // 1. Ocho jugadores piden el mismo turno al mismo tiempo: solo uno lo obtiene
+    const mismoTurno = await Promise.all(
+      Array.from({ length: 8 }, (_, i) =>
+        request(app)
+          .post('/api/reservas')
+          .send({ cancha_id: 1, ...titular(`7500000${i}`), fecha, hora_inicio: 15, hora_fin: 16 })
+      )
+    );
+    expect(mismoTurno.filter((r) => r.status === 201)).toHaveLength(1);
+    expect(mismoTurno.filter((r) => r.status === 409)).toHaveLength(7);
+
+    // 2. Tres reservas simultáneas piden 1 árbitro (stock 2) en canchas distintas del complejo 1
+    const arbitros = await Promise.all(
+      [1, 2, 3].map((cancha, i) =>
+        request(app)
+          .post('/api/reservas')
+          .send({ cancha_id: cancha, ...titular(`7600000${i}`), fecha, hora_inicio: 19, hora_fin: 20, extras: [{ extra_id: 3, cantidad: 1 }] })
+      )
+    );
+    expect(arbitros.filter((r) => r.status === 201)).toHaveLength(2);
+    expect(arbitros.filter((r) => r.status === 409)).toHaveLength(1);
+
+    // 3. Doble toque en "Enviar comprobante": solo queda un pago en revisión
+    const reservaId = mismoTurno.find((r) => r.status === 201)!.body.data.id;
+    const comprobantes = await Promise.all(
+      [1, 2].map((n) =>
+        request(app)
+          .post(`/api/reservas/${reservaId}/pagos`)
+          .send({ metodo: 'YAPE', modalidad: 'TOTAL', numero_operacion: `YAPE-99000${n}` })
+      )
+    );
+    expect(comprobantes.map((r) => r.status).sort()).toEqual([201, 409]);
+
+    // 4. Dos administradores aprueban el mismo pago a la vez: el monto no se duplica
+    const pagoId = comprobantes.find((r) => r.status === 201)!.body.data.pago.id;
+    const aprobaciones = await Promise.all(
+      [1, 2].map(() =>
+        request(app).patch(`/api/pagos/${pagoId}/aprobar`).set('Authorization', `Bearer ${adminToken}`)
+      )
+    );
+    expect(aprobaciones.every((r) => r.status === 200)).toBe(true);
+    expect(aprobaciones.filter((r) => r.body.data.idempotent === true)).toHaveLength(1);
+    const reserva = (await request(app).get(`/api/reservas/${reservaId}`)).body.data;
+    expect(reserva.monto_pagado).toBe(reserva.total);
+  });
 });
