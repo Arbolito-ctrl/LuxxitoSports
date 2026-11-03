@@ -882,4 +882,33 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     const reserva = (await request(app).get(`/api/reservas/${reservaId}`)).body.data;
     expect(reserva.monto_pagado).toBe(reserva.total);
   });
+  it('Caso 26 (Fallo - Nombre de cancha repetido 409): No se crea ni renombra una cancha con un nombre que ya existe en el complejo', async () => {
+    const admin = (r: request.Test) => r.set('Authorization', `Bearer ${adminToken}`);
+    const repetida = await admin(request(app).post('/api/canchas')).send({
+      complejo_id: 1,
+      nombre: '  cancha monumental 1 ',
+      deporte: 'Futbol 7',
+      precio_hora_diurno: 90,
+      precio_hora_nocturno: 120,
+    });
+    expect(repetida.status).toBe(409);
+    expect(repetida.body.message).toContain('Ya existe una cancha');
+
+    // El mismo nombre en otro complejo sí está permitido
+    const otroComplejo = await admin(request(app).post('/api/canchas')).send({
+      complejo_id: 2,
+      nombre: 'Cancha Monumental 1',
+      deporte: 'Futbol 7',
+      precio_hora_diurno: 90,
+      precio_hora_nocturno: 120,
+    });
+    expect(otroComplejo.status).toBe(201);
+
+    const renombrar = await admin(request(app).put('/api/canchas/2')).send({ nombre: 'Cancha Monumental 1' });
+    expect(renombrar.status).toBe(409);
+
+    // Guardar la cancha con su propio nombre no es un conflicto
+    const mismoNombre = await admin(request(app).put('/api/canchas/1')).send({ nombre: 'Cancha Monumental 1' });
+    expect(mismoNombre.status).toBe(200);
+  });
 });
