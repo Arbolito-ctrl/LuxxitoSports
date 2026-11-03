@@ -1,3 +1,4 @@
+import { dataRepository } from '../repositories/dataRepository';
 import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 
@@ -139,3 +140,38 @@ export function requireRole(...roles: Array<'JUGADOR' | 'ADMIN'>) {
   };
 }
 
+
+/**
+ * Solo el titular de la reserva (mismo DNI que el token) o un ADMIN puede verla o
+ * modificarla. Si la reserva no existe, el controlador responde 404.
+ * Debe usarse después de requireAuth.
+ */
+export function requireTitularDeReserva(req: Request, res: Response, next: NextFunction): void {
+  if (!req.user) {
+    res.status(401).json({ ok: false, code: 'UNAUTHORIZED', message: 'Autenticación requerida.' });
+    return;
+  }
+  if (req.user.rol === 'ADMIN') {
+    next();
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    next();
+    return;
+  }
+  dataRepository
+    .getReservaById(id)
+    .then((reserva) => {
+      if (reserva && reserva.cliente_dni !== req.user!.dni) {
+        res.status(403).json({
+          ok: false,
+          code: 'FORBIDDEN',
+          message: 'Solo el titular de la reserva o un administrador puede realizar esta acción.',
+        });
+        return;
+      }
+      next();
+    })
+    .catch(next);
+}

@@ -1,5 +1,11 @@
 # Historial de Cambios de Contratos — Luxxito Sports API
 
+## [1.5.0] - 2026-11-03 (Titularidad de reservas)
+
+### Cambiado
+- `GET /reservas` requiere JWT: el JUGADOR ve solo sus reservas (se ignora `cliente_dni` de otra persona) y el ADMIN ve todas.
+- `GET /reservas/{id}`, `PUT /reservas/{id}`, `DELETE /reservas/{id}`, `POST /reservas/{id}/cancelar` y `POST /reservas/{id}/pagos` requieren JWT y solo los puede usar el **titular** (mismo DNI) o un ADMIN: `401` sin token, `403` con la reserva de otra persona.
+
 ## [1.4.0] - 2026-11-03 (LX-301 subida real y verificación QR por ADMIN)
 
 ### Añadido
