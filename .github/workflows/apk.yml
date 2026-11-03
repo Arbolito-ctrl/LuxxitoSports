@@ -86,7 +86,8 @@ jobs:
             echo "::warning::Sin ANDROID_KEYSTORE_BASE64: el APK de desarrollo se firma con una clave temporal."
             exit 0
           fi
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/luxxito-release.jks"
+          # Quita espacios y saltos de línea (por ejemplo \r si el secret se guardó desde Windows)
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$RUNNER_TEMP/luxxito-release.jks"
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/luxxito-release.jks" >> "$GITHUB_ENV"
 
       - name: Compilar APK de Android con configuración de entorno
