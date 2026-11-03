@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+
 import '../models/luxxito_models.dart';
 import '../services/api_service.dart';
+import '../theme/luxxito_theme.dart';
+import '../widgets/luxxito_widgets.dart';
 
 /// Modo Operador (LX-301): bandeja de comprobantes PENDIENTE_REVISION para
 /// aprobarlos (reserva CONFIRMADA + Ticket QR) o rechazarlos con motivo.
@@ -12,10 +15,10 @@ class RevisionPagosScreen extends StatefulWidget {
 }
 
 class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
-  static const Color _fondo = Color(0xFF0F172A);
-  static const Color _superficie = Color(0xFF1E293B);
-  static const Color _verde = Color(0xFF10B981);
-  static const Color _celeste = Color(0xFF38BDF8);
+  static const Color _fondo = LuxxitoColors.fondo;
+  static const Color _superficie = LuxxitoColors.superficie;
+  static const Color _verde = LuxxitoColors.primario;
+  static const Color _celeste = LuxxitoColors.secundario;
   static const int _minObservacion = 5;
   static const List<String> _motivosFrecuentes = [
     'El monto no coincide con la reserva',
@@ -23,10 +26,28 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
     'Número de operación inválido',
     'El pago no se refleja en la cuenta',
   ];
-  static const List<String> _dias = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+  static const List<String> _dias = [
+    'lun',
+    'mar',
+    'mié',
+    'jue',
+    'vie',
+    'sáb',
+    'dom',
+  ];
   static const List<String> _meses = [
-    'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-    'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+    'ene',
+    'feb',
+    'mar',
+    'abr',
+    'may',
+    'jun',
+    'jul',
+    'ago',
+    'sep',
+    'oct',
+    'nov',
+    'dic',
   ];
 
   List<PagoEnRevision> _pagos = [];
@@ -84,18 +105,21 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
   }
 
   String _iniciales(String nombre) {
-    final partes = nombre.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
+    final partes = nombre
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty);
     return partes.take(2).map((p) => p[0].toUpperCase()).join();
   }
 
   Color _colorMetodo(String metodo) {
     switch (metodo) {
       case 'YAPE':
-        return const Color(0xFFA855F7);
+        return const Color(0xFF7C3AED);
       case 'PLIN':
-        return const Color(0xFF06B6D4);
+        return const Color(0xFF0891B2);
       default:
-        return const Color(0xFF94A3B8);
+        return LuxxitoColors.textoSecundario;
     }
   }
 
@@ -118,7 +142,7 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
       if (!mounted) return;
       _aviso(
         e is ApiException ? e.message : e.toString(),
-        Colors.redAccent,
+        LuxxitoColors.error,
         Icons.error_outline,
       );
     } finally {
@@ -151,14 +175,17 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
         icon: const Icon(Icons.verified, color: _verde, size: 40),
         title: const Text(
           '¿Aprobar este pago?',
-          style: TextStyle(color: Colors.white, fontSize: 18),
+          style: TextStyle(color: LuxxitoColors.texto, fontSize: 18),
         ),
         content: Text(
           'Confirmaremos la reserva de ${item.clienteNombre} '
           '(${_fechaLegible(item.fecha)}, ${_hora(item.horaInicio)}) '
           'y le enviaremos su Ticket QR por S/ ${item.pago.monto.toStringAsFixed(2)}.',
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white70, height: 1.4),
+          style: const TextStyle(
+            color: LuxxitoColors.textoSecundario,
+            height: 1.4,
+          ),
         ),
         actionsAlignment: MainAxisAlignment.center,
         actions: [
@@ -169,7 +196,7 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
           FilledButton.icon(
             style: FilledButton.styleFrom(
               backgroundColor: _verde,
-              foregroundColor: Colors.black,
+              foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
             icon: const Icon(Icons.check),
@@ -193,6 +220,7 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
     final observacion = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: _superficie,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -203,7 +231,7 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
             20,
             12,
             20,
-            20 + MediaQuery.of(ctx).viewInsets.bottom,
+            20 + espacioInferior(ctx),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -214,7 +242,7 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white24,
+                    color: LuxxitoColors.borde,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -223,7 +251,7 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
               const Text(
                 'Rechazar comprobante',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: LuxxitoColors.texto,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -231,7 +259,10 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
               const SizedBox(height: 4),
               Text(
                 '${item.clienteNombre} verá este motivo y podrá enviar un nuevo comprobante.',
-                style: const TextStyle(color: Colors.white60, fontSize: 13),
+                style: const TextStyle(
+                  color: LuxxitoColors.textoSecundario,
+                  fontSize: 13,
+                ),
               ),
               const SizedBox(height: 14),
               Wrap(
@@ -242,8 +273,10 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
                       (m) => ActionChip(
                         label: Text(m, style: const TextStyle(fontSize: 12)),
                         backgroundColor: _fondo,
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        side: const BorderSide(color: Colors.white24),
+                        labelStyle: const TextStyle(
+                          color: LuxxitoColors.textoSecundario,
+                        ),
+                        side: const BorderSide(color: LuxxitoColors.borde),
                         onPressed: () => setSheetState(() {
                           obsCtrl.text = m;
                           errorObs = null;
@@ -257,13 +290,13 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
                 controller: obsCtrl,
                 maxLines: 3,
                 minLines: 2,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: LuxxitoColors.texto),
                 onChanged: (_) {
                   if (errorObs != null) setSheetState(() => errorObs = null);
                 },
                 decoration: InputDecoration(
                   hintText: 'Escribe o elige un motivo…',
-                  hintStyle: const TextStyle(color: Colors.white38),
+                  hintStyle: const TextStyle(color: LuxxitoColors.textoTenue),
                   filled: true,
                   fillColor: _fondo,
                   errorText: errorObs,
@@ -278,15 +311,17 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
                 width: double.infinity,
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
+                    backgroundColor: LuxxitoColors.error,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   onPressed: () {
                     final texto = obsCtrl.text.trim();
                     if (texto.length < _minObservacion) {
-                      setSheetState(() => errorObs =
-                          'Cuéntale al jugador qué falló (mínimo $_minObservacion caracteres).');
+                      setSheetState(
+                        () => errorObs =
+                            'Cuéntale al jugador qué falló (mínimo $_minObservacion caracteres).',
+                      );
                       return;
                     }
                     Navigator.of(ctx).pop(texto);
@@ -300,7 +335,6 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
         ),
       ),
     );
-    obsCtrl.dispose();
     if (observacion == null) return;
     await _ejecutar(
       item,
@@ -330,7 +364,7 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
                 url,
                 errorBuilder: (_, _, _) => const Text(
                   'No se pudo cargar la imagen del comprobante.',
-                  style: TextStyle(color: Colors.white70),
+                  style: TextStyle(color: LuxxitoColors.textoSecundario),
                 ),
               ),
             ),
@@ -350,17 +384,16 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 4),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF064E3B), Color(0xFF0F766E)],
-        ),
-        borderRadius: BorderRadius.circular(16),
+        color: LuxxitoColors.superficie,
+        border: Border.all(color: LuxxitoColors.borde),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
           const CircleAvatar(
             radius: 24,
-            backgroundColor: Colors.white24,
-            child: Icon(Icons.receipt_long, color: Colors.white),
+            backgroundColor: LuxxitoColors.primarioSuave,
+            child: Icon(Icons.receipt_long, color: LuxxitoColors.primario),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -372,7 +405,7 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
                       ? '1 comprobante por revisar'
                       : '${_pagos.length} comprobantes por revisar',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: LuxxitoColors.texto,
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
@@ -380,7 +413,10 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
                 const SizedBox(height: 2),
                 const Text(
                   'Los más antiguos aparecen primero.',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  style: TextStyle(
+                    color: LuxxitoColors.textoSecundario,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -390,12 +426,15 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
             children: [
               const Text(
                 'Por conciliar',
-                style: TextStyle(color: Colors.white70, fontSize: 11),
+                style: TextStyle(
+                  color: LuxxitoColors.textoSecundario,
+                  fontSize: 11,
+                ),
               ),
               Text(
                 'S/ ${totalMonto.toStringAsFixed(2)}',
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: LuxxitoColors.primario,
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
                 ),
@@ -417,7 +456,11 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
       ),
       child: Text(
         texto,
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -427,12 +470,15 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
       padding: const EdgeInsets.only(top: 6),
       child: Row(
         children: [
-          Icon(icono, size: 16, color: Colors.white38),
+          Icon(icono, size: 16, color: LuxxitoColors.textoTenue),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               texto,
-              style: const TextStyle(color: Colors.white70, fontSize: 13),
+              style: const TextStyle(
+                color: LuxxitoColors.textoSecundario,
+                fontSize: 13,
+              ),
             ),
           ),
         ],
@@ -448,16 +494,19 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
       decoration: BoxDecoration(
         color: _fondo,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(color: LuxxitoColors.borde),
       ),
       child: const Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.image_not_supported_outlined, color: Colors.white38),
+          Icon(
+            Icons.image_not_supported_outlined,
+            color: LuxxitoColors.textoTenue,
+          ),
           SizedBox(width: 8),
           Text(
             'Sin imagen del comprobante',
-            style: TextStyle(color: Colors.white38, fontSize: 12),
+            style: TextStyle(color: LuxxitoColors.textoTenue, fontSize: 12),
           ),
         ],
       ),
@@ -520,7 +569,7 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
         margin: const EdgeInsets.only(bottom: 14),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Colors.white10),
+          side: const BorderSide(color: LuxxitoColors.borde),
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -548,7 +597,7 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
                         Text(
                           item.clienteNombre,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: LuxxitoColors.texto,
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
                           ),
@@ -556,7 +605,10 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
                         const SizedBox(height: 2),
                         Text(
                           'Enviado ${_haceCuanto(pago.createdAt)} · Reserva #${pago.reservaId}',
-                          style: const TextStyle(color: Colors.white38, fontSize: 12),
+                          style: const TextStyle(
+                            color: LuxxitoColors.textoTenue,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -579,14 +631,22 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
                 ],
               ),
               const SizedBox(height: 10),
-              _dato(Icons.stadium_outlined,
-                  '${item.canchaNombre} · ${item.complejoNombre}'),
-              _dato(Icons.event_outlined,
-                  '${_fechaLegible(item.fecha)} · ${_hora(item.horaInicio)} – ${_hora(item.horaFin)}'),
-              _dato(Icons.tag,
-                  'Operación ${pago.numeroOperacion} · ${pago.modalidad == 'SENA_50' ? 'Seña 50%' : 'Pago total'} de S/ ${item.total.toStringAsFixed(2)}'),
-              _dato(Icons.phone_outlined,
-                  '${item.clienteTelefono} · DNI ${item.clienteDni}'),
+              _dato(
+                Icons.stadium_outlined,
+                '${item.canchaNombre} · ${item.complejoNombre}',
+              ),
+              _dato(
+                Icons.event_outlined,
+                '${_fechaLegible(item.fecha)} · ${_hora(item.horaInicio)} – ${_hora(item.horaFin)}',
+              ),
+              _dato(
+                Icons.tag,
+                'Operación ${pago.numeroOperacion} · ${pago.modalidad == 'SENA_50' ? 'Seña 50%' : 'Pago total'} de S/ ${item.total.toStringAsFixed(2)}',
+              ),
+              _dato(
+                Icons.phone_outlined,
+                '${item.clienteTelefono} · DNI ${item.clienteDni}',
+              ),
               const SizedBox(height: 12),
               _vistaPreviaComprobante(pago),
               const SizedBox(height: 14),
@@ -595,11 +655,13 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.redAccent,
-                        side: const BorderSide(color: Colors.redAccent),
+                        foregroundColor: LuxxitoColors.error,
+                        side: const BorderSide(color: LuxxitoColors.error),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      onPressed: ocupado ? null : () => _mostrarDialogoRechazo(item),
+                      onPressed: ocupado
+                          ? null
+                          : () => _mostrarDialogoRechazo(item),
                       icon: const Icon(Icons.close, size: 18),
                       label: const Text('Rechazar'),
                     ),
@@ -609,17 +671,19 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
                     child: FilledButton.icon(
                       style: FilledButton.styleFrom(
                         backgroundColor: _verde,
-                        foregroundColor: Colors.black,
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      onPressed: ocupado ? null : () => _confirmarAprobacion(item),
+                      onPressed: ocupado
+                          ? null
+                          : () => _confirmarAprobacion(item),
                       icon: ocupado
                           ? const SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.black,
+                                color: Colors.white,
                               ),
                             )
                           : const Icon(Icons.check, size: 18),
@@ -656,7 +720,7 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
           titulo,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            color: Colors.white,
+            color: LuxxitoColors.texto,
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
@@ -665,7 +729,10 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
         Text(
           detalle,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white60, height: 1.4),
+          style: const TextStyle(
+            color: LuxxitoColors.textoSecundario,
+            height: 1.4,
+          ),
         ),
         if (accion != null) ...[
           const SizedBox(height: 20),
@@ -685,7 +752,7 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
             SizedBox(height: 14),
             Text(
               'Buscando comprobantes pendientes…',
-              style: TextStyle(color: Colors.white60),
+              style: TextStyle(color: LuxxitoColors.textoSecundario),
             ),
           ],
         ),
@@ -694,13 +761,13 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
     if (_errorMsg != null) {
       return _estadoCentrado(
         icono: Icons.wifi_off_rounded,
-        color: Colors.redAccent,
+        color: LuxxitoColors.error,
         titulo: 'No pudimos cargar la bandeja',
         detalle: _errorMsg!,
         accion: FilledButton.icon(
           style: FilledButton.styleFrom(
             backgroundColor: _verde,
-            foregroundColor: Colors.black,
+            foregroundColor: Colors.white,
           ),
           onPressed: _cargarPagos,
           icon: const Icon(Icons.refresh),
@@ -716,8 +783,7 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
           icono: Icons.task_alt_rounded,
           color: _verde,
           titulo: '¡Todo al día!',
-          detalle:
-              'No hay comprobantes esperando revisión.\nDesliza hacia abajo para buscar nuevos.',
+          detalle: 'No hay comprobantes esperando revisión.\nDesliza hacia abajo para buscar nuevos.',
         ),
       );
     }
@@ -744,7 +810,7 @@ class _RevisionPagosScreenState extends State<RevisionPagosScreen> {
       backgroundColor: _fondo,
       appBar: AppBar(
         backgroundColor: _superficie,
-        foregroundColor: Colors.white,
+        foregroundColor: LuxxitoColors.texto,
         elevation: 0,
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/luxxito_models.dart';
 import '../services/api_service.dart';
 import '../theme/luxxito_theme.dart';
@@ -55,7 +56,9 @@ class _DisponibilidadReservaScreenState
       _emailCtrl.text = session.email;
     }
     _editarTitular = session == null;
-    _fechaSeleccionada = _formatDate(DateTime.now().add(const Duration(days: 1)));
+    _fechaSeleccionada = _formatDate(
+      DateTime.now().add(const Duration(days: 1)),
+    );
     _cargarDisponibilidad();
   }
 
@@ -114,11 +117,12 @@ class _DisponibilidadReservaScreenState
     if (turno.estado != 'DISPONIBLE') return;
 
     setState(() {
-      final extiende = _horaInicioSel != null &&
+      final extiende =
+          _horaInicioSel != null &&
           turno.horaInicio == _horaFinSel &&
           (_horaFinSel! - _horaInicioSel!) < _maxHoras;
-      final esUnicoSeleccionado = _horaInicioSel == turno.horaInicio &&
-          _horaFinSel == turno.horaFin;
+      final esUnicoSeleccionado =
+          _horaInicioSel == turno.horaInicio && _horaFinSel == turno.horaFin;
 
       if (esUnicoSeleccionado) {
         _horaInicioSel = null;
@@ -165,7 +169,11 @@ class _DisponibilidadReservaScreenState
   Future<void> _confirmarCreacionReserva() async {
     if (_horaInicioSel == null || _horaFinSel == null) return;
     if (_editarTitular && !(_titularKey.currentState?.validate() ?? true)) {
-      mostrarAviso(context, 'Completa los datos del titular.', tipo: TipoAviso.error);
+      mostrarAviso(
+        context,
+        'Completa los datos del titular.',
+        tipo: TipoAviso.error,
+      );
       return;
     }
 
@@ -189,7 +197,11 @@ class _DisponibilidadReservaScreenState
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          icon: const Icon(Icons.check_circle, color: LuxxitoColors.exito, size: 48),
+          icon: const Icon(
+            Icons.check_circle,
+            color: LuxxitoColors.exito,
+            size: 48,
+          ),
           title: const Text('¡Turno reservado!'),
           content: Text(
             '${widget.cancha.nombre}\n'
@@ -222,7 +234,9 @@ class _DisponibilidadReservaScreenState
             color: LuxxitoColors.error,
             size: 44,
           ),
-          title: Text(ocupado ? 'Ese horario ya no está libre' : 'No pudimos reservar'),
+          title: Text(
+            ocupado ? 'Ese horario ya no está libre' : 'No pudimos reservar',
+          ),
           content: Text(mensajeError(e), textAlign: TextAlign.center),
           actionsAlignment: MainAxisAlignment.center,
           actions: [
@@ -246,67 +260,78 @@ class _DisponibilidadReservaScreenState
   Widget _cabecera() {
     final complejo = _disponibilidad?.complejo;
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: LuxxitoColors.primario.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(
-                iconoDeporte(widget.cancha.deporte),
-                color: LuxxitoColors.primario,
-                size: 28,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${widget.cancha.deporte} · ${widget.cancha.superficie}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FotoComplejo(
+            url: complejo?.imagenUrl,
+            iconoRespaldo: iconoDeporte(widget.cancha.deporte),
+            height: 140,
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: LuxxitoColors.primario.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    complejo != null && complejo.direccion.isNotEmpty
-                        ? '${complejo.nombre} · ${complejo.direccion}'
-                        : '${widget.cancha.complejoNombre} · ${widget.cancha.distrito}',
-                    style: const TextStyle(
-                      color: LuxxitoColors.textoSecundario,
-                      fontSize: 12.5,
-                    ),
+                  child: Icon(
+                    iconoDeporte(widget.cancha.deporte),
+                    color: LuxxitoColors.primario,
+                    size: 28,
                   ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Insignia(
-                        'Día S/ ${widget.cancha.precioHoraDiurno.toStringAsFixed(0)}',
-                        color: LuxxitoColors.secundario,
-                        icono: Icons.wb_sunny_outlined,
+                      Text(
+                        '${widget.cancha.deporte} · ${widget.cancha.superficie}',
+                        style: const TextStyle(
+                          color: LuxxitoColors.texto,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                       ),
-                      Insignia(
-                        'Noche S/ ${widget.cancha.precioHoraNocturno.toStringAsFixed(0)}',
-                        color: LuxxitoColors.nocturno,
-                        icono: Icons.nightlight_outlined,
+                      const SizedBox(height: 2),
+                      Text(
+                        complejo != null && complejo.direccion.isNotEmpty
+                            ? '${complejo.nombre} · ${complejo.direccion}'
+                            : '${widget.cancha.complejoNombre} · ${widget.cancha.distrito}',
+                        style: const TextStyle(
+                          color: LuxxitoColors.textoSecundario,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          Insignia(
+                            'Día S/ ${widget.cancha.precioHoraDiurno.toStringAsFixed(0)}',
+                            color: LuxxitoColors.secundario,
+                            icono: Icons.wb_sunny_outlined,
+                          ),
+                          Insignia(
+                            'Noche S/ ${widget.cancha.precioHoraNocturno.toStringAsFixed(0)}',
+                            color: LuxxitoColors.nocturno,
+                            icono: Icons.nightlight_outlined,
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -326,8 +351,8 @@ class _DisponibilidadReservaScreenState
           final etiqueta = idx == 0
               ? 'Hoy'
               : idx == 1
-                  ? 'Mañana'
-                  : Formato.diaSemana(d);
+              ? 'Mañana'
+              : Formato.diaSemana(d);
           return InkWell(
             borderRadius: BorderRadius.circular(14),
             onTap: () {
@@ -339,7 +364,9 @@ class _DisponibilidadReservaScreenState
               duration: const Duration(milliseconds: 180),
               width: 64,
               decoration: BoxDecoration(
-                color: activo ? LuxxitoColors.primario : LuxxitoColors.superficie,
+                color: activo
+                    ? LuxxitoColors.primario
+                    : LuxxitoColors.superficie,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: activo ? LuxxitoColors.primario : LuxxitoColors.borde,
@@ -351,14 +378,16 @@ class _DisponibilidadReservaScreenState
                   Text(
                     etiqueta,
                     style: TextStyle(
-                      color: activo ? Colors.black : LuxxitoColors.textoSecundario,
+                      color: activo
+                          ? Colors.white
+                          : LuxxitoColors.textoSecundario,
                       fontSize: 11.5,
                     ),
                   ),
                   Text(
                     '${d.day}',
                     style: TextStyle(
-                      color: activo ? Colors.black : Colors.white,
+                      color: activo ? Colors.white : LuxxitoColors.texto,
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
                     ),
@@ -366,7 +395,7 @@ class _DisponibilidadReservaScreenState
                   Text(
                     Formato.mesCorto(d),
                     style: TextStyle(
-                      color: activo ? Colors.black87 : LuxxitoColors.textoTenue,
+                      color: activo ? Colors.white70 : LuxxitoColors.textoTenue,
                       fontSize: 11,
                     ),
                   ),
@@ -396,20 +425,20 @@ class _DisponibilidadReservaScreenState
 
   Widget _leyenda() {
     Widget item(Color color, String texto) => Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              texto,
-              style: const TextStyle(color: LuxxitoColors.textoTenue, fontSize: 12),
-            ),
-          ],
-        );
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          texto,
+          style: const TextStyle(color: LuxxitoColors.textoTenue, fontSize: 12),
+        ),
+      ],
+    );
     return Wrap(
       spacing: 16,
       runSpacing: 6,
@@ -434,13 +463,15 @@ class _DisponibilidadReservaScreenState
       builder: (context, constraints) {
         const columnas = 3;
         const espacio = 10.0;
-        final ancho = (constraints.maxWidth - espacio * (columnas - 1)) / columnas;
+        final ancho =
+            (constraints.maxWidth - espacio * (columnas - 1)) / columnas;
         return Wrap(
           spacing: espacio,
           runSpacing: espacio,
           children: turnos.map((turno) {
             final libre = turno.estado == 'DISPONIBLE';
-            final seleccionado = _horaInicioSel != null &&
+            final seleccionado =
+                _horaInicioSel != null &&
                 turno.horaInicio >= _horaInicioSel! &&
                 turno.horaFin <= _horaFinSel!;
             final nocturno = turno.tarifaTipo == 'NOCTURNA';
@@ -448,13 +479,13 @@ class _DisponibilidadReservaScreenState
             final fondo = seleccionado
                 ? LuxxitoColors.primario
                 : libre
-                    ? LuxxitoColors.superficie
-                    : LuxxitoColors.error.withValues(alpha: 0.08);
+                ? LuxxitoColors.superficie
+                : LuxxitoColors.error.withValues(alpha: 0.08);
             final colorTexto = seleccionado
-                ? Colors.black
+                ? Colors.white
                 : libre
-                    ? Colors.white
-                    : LuxxitoColors.textoTenue;
+                ? LuxxitoColors.texto
+                : LuxxitoColors.textoTenue;
 
             return InkWell(
               onTap: libre ? () => _seleccionarTurno(turno) : null,
@@ -462,7 +493,10 @@ class _DisponibilidadReservaScreenState
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 width: ancho,
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 8,
+                ),
                 decoration: BoxDecoration(
                   color: fondo,
                   borderRadius: BorderRadius.circular(12),
@@ -470,8 +504,8 @@ class _DisponibilidadReservaScreenState
                     color: seleccionado
                         ? LuxxitoColors.primario
                         : libre
-                            ? LuxxitoColors.borde
-                            : LuxxitoColors.error.withValues(alpha: 0.25),
+                        ? LuxxitoColors.borde
+                        : LuxxitoColors.error.withValues(alpha: 0.25),
                   ),
                 ),
                 child: Column(
@@ -483,7 +517,9 @@ class _DisponibilidadReservaScreenState
                           Icon(
                             Icons.nightlight_round,
                             size: 12,
-                            color: seleccionado ? Colors.black54 : LuxxitoColors.nocturno,
+                            color: seleccionado
+                                ? Colors.white70
+                                : LuxxitoColors.nocturno,
                           ),
                           const SizedBox(width: 4),
                         ],
@@ -493,7 +529,9 @@ class _DisponibilidadReservaScreenState
                             color: colorTexto,
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
-                            decoration: libre ? null : TextDecoration.lineThrough,
+                            decoration: libre
+                                ? null
+                                : TextDecoration.lineThrough,
                           ),
                         ),
                       ],
@@ -504,7 +542,9 @@ class _DisponibilidadReservaScreenState
                           ? 'S/ ${turno.precio.toStringAsFixed(0)}'
                           : _etiquetaNoDisponible(turno.estado),
                       style: TextStyle(
-                        color: seleccionado ? Colors.black87 : LuxxitoColors.textoTenue,
+                        color: seleccionado
+                            ? Colors.white70
+                            : LuxxitoColors.textoTenue,
                         fontSize: 11.5,
                       ),
                     ),
@@ -545,7 +585,7 @@ class _DisponibilidadReservaScreenState
                         Text(
                           extra.nombre,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: LuxxitoColors.texto,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -570,7 +610,9 @@ class _DisponibilidadReservaScreenState
                     color: LuxxitoColors.textoSecundario,
                     onPressed: cant > 0
                         ? () {
-                            setState(() => _extrasSeleccionados[extra.id] = cant - 1);
+                            setState(
+                              () => _extrasSeleccionados[extra.id] = cant - 1,
+                            );
                             _solicitarCotizacionServidor();
                           }
                         : null,
@@ -581,19 +623,25 @@ class _DisponibilidadReservaScreenState
                       '$cant',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: cant > 0 ? LuxxitoColors.primario : LuxxitoColors.textoTenue,
+                        color: cant > 0
+                            ? LuxxitoColors.primario
+                            : LuxxitoColors.textoTenue,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
                     ),
                   ),
                   IconButton(
-                    tooltip: sinHorario ? 'Elige primero un horario' : 'Agregar',
+                    tooltip: sinHorario
+                        ? 'Elige primero un horario'
+                        : 'Agregar',
                     icon: const Icon(Icons.add_circle),
                     color: LuxxitoColors.primario,
                     onPressed: !sinHorario && cant < extra.stockDisponible
                         ? () {
-                            setState(() => _extrasSeleccionados[extra.id] = cant + 1);
+                            setState(
+                              () => _extrasSeleccionados[extra.id] = cant + 1,
+                            );
                             _solicitarCotizacionServidor();
                           }
                         : null,
@@ -617,7 +665,8 @@ class _DisponibilidadReservaScreenState
     }
     if (q == null) return const SizedBox.shrink();
 
-    Widget fila(String etiqueta, num monto, {bool destacado = false}) => Padding(
+    Widget fila(String etiqueta, num monto, {bool destacado = false}) =>
+        Padding(
           padding: const EdgeInsets.symmetric(vertical: 3),
           child: Row(
             children: [
@@ -625,7 +674,9 @@ class _DisponibilidadReservaScreenState
                 child: Text(
                   etiqueta,
                   style: TextStyle(
-                    color: destacado ? Colors.white : LuxxitoColors.textoSecundario,
+                    color: destacado
+                        ? LuxxitoColors.texto
+                        : LuxxitoColors.textoSecundario,
                     fontWeight: destacado ? FontWeight.bold : FontWeight.normal,
                     fontSize: destacado ? 16 : 14,
                   ),
@@ -634,7 +685,7 @@ class _DisponibilidadReservaScreenState
               Text(
                 Formato.soles(monto),
                 style: TextStyle(
-                  color: Colors.white,
+                  color: LuxxitoColors.texto,
                   fontWeight: destacado ? FontWeight.bold : FontWeight.w500,
                   fontSize: destacado ? 18 : 14,
                 ),
@@ -665,12 +716,19 @@ class _DisponibilidadReservaScreenState
               const SizedBox(height: 6),
               Row(
                 children: [
-                  const Icon(Icons.info_outline, size: 14, color: LuxxitoColors.textoTenue),
+                  const Icon(
+                    Icons.info_outline,
+                    size: 14,
+                    color: LuxxitoColors.textoTenue,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'Puedes adelantar solo el 50% (${Formato.soles(q['monto_sena_50'] as num)}) y pagar el resto en el complejo.',
-                      style: const TextStyle(color: LuxxitoColors.textoTenue, fontSize: 12),
+                      style: const TextStyle(
+                        color: LuxxitoColors.textoTenue,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
@@ -698,7 +756,10 @@ class _DisponibilidadReservaScreenState
           ),
           title: Text(
             _nombreCtrl.text,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              color: LuxxitoColors.texto,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           subtitle: Text(
             'DNI ${_dniCtrl.text} · ${_telefonoCtrl.text}',
@@ -722,7 +783,8 @@ class _DisponibilidadReservaScreenState
               labelText: 'Nombre completo',
               prefixIcon: Icon(Icons.person_outline),
             ),
-            validator: (v) => (v ?? '').trim().isEmpty ? 'Ingresa el nombre' : null,
+            validator: (v) =>
+                (v ?? '').trim().isEmpty ? 'Ingresa el nombre' : null,
           ),
           const SizedBox(height: 12),
           Row(
@@ -738,8 +800,9 @@ class _DisponibilidadReservaScreenState
                     counterText: '',
                     prefixIcon: Icon(Icons.badge_outlined),
                   ),
-                  validator: (v) =>
-                      RegExp(r'^\d{8}$').hasMatch(v?.trim() ?? '') ? null : '8 dígitos',
+                  validator: (v) => RegExp(r'^\d{8}$').hasMatch(v?.trim() ?? '')
+                      ? null
+                      : '8 dígitos',
                 ),
               ),
               const SizedBox(width: 12),
@@ -754,7 +817,9 @@ class _DisponibilidadReservaScreenState
                     prefixIcon: Icon(Icons.phone_outlined),
                   ),
                   validator: (v) =>
-                      RegExp(r'^9\d{8}$').hasMatch(v?.trim() ?? '') ? null : '9 dígitos',
+                      RegExp(r'^9\d{8}$').hasMatch(v?.trim() ?? '')
+                      ? null
+                      : '9 dígitos',
                 ),
               ),
             ],
@@ -767,7 +832,8 @@ class _DisponibilidadReservaScreenState
               labelText: 'Correo electrónico',
               prefixIcon: Icon(Icons.email_outlined),
             ),
-            validator: (v) => RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(v?.trim() ?? '')
+            validator: (v) =>
+                RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(v?.trim() ?? '')
                 ? null
                 : 'Revisa el correo',
           ),
@@ -779,53 +845,57 @@ class _DisponibilidadReservaScreenState
   Widget _barraInferior() {
     final total = _cotizacionServidor?['total'] as num?;
     final hayHorario = _horaInicioSel != null;
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        decoration: const BoxDecoration(
-          color: LuxxitoColors.superficie,
-          border: Border(top: BorderSide(color: LuxxitoColors.borde)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    hayHorario
-                        ? '${Formato.fecha(_fechaSeleccionada)} · ${Formato.rango(_horaInicioSel!, _horaFinSel!)}'
-                        : 'Elige un horario',
-                    style: const TextStyle(color: LuxxitoColors.textoSecundario, fontSize: 12.5),
+    return Container(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + espacioInferior(context)),
+      decoration: const BoxDecoration(
+        color: LuxxitoColors.superficie,
+        border: Border(top: BorderSide(color: LuxxitoColors.borde)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hayHorario
+                      ? '${Formato.fecha(_fechaSeleccionada)} · ${Formato.rango(_horaInicioSel!, _horaFinSel!)}'
+                      : 'Elige un horario',
+                  style: const TextStyle(
+                    color: LuxxitoColors.textoSecundario,
+                    fontSize: 12.5,
                   ),
-                  Text(
-                    total != null ? Formato.soles(total) : '—',
-                    style: const TextStyle(
+                ),
+                Text(
+                  total != null ? Formato.soles(total) : '—',
+                  style: const TextStyle(
+                    color: LuxxitoColors.texto,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          FilledButton.icon(
+            onPressed:
+                hayHorario && total != null && !_enviandoReserva && !_cotizando
+                ? _confirmarCreacionReserva
+                : null,
+            icon: _enviandoReserva
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
                       color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
                     ),
-                  ),
-                ],
-              ),
-            ),
-            FilledButton.icon(
-              onPressed: hayHorario && total != null && !_enviandoReserva && !_cotizando
-                  ? _confirmarCreacionReserva
-                  : null,
-              icon: _enviandoReserva
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.lock_clock),
-              label: Text(_enviandoReserva ? 'Reservando…' : 'Reservar'),
-            ),
-          ],
-        ),
+                  )
+                : const Icon(Icons.lock_clock),
+            label: Text(_enviandoReserva ? 'Reservando…' : 'Reservar'),
+          ),
+        ],
       ),
     );
   }
@@ -856,55 +926,58 @@ class _DisponibilidadReservaScreenState
           ),
         ],
       ),
-      bottomNavigationBar: _cargando || _errorMsg != null ? null : _barraInferior(),
+      bottomNavigationBar: _cargando || _errorMsg != null
+          ? null
+          : _barraInferior(),
       body: _cargando
           ? const EstadoVista.cargando(titulo: 'Consultando horarios…')
           : _errorMsg != null
-              ? EstadoVista.error(
-                  titulo: 'No pudimos cargar los horarios',
-                  mensaje: _errorMsg!,
-                  onReintentar: _cargarDisponibilidad,
-                )
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                  children: [
-                    _cabecera(),
-                    const SizedBox(height: 22),
-                    const SeccionTitulo('¿Qué día quieres jugar?'),
-                    _selectorFechas(),
-                    const SizedBox(height: 22),
-                    SeccionTitulo(
-                      '¿A qué hora?',
-                      subtitulo: 'Toca horas seguidas para jugar hasta $_maxHoras horas.',
-                    ),
-                    _leyenda(),
-                    const SizedBox(height: 12),
-                    _grillaTurnos(),
-                    const SizedBox(height: 22),
-                    const SeccionTitulo(
-                      'Extras',
-                      subtitulo: 'Opcional: chalecos, balones, árbitro y más.',
-                    ),
-                    _extras(),
-                    if (_cotizacionServidor != null || _cotizando) ...[
-                      const SizedBox(height: 12),
-                      const SeccionTitulo('Resumen'),
-                      _resumen(),
-                    ],
-                    const SizedBox(height: 22),
-                    const SeccionTitulo('Titular de la reserva'),
-                    _titular(),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _notasCtrl,
-                      maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'Notas para el complejo (opcional)',
-                        prefixIcon: Icon(Icons.notes),
-                      ),
-                    ),
-                  ],
+          ? EstadoVista.error(
+              titulo: 'No pudimos cargar los horarios',
+              mensaje: _errorMsg!,
+              onReintentar: _cargarDisponibilidad,
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              children: [
+                _cabecera(),
+                const SizedBox(height: 22),
+                const SeccionTitulo('¿Qué día quieres jugar?'),
+                _selectorFechas(),
+                const SizedBox(height: 22),
+                SeccionTitulo(
+                  '¿A qué hora?',
+                  subtitulo:
+                      'Toca horas seguidas para jugar hasta $_maxHoras horas.',
                 ),
+                _leyenda(),
+                const SizedBox(height: 12),
+                _grillaTurnos(),
+                const SizedBox(height: 22),
+                const SeccionTitulo(
+                  'Extras',
+                  subtitulo: 'Opcional: chalecos, balones, árbitro y más.',
+                ),
+                _extras(),
+                if (_cotizacionServidor != null || _cotizando) ...[
+                  const SizedBox(height: 12),
+                  const SeccionTitulo('Resumen'),
+                  _resumen(),
+                ],
+                const SizedBox(height: 22),
+                const SeccionTitulo('Titular de la reserva'),
+                _titular(),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _notasCtrl,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Notas para el complejo (opcional)',
+                    prefixIcon: Icon(Icons.notes),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

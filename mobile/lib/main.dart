@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'screens/auth_screen.dart';
 import 'screens/explorar_screen.dart';
 import 'screens/mis_reservas_screen.dart';
@@ -126,8 +127,10 @@ class _MainShellScreenState extends State<MainShellScreen> {
           ),
           NavigationDestination(
             icon: Icon(Icons.confirmation_number_outlined),
-            selectedIcon:
-                Icon(Icons.confirmation_number, color: LuxxitoColors.primario),
+            selectedIcon: Icon(
+              Icons.confirmation_number,
+              color: LuxxitoColors.primario,
+            ),
             label: 'Mis reservas',
           ),
           NavigationDestination(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/luxxito_models.dart';
 import '../services/api_service.dart';
 import '../theme/luxxito_theme.dart';
@@ -17,6 +18,7 @@ class ExplorarScreen extends StatefulWidget {
 class _ExplorarScreenState extends State<ExplorarScreen> {
   List<Complejo> _complejos = [];
   List<Cancha> _canchas = [];
+  Map<int, String?> _fotos = {};
   bool _cargando = true;
   String? _errorMsg;
 
@@ -65,6 +67,7 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
       if (!mounted) return;
       setState(() {
         _complejos = results[0] as List<Complejo>;
+        _fotos = {for (final c in _complejos) c.id: c.imagenUrl};
         _canchas = results[1] as List<Cancha>;
         _cargando = false;
       });
@@ -103,13 +106,14 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
     final creado = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) => Padding(
           padding: EdgeInsets.fromLTRB(
             20,
             0,
             20,
-            20 + MediaQuery.of(ctx).viewInsets.bottom,
+            20 + espacioInferior(ctx),
           ),
           child: Form(
             key: formKey,
@@ -121,7 +125,7 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
                   const Text(
                     'Nueva cancha',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: LuxxitoColors.texto,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
@@ -140,7 +144,12 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
                       prefixIcon: Icon(Icons.stadium_outlined),
                     ),
                     items: _complejos
-                        .map((c) => DropdownMenuItem(value: c.id, child: Text(c.nombre)))
+                        .map(
+                          (c) => DropdownMenuItem(
+                            value: c.id,
+                            child: Text(c.nombre),
+                          ),
+                        )
                         .toList(),
                     validator: (v) => v == null ? 'Elige un complejo' : null,
                     onChanged: (v) => setSheetState(() => complejoSel = v),
@@ -153,8 +162,9 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
                       labelText: 'Nombre de la cancha',
                       prefixIcon: Icon(Icons.edit_outlined),
                     ),
-                    validator: (v) =>
-                        (v ?? '').trim().length < 3 ? 'Escribe un nombre' : null,
+                    validator: (v) => (v ?? '').trim().length < 3
+                        ? 'Escribe un nombre'
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -163,10 +173,15 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
                         child: DropdownButtonFormField<String>(
                           initialValue: deporteSel,
                           dropdownColor: LuxxitoColors.superficieAlta,
-                          decoration: const InputDecoration(labelText: 'Deporte'),
+                          decoration: const InputDecoration(
+                            labelText: 'Deporte',
+                          ),
                           items: _deportes
                               .where((d) => d.isNotEmpty)
-                              .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                              .map(
+                                (d) =>
+                                    DropdownMenuItem(value: d, child: Text(d)),
+                              )
                               .toList(),
                           onChanged: (v) =>
                               setSheetState(() => deporteSel = v ?? deporteSel),
@@ -176,7 +191,9 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
                       Expanded(
                         child: TextFormField(
                           controller: superficieCtrl,
-                          decoration: const InputDecoration(labelText: 'Superficie'),
+                          decoration: const InputDecoration(
+                            labelText: 'Superficie',
+                          ),
                         ),
                       ),
                     ],
@@ -248,7 +265,11 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
                             } catch (e) {
                               setSheetState(() => guardando = false);
                               if (!ctx.mounted) return;
-                              mostrarAviso(ctx, mensajeError(e), tipo: TipoAviso.error);
+                              mostrarAviso(
+                                ctx,
+                                mensajeError(e),
+                                tipo: TipoAviso.error,
+                              );
                             }
                           },
                     child: Text(guardando ? 'Guardando…' : 'Publicar cancha'),
@@ -261,10 +282,6 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
       ),
     );
 
-    nombreCtrl.dispose();
-    superficieCtrl.dispose();
-    diurnoCtrl.dispose();
-    nocturnoCtrl.dispose();
 
     if (creado == true && mounted) {
       mostrarAviso(context, 'Cancha publicada en el catálogo.');
@@ -282,7 +299,7 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
           Text(
             nombre.isEmpty ? '¡Hola!' : '¡Hola, $nombre!',
             style: const TextStyle(
-              color: Colors.white,
+              color: LuxxitoColors.texto,
               fontSize: 22,
               fontWeight: FontWeight.bold,
             ),
@@ -340,7 +357,7 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
             avatar: Icon(
               icono(valor),
               size: 16,
-              color: sel ? Colors.black : LuxxitoColors.textoSecundario,
+              color: sel ? Colors.white : LuxxitoColors.textoSecundario,
             ),
             label: Text(valor.isEmpty ? etiquetaTodos : valor),
             selected: sel,
@@ -360,53 +377,62 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              height: 92,
-              padding: const EdgeInsets.all(14),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF065F46), Color(0xFF0F766E)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+            Stack(
+              children: [
+                FotoComplejo(
+                  url: _fotos[cancha.complejoId],
+                  iconoRespaldo: iconoDeporte(cancha.deporte),
                 ),
-              ),
-              child: Stack(
-                children: [
-                  Positioned(
-                    right: -10,
-                    bottom: -24,
-                    child: Icon(
-                      iconoDeporte(cancha.deporte),
-                      size: 110,
-                      color: Colors.white.withValues(alpha: 0.12),
+                Positioned(
+                  left: 12,
+                  top: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          iconoDeporte(cancha.deporte),
+                          size: 14,
+                          color: LuxxitoColors.texto,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          cancha.deporte,
+                          style: const TextStyle(
+                            color: LuxxitoColors.texto,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Insignia(
-                        cancha.deporte,
-                        color: Colors.white,
-                        icono: iconoDeporte(cancha.deporte),
-                      ),
-                      const Spacer(),
-                      Text(
-                        cancha.nombre,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+              child: Text(
+                cancha.nombre,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: LuxxitoColors.texto,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -427,12 +453,14 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
                       Insignia(
                         cancha.techada ? 'Techada' : 'Aire libre',
                         color: LuxxitoColors.secundario,
-                        icono: cancha.techada ? Icons.roofing : Icons.wb_sunny_outlined,
+                        icono: cancha.techada
+                            ? Icons.roofing
+                            : Icons.wb_sunny_outlined,
                       ),
                       if (cancha.iluminacion)
                         const Insignia(
                           'Iluminación',
-                          color: Color(0xFFFBBF24),
+                          color: LuxxitoColors.advertencia,
                           icono: Icons.lightbulb_outline,
                         ),
                       if (!activa)
@@ -461,9 +489,10 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
                                     ),
                                   ),
                                   TextSpan(
-                                    text: 'S/ ${cancha.precioHoraDiurno.toStringAsFixed(0)}',
+                                    text:
+                                        'S/ ${cancha.precioHoraDiurno.toStringAsFixed(0)}',
                                     style: const TextStyle(
-                                      color: Colors.white,
+                                      color: LuxxitoColors.texto,
                                       fontSize: 20,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -543,7 +572,10 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
             _canchas.length == 1
                 ? '1 cancha disponible'
                 : '${_canchas.length} canchas disponibles',
-            style: const TextStyle(color: LuxxitoColors.textoTenue, fontSize: 13),
+            style: const TextStyle(
+              color: LuxxitoColors.textoTenue,
+              fontSize: 13,
+            ),
           );
         }
         return _tarjetaCancha(_canchas[idx - 1]);

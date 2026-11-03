@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/api_service.dart';
 import '../theme/luxxito_theme.dart';
 
@@ -11,15 +12,41 @@ class Formato {
 
   static const _diasCortos = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
   static const _diasLargos = [
-    'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo',
+    'lunes',
+    'martes',
+    'miércoles',
+    'jueves',
+    'viernes',
+    'sábado',
+    'domingo',
   ];
   static const _meses = [
-    'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-    'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+    'ene',
+    'feb',
+    'mar',
+    'abr',
+    'may',
+    'jun',
+    'jul',
+    'ago',
+    'sep',
+    'oct',
+    'nov',
+    'dic',
   ];
   static const _mesesLargos = [
-    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
-    'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'septiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
   ];
 
   /// "2026-11-12" -> "jue 12 nov"
@@ -47,8 +74,10 @@ class Formato {
   static String soles(num monto) => 'S/ ${monto.toStringAsFixed(2)}';
 
   static String iniciales(String nombre) {
-    final partes =
-        nombre.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
+    final partes = nombre
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty);
     final ini = partes.take(2).map((p) => p[0].toUpperCase()).join();
     return ini.isEmpty ? '?' : ini;
   }
@@ -60,10 +89,14 @@ String mensajeError(Object e) => e is ApiException ? e.message : e.toString();
 IconData iconoDeporte(String deporte) {
   final d = deporte.toLowerCase();
   if (d.contains('futbol') || d.contains('fútbol')) return Icons.sports_soccer;
-  if (d.contains('voley') || d.contains('vóley')) return Icons.sports_volleyball;
+  if (d.contains('voley') || d.contains('vóley')) {
+    return Icons.sports_volleyball;
+  }
   if (d.contains('padel') || d.contains('pádel')) return Icons.sports_tennis;
   if (d.contains('tenis')) return Icons.sports_tennis;
-  if (d.contains('basquet') || d.contains('básquet')) return Icons.sports_basketball;
+  if (d.contains('basquet') || d.contains('básquet')) {
+    return Icons.sports_basketball;
+  }
   return Icons.sports;
 }
 
@@ -82,19 +115,34 @@ class EstadoReservaInfo {
     switch (estado) {
       case 'PENDIENTE_PAGO':
         return const EstadoReservaInfo(
-            'Por pagar', LuxxitoColors.advertencia, Icons.schedule);
+          'Por pagar',
+          LuxxitoColors.advertencia,
+          Icons.schedule,
+        );
       case 'EN_REVISION':
         return const EstadoReservaInfo(
-            'En revisión', LuxxitoColors.info, Icons.hourglass_top);
+          'En revisión',
+          LuxxitoColors.info,
+          Icons.hourglass_top,
+        );
       case 'CONFIRMADA':
         return const EstadoReservaInfo(
-            'Confirmada', LuxxitoColors.exito, Icons.check_circle);
+          'Confirmada',
+          LuxxitoColors.exito,
+          Icons.check_circle,
+        );
       case 'CANCELADA':
         return const EstadoReservaInfo(
-            'Cancelada', LuxxitoColors.error, Icons.cancel);
+          'Cancelada',
+          LuxxitoColors.error,
+          Icons.cancel,
+        );
       case 'VENCIDA':
         return const EstadoReservaInfo(
-            'Vencida', LuxxitoColors.textoTenue, Icons.timer_off);
+          'Vencida',
+          LuxxitoColors.textoTenue,
+          Icons.timer_off,
+        );
       default:
         return EstadoReservaInfo(estado, Colors.grey, Icons.info_outline);
     }
@@ -115,7 +163,7 @@ void mostrarAviso(
   final (color, icono) = switch (tipo) {
     TipoAviso.exito => (const Color(0xFF059669), Icons.check_circle),
     TipoAviso.error => (const Color(0xFFDC2626), Icons.error_outline),
-    TipoAviso.info => (LuxxitoColors.superficieAlta, Icons.info_outline),
+    TipoAviso.info => (LuxxitoColors.texto, Icons.info_outline),
   };
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
@@ -153,11 +201,11 @@ class EstadoVista extends StatelessWidget {
   }) : cargando = false;
 
   const EstadoVista.cargando({super.key, this.titulo = 'Cargando…'})
-      : icono = null,
-        detalle = null,
-        accion = null,
-        color = LuxxitoColors.primario,
-        cargando = true;
+    : icono = null,
+      detalle = null,
+      accion = null,
+      color = LuxxitoColors.primario,
+      cargando = true;
 
   factory EstadoVista.error({
     Key? key,
@@ -204,7 +252,9 @@ class EstadoVista extends StatelessWidget {
                   titulo,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: cargando ? LuxxitoColors.textoSecundario : Colors.white,
+                    color: cargando
+                        ? LuxxitoColors.textoSecundario
+                        : LuxxitoColors.texto,
                     fontSize: cargando ? 14 : 18,
                     fontWeight: cargando ? FontWeight.normal : FontWeight.bold,
                   ),
@@ -220,10 +270,7 @@ class EstadoVista extends StatelessWidget {
                     ),
                   ),
                 ],
-                if (accion != null) ...[
-                  const SizedBox(height: 20),
-                  accion!,
-                ],
+                if (accion != null) ...[const SizedBox(height: 20), accion!],
               ],
             ),
           ),
@@ -356,7 +403,7 @@ class SeccionTitulo extends StatelessWidget {
                 Text(
                   titulo,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: LuxxitoColors.texto,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -409,4 +456,47 @@ class DatoFila extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Foto del complejo con respaldo neutro si no hay URL o la imagen no carga.
+class FotoComplejo extends StatelessWidget {
+  final String? url;
+  final IconData iconoRespaldo;
+  final double height;
+
+  const FotoComplejo({
+    super.key,
+    required this.url,
+    this.iconoRespaldo = Icons.sports_soccer,
+    this.height = 150,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final respaldo = Container(
+      height: height,
+      color: LuxxitoColors.superficieAlta,
+      alignment: Alignment.center,
+      child: Icon(iconoRespaldo, size: 44, color: LuxxitoColors.textoTenue),
+    );
+    if (url == null || url!.isEmpty) return respaldo;
+    return Image.network(
+      url!,
+      height: height,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => respaldo,
+      loadingBuilder: (_, child, progreso) => progreso == null
+          ? child
+          : Container(height: height, color: LuxxitoColors.superficieAlta),
+    );
+  }
+}
+
+/// Espacio inferior para hojas y barras: el mayor entre el teclado abierto y
+/// la barra de navegación del sistema (gestos o botones de Android).
+double espacioInferior(BuildContext context) {
+  final teclado = MediaQuery.viewInsetsOf(context).bottom;
+  final sistema = MediaQuery.viewPaddingOf(context).bottom;
+  return teclado > sistema ? teclado : sistema;
 }

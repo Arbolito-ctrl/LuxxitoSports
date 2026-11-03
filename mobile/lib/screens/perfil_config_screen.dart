@@ -1,6 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../services/api_service.dart';
 import '../theme/luxxito_theme.dart';
 import '../widgets/luxxito_widgets.dart';
@@ -17,29 +17,13 @@ class PerfilConfigScreen extends StatefulWidget {
 
 class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
   static const String currentInstalledVersion = '1.0.0';
-  static const int _toquesParaModoDev = 7;
-
-  late TextEditingController _urlCtrl;
-  Map<String, dynamic>? _healthInfo;
-  String? _errorConexion;
-  bool _verificando = false;
   bool _buscandoUpdate = false;
-
-  int _toquesVersion = 0;
-  bool _modoDesarrollador = kDebugMode;
   int? _pagosPendientes;
 
   @override
   void initState() {
     super.initState();
-    _urlCtrl = TextEditingController(text: ApiService.baseUrl);
     if (ApiService.esAdmin) _contarPagosPendientes();
-  }
-
-  @override
-  void dispose() {
-    _urlCtrl.dispose();
-    super.dispose();
   }
 
   Future<void> _contarPagosPendientes() async {
@@ -51,42 +35,6 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
     }
   }
 
-  Future<void> _verificarConexion() async {
-    setState(() {
-      _verificando = true;
-      _errorConexion = null;
-    });
-    try {
-      ApiService.setBaseUrl(_urlCtrl.text);
-      final data = await ApiService.checkHealth();
-      if (!mounted) return;
-      setState(() {
-        _healthInfo = data;
-        _verificando = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _healthInfo = null;
-        _errorConexion = mensajeError(e);
-        _verificando = false;
-      });
-    }
-  }
-
-  void _tocarVersion() {
-    if (_modoDesarrollador) return;
-    _toquesVersion++;
-    final faltan = _toquesParaModoDev - _toquesVersion;
-    if (faltan <= 0) {
-      setState(() => _modoDesarrollador = true);
-      mostrarAviso(context, 'Opciones de desarrollador activadas.', tipo: TipoAviso.info);
-    } else if (faltan <= 3) {
-      mostrarAviso(context, 'Estás a $faltan toques de las opciones de desarrollador.',
-          tipo: TipoAviso.info);
-    }
-  }
-
   Future<void> _buscarActualizacion() async {
     setState(() => _buscandoUpdate = true);
     final info = await ApiService.checkAppUpdate();
@@ -95,7 +43,8 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
 
     final ultima = info['version']?.toString() ?? currentInstalledVersion;
     final hayNueva = ultima != currentInstalledVersion;
-    final url = info['github_release_apk_url']?.toString() ??
+    final url =
+        info['github_release_apk_url']?.toString() ??
         'https://github.com/Arbolito-ctrl/LuxxitoSports/releases/latest/download/luxxito-sports.apk';
 
     await showDialog<void>(
@@ -106,11 +55,15 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
           color: LuxxitoColors.primario,
           size: 40,
         ),
-        title: Text(hayNueva ? 'Nueva versión $ultima disponible' : 'Tienes la última versión'),
+        title: Text(
+          hayNueva
+              ? 'Nueva versión $ultima disponible'
+              : 'Tienes la última versión',
+        ),
         content: Text(
           hayNueva
               ? (info['release_notes']?.toString() ??
-                  'Descarga el APK e instálalo sobre la versión actual.')
+                    'Descarga el APK e instálalo sobre la versión actual.')
               : 'Luxxito Sports $currentInstalledVersion está al día.',
           textAlign: TextAlign.center,
         ),
@@ -141,45 +94,46 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
 
   void _mostrarPoliticas() {
     Widget regla(IconData icono, String titulo, String texto) => Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: LuxxitoColors.primario.withValues(alpha: 0.15),
-                child: Icon(icono, color: LuxxitoColors.primario, size: 20),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      titulo,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      texto,
-                      style: const TextStyle(
-                        color: LuxxitoColors.textoSecundario,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: LuxxitoColors.primario.withValues(alpha: 0.15),
+            child: Icon(icono, color: LuxxitoColors.primario, size: 20),
           ),
-        );
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: const TextStyle(
+                    color: LuxxitoColors.texto,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  texto,
+                  style: const TextStyle(
+                    color: LuxxitoColors.textoSecundario,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
 
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (ctx) => SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -189,7 +143,7 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
               const Text(
                 'Cómo funcionan las reservas',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: LuxxitoColors.texto,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -299,11 +253,15 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
     return ListTile(
       onTap: onTap,
       leading: Icon(icono, color: color),
-      title: Text(titulo, style: const TextStyle(color: Colors.white)),
+      title: Text(titulo, style: const TextStyle(color: LuxxitoColors.texto)),
       subtitle: subtitulo == null
           ? null
-          : Text(subtitulo, style: const TextStyle(color: LuxxitoColors.textoTenue)),
-      trailing: trailing ??
+          : Text(
+              subtitulo,
+              style: const TextStyle(color: LuxxitoColors.textoTenue),
+            ),
+      trailing:
+          trailing ??
           (onTap != null
               ? const Icon(Icons.chevron_right, color: LuxxitoColors.textoTenue)
               : null),
@@ -317,22 +275,19 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF065F46), Color(0xFF0F766E)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
+        color: LuxxitoColors.superficie,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: LuxxitoColors.borde),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 30,
-            backgroundColor: Colors.white.withValues(alpha: 0.2),
+            backgroundColor: LuxxitoColors.primarioSuave,
             child: Text(
               Formato.iniciales(nombre),
               style: const TextStyle(
-                color: Colors.white,
+                color: LuxxitoColors.primario,
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
@@ -346,7 +301,7 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
                 Text(
                   nombre,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: LuxxitoColors.texto,
                     fontSize: 19,
                     fontWeight: FontWeight.bold,
                   ),
@@ -355,120 +310,21 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
                   const SizedBox(height: 2),
                   Text(
                     session.email,
-                    style: const TextStyle(color: Color(0xFFD1FAE5), fontSize: 13),
+                    style: const TextStyle(
+                      color: LuxxitoColors.textoSecundario,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 8),
                 Insignia(
                   esAdmin ? 'Administrador' : 'Jugador',
-                  color: Colors.white,
+                  color: esAdmin
+                      ? LuxxitoColors.secundario
+                      : LuxxitoColors.primario,
                   icono: esAdmin ? Icons.shield_outlined : Icons.sports_soccer,
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _opcionesDesarrollador() {
-    Widget atajo(String etiqueta, VoidCallback onTap) => ActionChip(
-          label: Text(etiqueta, style: const TextStyle(fontSize: 12)),
-          onPressed: onTap,
-        );
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 4, bottom: 8),
-            child: Text(
-              'OPCIONES DE DESARROLLADOR',
-              style: TextStyle(
-                color: LuxxitoColors.advertencia,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.8,
-              ),
-            ),
-          ),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Servidor de la API',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _urlCtrl,
-                    keyboardType: TextInputType.url,
-                    decoration: const InputDecoration(
-                      labelText: 'URL base',
-                      prefixIcon: Icon(Icons.link),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      atajo('Localhost / USB', () {
-                        _urlCtrl.text = 'http://localhost:3000/api';
-                        _verificarConexion();
-                      }),
-                      atajo('Emulador', () {
-                        _urlCtrl.text = 'http://10.0.2.2:3000/api';
-                        _verificarConexion();
-                      }),
-                      atajo('Supabase Cloud', () {
-                        ApiService.enableSupabaseCloudMode();
-                        _urlCtrl.text = ApiService.baseUrl;
-                        _verificarConexion();
-                      }),
-                      atajo('Wi-Fi 192.168.1.14', () {
-                        _urlCtrl.text = 'http://192.168.1.14:3000/api';
-                        _verificarConexion();
-                      }),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _verificando ? null : _verificarConexion,
-                    icon: _verificando
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.network_check),
-                    label: Text(_verificando ? 'Probando…' : 'Probar conexión'),
-                  ),
-                  if (_healthInfo != null) ...[
-                    const SizedBox(height: 12),
-                    AvisoBanner(
-                      icono: Icons.check_circle,
-                      color: LuxxitoColors.exito,
-                      titulo: 'Conectado',
-                      texto: 'Base de datos: ${_healthInfo!['db_mode'] ?? '—'}',
-                    ),
-                  ] else if (_errorConexion != null) ...[
-                    const SizedBox(height: 12),
-                    AvisoBanner(
-                      icono: Icons.error_outline,
-                      color: LuxxitoColors.error,
-                      titulo: 'Sin conexión',
-                      texto: _errorConexion!,
-                    ),
-                  ],
-                ],
-              ),
             ),
           ),
         ],
@@ -487,13 +343,23 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
           _cabecera(),
           if (session != null)
             _grupo('Mi cuenta', [
-              _opcion(icono: Icons.badge_outlined, titulo: 'DNI', subtitulo: session.dni),
+              _opcion(
+                icono: Icons.badge_outlined,
+                titulo: 'DNI',
+                subtitulo: session.dni,
+              ),
               _opcion(
                 icono: Icons.phone_outlined,
                 titulo: 'Celular',
-                subtitulo: session.telefono.isEmpty ? 'Sin registrar' : session.telefono,
+                subtitulo: session.telefono.isEmpty
+                    ? 'Sin registrar'
+                    : session.telefono,
               ),
-              _opcion(icono: Icons.email_outlined, titulo: 'Correo', subtitulo: session.email),
+              _opcion(
+                icono: Icons.email_outlined,
+                titulo: 'Correo',
+                subtitulo: session.email,
+              ),
             ]),
           if (ApiService.esAdmin)
             _grupo('Administración', [
@@ -512,12 +378,17 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
                         textColor: Colors.black,
                       ),
                     const SizedBox(width: 8),
-                    const Icon(Icons.chevron_right, color: LuxxitoColors.textoTenue),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: LuxxitoColors.textoTenue,
+                    ),
                   ],
                 ),
                 onTap: () async {
                   await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const RevisionPagosScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const RevisionPagosScreen(),
+                    ),
                   );
                   _contarPagosPendientes();
                 },
@@ -549,16 +420,16 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
               titulo: 'Versión',
               subtitulo: 'Luxxito Sports $currentInstalledVersion',
               trailing: const SizedBox.shrink(),
-              onTap: _tocarVersion,
             ),
           ]),
-          if (_modoDesarrollador) _opcionesDesarrollador(),
           if (session != null) ...[
             const SizedBox(height: 28),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
                 foregroundColor: LuxxitoColors.error,
-                side: BorderSide(color: LuxxitoColors.error.withValues(alpha: 0.5)),
+                side: BorderSide(
+                  color: LuxxitoColors.error.withValues(alpha: 0.5),
+                ),
               ),
               onPressed: _confirmarCerrarSesion,
               icon: const Icon(Icons.logout),

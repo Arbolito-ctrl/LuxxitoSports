@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
 import '../models/luxxito_models.dart';
 import '../services/api_service.dart';
 import '../theme/luxxito_theme.dart';
@@ -111,7 +112,11 @@ class _AuthScreenState extends State<AuthScreen> {
     final correo = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.lock_reset, color: LuxxitoColors.primario, size: 36),
+        icon: const Icon(
+          Icons.lock_reset,
+          color: LuxxitoColors.primario,
+          size: 36,
+        ),
         title: const Text('Recuperar acceso'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -143,7 +148,6 @@ class _AuthScreenState extends State<AuthScreen> {
         ],
       ),
     );
-    recCtrl.dispose();
     if (correo == null || correo.isEmpty || !mounted) return;
     mostrarAviso(context, 'Listo. Revisa tu bandeja de entrada en $correo.');
   }
@@ -163,25 +167,14 @@ class _AuthScreenState extends State<AuthScreen> {
                 children: [
                   Center(
                     child: Container(
-                      padding: const EdgeInsets.all(18),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [LuxxitoColors.primario, Color(0xFF0F766E)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: LuxxitoColors.primario.withValues(alpha: 0.35),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
+                        color: LuxxitoColors.primario,
+                        borderRadius: BorderRadius.circular(16),
                       ),
                       child: const Icon(
                         Icons.sports_soccer,
-                        size: 44,
+                        size: 40,
                         color: Colors.white,
                       ),
                     ),
@@ -193,7 +186,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         : 'Bienvenido a Luxxito Sports',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: LuxxitoColors.texto,
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
@@ -236,7 +229,8 @@ class _AuthScreenState extends State<AuthScreen> {
                               counterText: '',
                               prefixIcon: Icon(Icons.badge_outlined),
                             ),
-                            validator: (v) => RegExp(r'^\d{8}$').hasMatch(v?.trim() ?? '')
+                            validator: (v) =>
+                                RegExp(r'^\d{8}$').hasMatch(v?.trim() ?? '')
                                 ? null
                                 : '8 dígitos',
                           ),
@@ -253,7 +247,8 @@ class _AuthScreenState extends State<AuthScreen> {
                               counterText: '',
                               prefixIcon: Icon(Icons.phone_outlined),
                             ),
-                            validator: (v) => RegExp(r'^9\d{8}$').hasMatch(v?.trim() ?? '')
+                            validator: (v) =>
+                                RegExp(r'^9\d{8}$').hasMatch(v?.trim() ?? '')
                                 ? null
                                 : '9 dígitos (9…)',
                           ),
@@ -286,10 +281,13 @@ class _AuthScreenState extends State<AuthScreen> {
                       suffixIcon: IconButton(
                         tooltip: _verPassword ? 'Ocultar' : 'Mostrar',
                         icon: Icon(
-                          _verPassword ? Icons.visibility_off : Icons.visibility,
+                          _verPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
                           color: LuxxitoColors.textoTenue,
                         ),
-                        onPressed: () => setState(() => _verPassword = !_verPassword),
+                        onPressed: () =>
+                            setState(() => _verPassword = !_verPassword),
                       ),
                     ),
                     validator: _validarPassword,
@@ -301,7 +299,9 @@ class _AuthScreenState extends State<AuthScreen> {
                         onPressed: _mostrarRecuperarAcceso,
                         child: const Text(
                           '¿Olvidaste tu contraseña?',
-                          style: TextStyle(color: LuxxitoColors.textoSecundario),
+                          style: TextStyle(
+                            color: LuxxitoColors.textoSecundario,
+                          ),
                         ),
                       ),
                     )
@@ -321,7 +321,9 @@ class _AuthScreenState extends State<AuthScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : Text(_esRegistro ? 'Crear cuenta' : 'Iniciar Sesión'),
+                          : Text(
+                              _esRegistro ? 'Crear cuenta' : 'Iniciar Sesión',
+                            ),
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -330,7 +332,9 @@ class _AuthScreenState extends State<AuthScreen> {
                     children: [
                       Text(
                         _esRegistro ? '¿Ya tienes cuenta?' : '¿Eres nuevo?',
-                        style: const TextStyle(color: LuxxitoColors.textoSecundario),
+                        style: const TextStyle(
+                          color: LuxxitoColors.textoSecundario,
+                        ),
                       ),
                       TextButton(
                         onPressed: _cargando ? null : _cambiarModo,
@@ -346,7 +350,10 @@ class _AuthScreenState extends State<AuthScreen> {
                     const Text(
                       'Cuentas de prueba (solo desarrollo)',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: LuxxitoColors.textoTenue, fontSize: 12),
+                      style: TextStyle(
+                        color: LuxxitoColors.textoTenue,
+                        fontSize: 12,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Wrap(

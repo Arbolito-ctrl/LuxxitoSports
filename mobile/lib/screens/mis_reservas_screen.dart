@@ -1,7 +1,9 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+
 import '../models/luxxito_models.dart';
 import '../services/api_service.dart';
 import '../theme/luxxito_theme.dart';
@@ -117,6 +119,7 @@ class MisReservasScreenState extends State<MisReservasScreen>
     final ok = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
           final monto = modalidad == 'SENA_50'
@@ -128,7 +131,7 @@ class MisReservasScreenState extends State<MisReservasScreen>
               20,
               0,
               20,
-              20 + MediaQuery.of(ctx).viewInsets.bottom,
+              20 + espacioInferior(ctx),
             ),
             child: Form(
               key: formKey,
@@ -140,7 +143,7 @@ class MisReservasScreenState extends State<MisReservasScreen>
                     Text(
                       primerPago ? 'Paga tu reserva' : 'Paga el saldo',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: LuxxitoColors.texto,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
@@ -148,14 +151,22 @@ class MisReservasScreenState extends State<MisReservasScreen>
                     const SizedBox(height: 4),
                     Text(
                       '${r.canchaNombre} · ${Formato.fecha(r.fecha)}, ${Formato.rango(r.horaInicio, r.horaFin)}',
-                      style: const TextStyle(color: LuxxitoColors.textoSecundario),
+                      style: const TextStyle(
+                        color: LuxxitoColors.textoSecundario,
+                      ),
                     ),
                     const SizedBox(height: 18),
                     if (primerPago) ...[
                       SegmentedButton<String>(
                         segments: const [
-                          ButtonSegment(value: 'TOTAL', label: Text('Pago total')),
-                          ButtonSegment(value: 'SENA_50', label: Text('Adelanto 50%')),
+                          ButtonSegment(
+                            value: 'TOTAL',
+                            label: Text('Pago total'),
+                          ),
+                          ButtonSegment(
+                            value: 'SENA_50',
+                            label: Text('Adelanto 50%'),
+                          ),
                         ],
                         selected: {modalidad},
                         showSelectedIcon: false,
@@ -167,19 +178,22 @@ class MisReservasScreenState extends State<MisReservasScreen>
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: LuxxitoColors.primarioOscuro,
+                        color: LuxxitoColors.primarioSuave,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Column(
                         children: [
                           const Text(
                             'Monto a pagar',
-                            style: TextStyle(color: Color(0xFFA7F3D0), fontSize: 13),
+                            style: TextStyle(
+                              color: LuxxitoColors.primario,
+                              fontSize: 13,
+                            ),
                           ),
                           Text(
                             Formato.soles(monto),
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: LuxxitoColors.texto,
                               fontSize: 30,
                               fontWeight: FontWeight.bold,
                             ),
@@ -190,17 +204,23 @@ class MisReservasScreenState extends State<MisReservasScreen>
                     const SizedBox(height: 16),
                     const Text(
                       '1. Envía el pago a Luxxito Sports SAC',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: LuxxitoColors.texto,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Card(
                       color: LuxxitoColors.fondo,
                       child: ListTile(
-                        leading: const Icon(Icons.qr_code_2, color: LuxxitoColors.primario),
+                        leading: const Icon(
+                          Icons.qr_code_2,
+                          color: LuxxitoColors.primario,
+                        ),
                         title: const Text(
                           _numeroYape,
                           style: TextStyle(
-                            color: Colors.white,
+                            color: LuxxitoColors.texto,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1,
                           ),
@@ -214,9 +234,15 @@ class MisReservasScreenState extends State<MisReservasScreen>
                           icon: const Icon(Icons.copy, size: 20),
                           onPressed: () {
                             Clipboard.setData(
-                              ClipboardData(text: _numeroYape.replaceAll(' ', '')),
+                              ClipboardData(
+                                text: _numeroYape.replaceAll(' ', ''),
+                              ),
                             );
-                            mostrarAviso(ctx, 'Número copiado', tipo: TipoAviso.info);
+                            mostrarAviso(
+                              ctx,
+                              'Número copiado',
+                              tipo: TipoAviso.info,
+                            );
                           },
                         ),
                       ),
@@ -224,18 +250,25 @@ class MisReservasScreenState extends State<MisReservasScreen>
                     const SizedBox(height: 16),
                     const Text(
                       '2. Cuéntanos cómo pagaste',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: LuxxitoColors.texto,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     SegmentedButton<String>(
                       segments: const [
                         ButtonSegment(value: 'YAPE', label: Text('Yape')),
                         ButtonSegment(value: 'PLIN', label: Text('Plin')),
-                        ButtonSegment(value: 'TRANSFERENCIA', label: Text('Transfer.')),
+                        ButtonSegment(
+                          value: 'TRANSFERENCIA',
+                          label: Text('Transfer.'),
+                        ),
                       ],
                       selected: {metodo},
                       showSelectedIcon: false,
-                      onSelectionChanged: (s) => setSheetState(() => metodo = s.first),
+                      onSelectionChanged: (s) =>
+                          setSheetState(() => metodo = s.first),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -270,7 +303,11 @@ class MisReservasScreenState extends State<MisReservasScreen>
                               } catch (e) {
                                 setSheetState(() => enviando = false);
                                 if (!ctx.mounted) return;
-                                mostrarAviso(ctx, mensajeError(e), tipo: TipoAviso.error);
+                                mostrarAviso(
+                                  ctx,
+                                  mensajeError(e),
+                                  tipo: TipoAviso.error,
+                                );
                               }
                             },
                       icon: enviando
@@ -283,7 +320,9 @@ class MisReservasScreenState extends State<MisReservasScreen>
                               ),
                             )
                           : const Icon(Icons.send),
-                      label: Text(enviando ? 'Enviando…' : 'Enviar comprobante'),
+                      label: Text(
+                        enviando ? 'Enviando…' : 'Enviar comprobante',
+                      ),
                     ),
                   ],
                 ),
@@ -293,7 +332,6 @@ class MisReservasScreenState extends State<MisReservasScreen>
         },
       ),
     );
-    opCtrl.dispose();
 
     if (ok == true && mounted) {
       mostrarAviso(
@@ -312,6 +350,7 @@ class MisReservasScreenState extends State<MisReservasScreen>
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -321,7 +360,7 @@ class MisReservasScreenState extends State<MisReservasScreen>
               const Text(
                 'Tu ticket de ingreso',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: LuxxitoColors.texto,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -335,7 +374,7 @@ class MisReservasScreenState extends State<MisReservasScreen>
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: LuxxitoColors.texto,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: QrImageView(
@@ -359,12 +398,18 @@ class MisReservasScreenState extends State<MisReservasScreen>
                   padding: const EdgeInsets.all(14),
                   child: Column(
                     children: [
-                      DatoFila(Icons.stadium_outlined, '${r.canchaNombre} · ${r.complejoNombre}'),
+                      DatoFila(
+                        Icons.stadium_outlined,
+                        '${r.canchaNombre} · ${r.complejoNombre}',
+                      ),
                       DatoFila(
                         Icons.event_outlined,
                         '${Formato.fechaLarga(r.fecha)} · ${Formato.rango(r.horaInicio, r.horaFin)}',
                       ),
-                      DatoFila(Icons.person_outline, '${r.clienteNombre} · DNI ${r.clienteDni}'),
+                      DatoFila(
+                        Icons.person_outline,
+                        '${r.clienteNombre} · DNI ${r.clienteDni}',
+                      ),
                     ],
                   ),
                 ),
@@ -435,8 +480,6 @@ class MisReservasScreenState extends State<MisReservasScreen>
         ],
       ),
     );
-    telCtrl.dispose();
-    notasCtrl.dispose();
 
     if (ok == true && mounted) {
       mostrarAviso(context, 'Datos actualizados.');
@@ -448,7 +491,9 @@ class MisReservasScreenState extends State<MisReservasScreen>
     final inicio = DateTime.tryParse(
       '${r.fecha}T${r.horaInicio.toString().padLeft(2, '0')}:00:00',
     );
-    final horas = inicio == null ? 48.0 : inicio.difference(DateTime.now()).inMinutes / 60;
+    final horas = inicio == null
+        ? 48.0
+        : inicio.difference(DateTime.now()).inMinutes / 60;
     final reembolsoTotal = horas >= 24;
     final devolucion = reembolsoTotal ? r.montoPagado : r.montoPagado * 0.5;
     String motivo = 'Ya no podré asistir';
@@ -457,7 +502,11 @@ class MisReservasScreenState extends State<MisReservasScreen>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          icon: const Icon(Icons.event_busy, color: LuxxitoColors.advertencia, size: 40),
+          icon: const Icon(
+            Icons.event_busy,
+            color: LuxxitoColors.advertencia,
+            size: 40,
+          ),
           title: const Text('¿Cancelar esta reserva?'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -469,8 +518,12 @@ class MisReservasScreenState extends State<MisReservasScreen>
               const SizedBox(height: 14),
               if (r.montoPagado > 0)
                 AvisoBanner(
-                  icono: reembolsoTotal ? Icons.savings_outlined : Icons.warning_amber,
-                  color: reembolsoTotal ? LuxxitoColors.exito : LuxxitoColors.advertencia,
+                  icono: reembolsoTotal
+                      ? Icons.savings_outlined
+                      : Icons.warning_amber,
+                  color: reembolsoTotal
+                      ? LuxxitoColors.exito
+                      : LuxxitoColors.advertencia,
                   titulo: 'Te devolveremos ${Formato.soles(devolucion)}',
                   texto: reembolsoTotal
                       ? 'Cancelas con más de 24 horas de anticipación: reembolso del 100%.'
@@ -487,12 +540,15 @@ class MisReservasScreenState extends State<MisReservasScreen>
                 initialValue: motivo,
                 dropdownColor: LuxxitoColors.superficieAlta,
                 decoration: const InputDecoration(labelText: 'Motivo'),
-                items: const [
-                  'Ya no podré asistir',
-                  'Cambio de fecha u horario',
-                  'Problemas de clima',
-                  'Otro motivo',
-                ].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                items:
+                    const [
+                          'Ya no podré asistir',
+                          'Cambio de fecha u horario',
+                          'Problemas de clima',
+                          'Otro motivo',
+                        ]
+                        .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                        .toList(),
                 onChanged: (v) => setDialogState(() => motivo = v ?? motivo),
               ),
             ],
@@ -544,7 +600,11 @@ class MisReservasScreenState extends State<MisReservasScreen>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.delete_outline, color: LuxxitoColors.error, size: 40),
+        icon: const Icon(
+          Icons.delete_outline,
+          color: LuxxitoColors.error,
+          size: 40,
+        ),
         title: const Text('¿Eliminar del historial?'),
         content: const Text(
           'La reserva desaparecerá de tu lista. Esta acción no se puede deshacer.',
@@ -611,36 +671,47 @@ class MisReservasScreenState extends State<MisReservasScreen>
     if (r.estado == 'PENDIENTE_PAGO') {
       final rechazo = r.rechazoVigente;
       if (rechazo != null) {
-        avisos.add(AvisoBanner(
-          icono: Icons.report_outlined,
-          color: LuxxitoColors.error,
-          titulo: 'Tu comprobante fue rechazado',
-          texto: '${rechazo.observacion ?? 'Sin motivo indicado'}. '
-              'Envía uno nuevo antes de que se libere el turno.',
-        ));
+        avisos.add(
+          AvisoBanner(
+            icono: Icons.report_outlined,
+            color: LuxxitoColors.error,
+            titulo: 'Tu comprobante fue rechazado',
+            texto:
+                '${rechazo.observacion ?? 'Sin motivo indicado'}. '
+                'Envía uno nuevo antes de que se libere el turno.',
+          ),
+        );
       }
       final restante = _tiempoRestante(r.expiresAt);
-      avisos.add(AvisoBanner(
-        icono: Icons.timer_outlined,
-        color: LuxxitoColors.advertencia,
-        titulo: restante != null ? 'Turno guardado por $restante' : 'Tiempo agotado',
-        texto: restante != null
-            ? 'Paga y envía tu comprobante para confirmarlo.'
-            : 'El turno se liberará en breve. Si aún lo quieres, reserva de nuevo.',
-      ));
+      avisos.add(
+        AvisoBanner(
+          icono: Icons.timer_outlined,
+          color: LuxxitoColors.advertencia,
+          titulo: restante != null
+              ? 'Turno guardado por $restante'
+              : 'Tiempo agotado',
+          texto: restante != null
+              ? 'Paga y envía tu comprobante para confirmarlo.'
+              : 'El turno se liberará en breve. Si aún lo quieres, reserva de nuevo.',
+        ),
+      );
     } else if (r.estado == 'EN_REVISION') {
-      avisos.add(const AvisoBanner(
-        icono: Icons.hourglass_top,
-        color: LuxxitoColors.info,
-        titulo: 'Estamos revisando tu pago',
-        texto: 'Tu turno está protegido mientras confirmamos el comprobante.',
-      ));
+      avisos.add(
+        const AvisoBanner(
+          icono: Icons.hourglass_top,
+          color: LuxxitoColors.info,
+          titulo: 'Estamos revisando tu pago',
+          texto: 'Tu turno está protegido mientras confirmamos el comprobante.',
+        ),
+      );
     } else if (r.estado == 'CANCELADA' && r.motivoCancelacion != null) {
-      avisos.add(AvisoBanner(
-        icono: Icons.info_outline,
-        color: LuxxitoColors.textoTenue,
-        texto: r.motivoCancelacion!,
-      ));
+      avisos.add(
+        AvisoBanner(
+          icono: Icons.info_outline,
+          color: LuxxitoColors.textoTenue,
+          texto: r.motivoCancelacion!,
+        ),
+      );
     }
     return avisos;
   }
@@ -649,8 +720,8 @@ class MisReservasScreenState extends State<MisReservasScreen>
     final estado = EstadoReservaInfo.de(r.estado);
     final activa = r.estado != 'CANCELADA' && r.estado != 'VENCIDA';
     final saldo = double.parse((r.total - r.montoPagado).toStringAsFixed(2));
-    final puedePagar = r.estado == 'PENDIENTE_PAGO' ||
-        (r.estado == 'CONFIRMADA' && saldo > 0);
+    final puedePagar =
+        r.estado == 'PENDIENTE_PAGO' || (r.estado == 'CONFIRMADA' && saldo > 0);
     final tieneQr = r.codigoQr != null && r.estado == 'CONFIRMADA';
     final avisos = _avisos(r);
 
@@ -678,7 +749,7 @@ class MisReservasScreenState extends State<MisReservasScreen>
                       Text(
                         r.canchaNombre,
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: LuxxitoColors.texto,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
@@ -693,10 +764,17 @@ class MisReservasScreenState extends State<MisReservasScreen>
                     ],
                   ),
                 ),
-                Insignia(estado.etiqueta, color: estado.color, icono: estado.icono),
+                Insignia(
+                  estado.etiqueta,
+                  color: estado.color,
+                  icono: estado.icono,
+                ),
                 PopupMenuButton<String>(
                   tooltip: 'Más opciones',
-                  icon: const Icon(Icons.more_vert, color: LuxxitoColors.textoSecundario),
+                  icon: const Icon(
+                    Icons.more_vert,
+                    color: LuxxitoColors.textoSecundario,
+                  ),
                   color: LuxxitoColors.superficieAlta,
                   onSelected: (accion) {
                     switch (accion) {
@@ -722,7 +800,10 @@ class MisReservasScreenState extends State<MisReservasScreen>
                       const PopupMenuItem(
                         value: 'cancelar',
                         child: ListTile(
-                          leading: Icon(Icons.event_busy, color: LuxxitoColors.advertencia),
+                          leading: Icon(
+                            Icons.event_busy,
+                            color: LuxxitoColors.advertencia,
+                          ),
                           title: Text('Cancelar reserva'),
                           contentPadding: EdgeInsets.zero,
                         ),
@@ -731,7 +812,10 @@ class MisReservasScreenState extends State<MisReservasScreen>
                       const PopupMenuItem(
                         value: 'eliminar',
                         child: ListTile(
-                          leading: Icon(Icons.delete_outline, color: LuxxitoColors.error),
+                          leading: Icon(
+                            Icons.delete_outline,
+                            color: LuxxitoColors.error,
+                          ),
                           title: Text('Eliminar del historial'),
                           contentPadding: EdgeInsets.zero,
                         ),
@@ -751,11 +835,16 @@ class MisReservasScreenState extends State<MisReservasScreen>
                     '${Formato.fechaLarga(r.fecha)} · ${Formato.rango(r.horaInicio, r.horaFin)}',
                   ),
                   if (ApiService.esAdmin)
-                    DatoFila(Icons.person_outline, '${r.clienteNombre} · DNI ${r.clienteDni}'),
+                    DatoFila(
+                      Icons.person_outline,
+                      '${r.clienteNombre} · DNI ${r.clienteDni}',
+                    ),
                   if (r.extras.isNotEmpty)
                     DatoFila(
                       Icons.inventory_2_outlined,
-                      r.extras.map((e) => '${e.nombre} ×${e.cantidad}').join(', '),
+                      r.extras
+                          .map((e) => '${e.nombre} ×${e.cantidad}')
+                          .join(', '),
                     ),
                   if (r.notas != null && r.notas!.isNotEmpty)
                     DatoFila(Icons.notes, r.notas!),
@@ -775,7 +864,7 @@ class MisReservasScreenState extends State<MisReservasScreen>
                             Text(
                               Formato.soles(r.total),
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: LuxxitoColors.texto,
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -784,11 +873,11 @@ class MisReservasScreenState extends State<MisReservasScreen>
                               r.montoDevolucion > 0
                                   ? 'Reembolso: ${Formato.soles(r.montoDevolucion)}'
                                   : r.montoPagado > 0
-                                      ? 'Pagado: ${Formato.soles(r.montoPagado)}'
-                                      : 'Sin pagos aún',
+                                  ? 'Pagado: ${Formato.soles(r.montoPagado)}'
+                                  : 'Sin pagos aún',
                               style: TextStyle(
                                 color: r.montoDevolucion > 0
-                                    ? const Color(0xFFFBBF24)
+                                    ? LuxxitoColors.advertencia
                                     : LuxxitoColors.textoTenue,
                                 fontSize: 12.5,
                               ),
@@ -808,7 +897,9 @@ class MisReservasScreenState extends State<MisReservasScreen>
                         FilledButton.icon(
                           onPressed: () => _mostrarHojaPago(r),
                           icon: const Icon(Icons.payments_outlined, size: 18),
-                          label: Text(r.montoPagado > 0 ? 'Pagar saldo' : 'Pagar'),
+                          label: Text(
+                            r.montoPagado > 0 ? 'Pagar saldo' : 'Pagar',
+                          ),
                         ),
                     ],
                   ),
