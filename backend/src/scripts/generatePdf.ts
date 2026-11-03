@@ -136,7 +136,7 @@ function generatePdf() {
     .text(
       '• Cliente Móvil (Flutter + Dart en mobile/): Implementa las pantallas Explorar (filtros por distrito y deporte + creación CRUD de cancha), Disponibilidad y Reserva (selector de fecha, turnos, extras y cotización del servidor), Mis Reservas (pago Yape/Plin, Ticket QR, edición PUT, cancelación 24h y borrado DELETE) y Perfil.\n' +
         '• Capa de Controladores (backend/src/controllers/): Recibe solicitudes HTTP, formatea respuestas JSON y traduce excepciones de dominio a códigos HTTP estandarizados (200, 201, 400, 404, 409, 422, 500).\n' +
-        '• Capa de Servicios (backend/src/services/): Contiene toda la lógica de negocio y validaciones en CatalogService y ReservationService.\n' +
+        '• Capa de Servicios (backend/src/services/): Contiene lógica de negocio, identidad y validaciones en AuthService, CatalogService y ReservationService.\n' +
         '• Capa de Acceso a Datos (backend/src/repositories/): Encapsula las consultas SQL y transacciones hacia PostgreSQL de Supabase.'
     );
 
@@ -170,10 +170,14 @@ function generatePdf() {
     '6. Tabla pagos:',
     'id (PK), reserva_id (FK -> reservas.id ON DELETE CASCADE), metodo (YAPE, PLIN, TRANSFERENCIA), modalidad (SENA_50, TOTAL), monto, numero_operacion, comprobante_url, estado (PENDIENTE_REVISION, APROBADO, RECHAZADO, REEMBOLSADO).'
   );
+  p('7. Tabla usuarios:', 'id (PK), nombre, dni, telefono, email, password_hash, rol (JUGADOR/ADMIN). Autenticación del jugador y del administrador.');
 
   h1('4. CATÁLOGO DE ENDPOINTS PROPIOS (OPERACIONES CRUD + NEGOCIO)');
   const endpoints = [
     ['GET /api/health', 'Estado del servidor y modo de conexión a Supabase (200)'],
+    ['POST /api/auth/registro', 'Registro de jugador con validación de datos (201, 400, 409)'],
+    ['POST /api/auth/login', 'Inicio de sesión y emisión de JWT (200, 401)'],
+    ['GET /api/auth/me', 'Perfil del usuario autenticado mediante JWT (200, 401)'],
     ['GET /api/complejos', 'Lista complejos deportivos activos, filtrable por distrito (200)'],
     ['GET /api/canchas', 'CRUD Read: Lista canchas con filtros de complejo, distrito y deporte (200)'],
     ['POST /api/canchas', 'CRUD Create: Registra nueva cancha validando tarifas diurna/nocturna (201, 400)'],
@@ -193,6 +197,7 @@ function generatePdf() {
     ],
     ['PUT /api/reservas/:id', 'CRUD Update: Modifica teléfono de contacto o notas de la reserva (200, 404, 409)'],
     ['DELETE /api/reservas/:id', 'CRUD Delete: Elimina físicamente una reserva no confirmada (200, 404, 409)'],
+    ['POST /api/reservas/verificar-qr', 'Verificación de ticket; persistencia de uso y segundo escaneo pendientes de validación real (200, 409)'],
     [
       'POST /api/reservas/:id/pagos',
       'Negocio 4: Registra comprobante Yape/Plin/Transferencia y protege reserva en revisión (201, 409, 422)',
@@ -281,9 +286,10 @@ function generatePdf() {
   p('Consumo de API propia:', 'El APK no cambia silenciosamente a Supabase directo. El teléfono usa HTTPS y dispone de 60 segundos de timeout para el despertar del servicio gratuito. La descarga debe provenir del release latest-apk actualizado.');
   p('Historial integrado:', 'PR #11: promoción de identidad, QR y expiración; PR #12: endpoint comprobantes/RPC; PR #13: promoción; PR #15/#16: enfoque solo Android. La integración de un endpoint no demuestra por sí sola que su función esté completa.');
   p('Comprobaciones de este cambio:', 'Build backend correcto; 21/21 pruebas API locales y 3/3 pruebas de configuración. CI y workflow APK de main verdes. Release latest-apk del commit ac5a75c: versión 1.0.22, build 22.');
-  p('Android físico comprobado:', 'TECNO KJ5, Android 13: instalación, login demo, 6 canchas y Perfil correctos. Reserva #1 del 04/11/2026, 07:00-08:00, con 1 juego de chalecos: S/105. Se recupera tras cerrar la app y volver a iniciar sesión. Capturas en el informe de validación.');
+  p('Android físico comprobado:', 'TECNO KJ5, Android 13: instalación, registro de cuenta sintética, login demo/nuevo, 6 canchas y Perfil correctos. Reserva #1 del 04/11/2026, 07:00-08:00, con 1 juego de chalecos: S/105. Se recupera tras cerrar la app y volver a iniciar sesión.');
   p('Fuera de este cambio:', 'Los fallos de pagos, upload de comprobantes y persistencia QR se atenderán después, por indicación de Juan. No se presentan aquí como corregidos; el criterio completo de aceptación de la issue sigue abierto.');
-  p('Evidencia y límites:', 'docs/validaciones/2026-11-03-infra-issue14.md y capturas/. No se probó registro nuevo ni vencimiento físico tras 20 minutos. Las pruebas físicas cubren acceso, catálogo y reserva, sin pago, upload ni QR.');
+  p('Vencimiento real comprobado:', 'Reserva #1 creada a las 07:45:39 de Perú, sin pagos ni comprobante. A las 08:05:58, la consulta API confirma VENCIDA. El TECNO muestra Vencida y el horario 07:00 libre de nuevo, sin alterar reloj ni plazo.');
+  p('Evidencia y límites:', 'docs/validaciones/2026-11-03-infra-issue14.md y capturas/. Las pruebas físicas cubren registro, acceso, catálogo, reserva y vencimiento. Pago, upload y QR permanecen pendientes.');
 
   doc.end();
 

@@ -7,7 +7,11 @@
 
 **Validación física:** APK de producción `1.0.22` (build 22), commit `ac5a75c`, instalado en TECNO KJ5 con Android 13. Login demo, 6 canchas, Perfil, cotización con chalecos S/105 y creación/recuperación de reserva #1 correctos. Workflows de main verdes, PR #17/#18 integrados y API desplegada con `db_ready=true`.
 
-**Límites de esta entrega:** 21 pruebas aprobadas en almacenamiento local; no equivalen a pruebas PostgreSQL/Storage. Los fallos conocidos de pagos, comprobantes y QR fueron aplazados por Juan; no se declaran corregidos. Registro nuevo, vencimiento físico de 20 minutos y flujo pago/archivo/QR continúan pendientes. Capturas y resultados en el informe de validación.
+**Registro nuevo:** cuenta sintética creada desde el TECNO y posterior login correctos. Captura en el informe de validación.
+
+**Vencimiento real:** reserva #1 creada a las 07:45:39, sin pago ni comprobante; a las 08:05:58 la API confirma `VENCIDA` y el TECNO muestra el estado y el horario liberado. No se modificó el reloj ni el plazo de la reserva.
+
+**Límites de esta entrega:** 21 pruebas aprobadas en almacenamiento local; no equivalen a pruebas PostgreSQL/Storage. Los fallos conocidos de pagos, comprobantes y QR fueron aplazados por Juan; no se declaran corregidos. El recorrido pago/archivo/QR continúa pendiente. Capturas y resultados en el informe de validación.
 
 ---
 

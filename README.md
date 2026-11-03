@@ -10,7 +10,7 @@ Implementa una **API REST propia en capas** (`Node.js + Express + TypeScript`) c
 - Diagnóstico: [GET /api/health](https://luxxito-sports-api.onrender.com/api/health), comprobado con HTTP 200 y `POSTGRES_POOL` el 03/11/2026.
 - Publicación del APK: [release latest-apk](https://github.com/Arbolito-ctrl/LuxxitoSports/releases/tag/latest-apk). Verificar el commit del release, no usar como referencia el APK antiguo guardado en `release/`.
 - El APK del taller consume la API propia y no cambia silenciosamente a Supabase directo. La instancia gratuita puede tardar al despertar; el timeout móvil es de 60 segundos.
-- La comprobación en Android físico sigue pendiente hasta registrar evidencia. Los fallos conocidos de pagos/comprobantes/QR no se corrigen como parte de infraestructura, por decisión del equipo.
+- APK de producción **1.0.22** (build 22, commit `ac5a75c`) instalado en **TECNO KJ5, Android 13**: registro/login, catálogo de 6 canchas, Perfil y reserva con chalecos por S/105 comprobados. Los fallos conocidos de pagos/comprobantes/QR se atenderán después, por indicación de Juan.
 - Seguimiento actual: [validación de infraestructura #14](docs/validaciones/2026-11-03-infra-issue14.md).
 
 Para crear un servicio Render equivalente al configurado: repositorio público, rama `main`, Node 22, raíz `backend`, build `npm ci --include=dev && npm run build`, inicio `node dist/server.js`, plan Free y health `/api/health`. Cargar las variables privadas en Render; no se ejecuta `db:init` automáticamente contra una base existente.
@@ -25,15 +25,15 @@ Prueba local Android por USB: `adb reverse tcp:3000 tcp:3000` y, desde `mobile/`
 LuxxitoSports/
 ├── backend/                          # API REST propia (Node.js + Express + TypeScript)
 │   ├── sql/
-│   │   ├── schema.sql                # Esquema de 6 tablas relacionadas para Supabase PostgreSQL
+│   │   ├── schema.sql                # Esquema de 7 tablas relacionadas para Supabase PostgreSQL
 │   │   └── seed.sql                  # Datos iniciales (Complejos, Canchas y Extras en Lima)
 │   ├── src/
 │   │   ├── config/database.ts        # Conector a Supabase (Pool PostgreSQL / REST / Local)
 │   │   ├── controllers/              # Capa de Controladores HTTP y códigos de estado
 │   │   ├── services/                 # Capa de Servicios y 5 Reglas de Negocio
 │   │   ├── repositories/             # Capa de Acceso a Datos y Transacciones
-│   │   ├── routes/apiRoutes.ts       # Definición de los 14 endpoints bajo /api
-│   │   └── tests/api.test.ts         # 17 casos de prueba automatizados (éxitos y fallos)
+│   │   ├── routes/apiRoutes.ts       # Definición de 27 rutas HTTP bajo /api
+│   │   └── tests/api.test.ts         # 21 casos API locales (éxitos y fallos)
 │   ├── .env.example                  # Plantilla pública de variables de entorno
 │   └── package.json
 ├── mobile/                           # Aplicación Cliente Móvil (Flutter + Dart)
@@ -41,12 +41,13 @@ LuxxitoSports/
 │   │   ├── models/luxxito_models.dart
 │   │   ├── services/api_service.dart # Cliente HTTP que consume los endpoints de la API
 │   │   ├── screens/
+│   │   │   ├── auth_screen.dart
 │   │   │   ├── explorar_screen.dart
 │   │   │   ├── disponibilidad_reserva_screen.dart
 │   │   │   ├── mis_reservas_screen.dart
 │   │   │   └── perfil_config_screen.dart
 │   │   └── main.dart
-│   └── test/widget_test.dart
+│   └── test/                        # widget_test.dart y api_config_test.dart
 ├── contracts/                        # Contratos OpenAPI y ejemplos de solicitudes/respuestas
 │   ├── openapi.yaml
 │   ├── ejemplos/
@@ -113,7 +114,7 @@ npm run dev
 cd backend
 npm test
 ```
-Ejecuta los **17 casos de prueba** con Vitest y Supertest verificando operaciones CRUD, cotización de tarifa diurna/nocturna, conflicto `409` por cruce de horario y por stock de extras, `422` por horarios pasados o fuera de atención, aprobación y rechazo idempotentes de comprobantes con Ticket QR, cancelación con regla de 24 horas (100% y 50%) y autenticación.
+Ejecuta **21 casos API en almacenamiento local** con Vitest y Supertest: CRUD, cotización día/noche, conflictos `409`, validación `422`, pagos, QR, cancelación y autenticación. Estos tests no acreditan carga real a Storage ni persistencia de QR en PostgreSQL; consultar la evidencia física y los fallos aplazados.
 
 La colección Postman también se puede ejecutar completa desde la terminal (con el backend levantado):
 
@@ -128,7 +129,7 @@ flutter pub get
 flutter run
 ```
 - La aplicación se desarrolla y distribuye **únicamente para Android** (APK). No se incluyen las plataformas iOS, macOS, Web, Windows ni Linux.
-- Si ejecutas en **Emulador Android**, la app se conecta automáticamente a `http://10.0.2.2:3000/api` (y puedes cambiar la URL desde la pestaña **Perfil** con un toque).
+- La URL predeterminada es la **API pública de Render**, tanto en teléfono como en emulador. Para probar contra un backend local desde el emulador: `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000/api`. Para teléfono por USB, usar el ejemplo de `adb reverse` anterior.
 
 ---
 
