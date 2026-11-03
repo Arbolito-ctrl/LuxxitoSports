@@ -201,6 +201,8 @@ function getInitialSeedState(): LocalDatabaseState {
 const LOCAL_FILE_PATH = path.join(__dirname, '../../data/local_db.json');
 
 export class DataRepository {
+  private colasEnMemoria = new Map<string, Promise<void>>();
+
   private memState: LocalDatabaseState;
 
   constructor() {
@@ -1025,6 +1027,29 @@ export class DataRepository {
       extras,
       pagos,
     };
+  }
+
+  /**
+   * Ejecuta `fn` en exclusión mutua para una clave (por ejemplo "reservas:2026-11-12"):
+   * las solicitudes con la misma clave esperan su turno en memoria, sin ocupar conexiones.
+   * Producción corre en un solo servidor (Render). Entre servidores distintos, el doble
+   * turno lo impide la restricción de exclusión `reservas_sin_solapamiento` de PostgreSQL.
+   * (Los advisory locks de sesión no sirven con el pooler en modo transacción de Supabase:
+   * el lock y su liberación pueden ejecutarse en conexiones internas distintas.)
+   */
+  async conBloqueo<T>(clave: string, fn: () => Promise<T>): Promise<T> {
+    const anterior = this.colasEnMemoria.get(clave) ?? Promise.resolve();
+    let liberar!: () => void;
+    const turno = new Promise<void>((r) => (liberar = r));
+    const cola = anterior.then(() => turno);
+    this.colasEnMemoria.set(clave, cola);
+    await anterior;
+    try {
+      return await fn();
+    } finally {
+      liberar();
+      if (this.colasEnMemoria.get(clave) === cola) this.colasEnMemoria.delete(clave);
+    }
   }
 
   async createReserva(

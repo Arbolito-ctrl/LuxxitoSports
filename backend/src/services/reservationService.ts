@@ -192,7 +192,7 @@ export class ReservationService {
    * Creación de reserva con validación de no solapamiento horario (exclusión mutua),
    * rechazo de fechas/horas pasadas, bloqueo de 20 minutos y reserva de stock de extras.
    */
-  async crearReserva(payload: any): Promise<Reserva> {
+  private async crearReservaSinBloqueo(payload: any): Promise<Reserva> {
     const clienteNombre = String(payload.cliente_nombre || '').trim();
     const clienteDni = String(payload.cliente_dni || '').trim();
     const clienteTelefono = String(payload.cliente_telefono || '').trim();
@@ -356,7 +356,7 @@ export class ReservationService {
    * Registro de comprobante de pago (Yape/Plin/Transferencia) y aprobación idempotente.
    * Protege la reserva pasándola a EN_REVISION y valida el importe (50% seña o 100% total).
    */
-  async registrarPago(
+  private async registrarPagoSinBloqueo(
     reservaId: number,
     payload: any
   ): Promise<{ pago: Pago; reserva: Reserva }> {
@@ -368,6 +368,14 @@ export class ReservationService {
     }
     if (reserva.estado === 'CONFIRMADA' && reserva.monto_pagado >= reserva.total) {
       throw Errors.conflict('Esta reserva ya se encuentra pagada en su totalidad.');
+    }
+    const pendiente = (await dataRepository.getPagosByReserva(reservaId)).find(
+      (p) => p.estado === 'PENDIENTE_REVISION'
+    );
+    if (pendiente) {
+      throw Errors.conflict(
+        `Ya hay un comprobante en revisión para esta reserva (pago #${pendiente.id}). Espera la respuesta del operador.`
+      );
     }
 
     const metodo = String(payload.metodo || 'YAPE').toUpperCase() as MetodoPago;
@@ -426,7 +434,7 @@ export class ReservationService {
 
     // Si se solicita aprobación inmediata (o verificación automática de demo)
     if (payload.auto_aprobar === true) {
-      const aprobado = await this.aprobarPago(pago.id);
+      const aprobado = await this.aprobarPagoSinBloqueo(pago.id);
       return aprobado;
     }
 
@@ -450,7 +458,7 @@ export class ReservationService {
    * Aprobación idempotente de pago:
    * Si el pago ya estaba APROBADO, retorna el estado actual sin duplicar saldo ni QR.
    */
-  async aprobarPago(pagoId: number): Promise<{ pago: Pago; reserva: Reserva; idempotent: boolean }> {
+  private async aprobarPagoSinBloqueo(pagoId: number): Promise<{ pago: Pago; reserva: Reserva; idempotent: boolean }> {
     if (!Number.isInteger(pagoId) || pagoId <= 0) {
       throw Errors.badRequest('El ID del pago debe ser un entero positivo.');
     }
@@ -501,6 +509,58 @@ export class ReservationService {
     }))!;
 
     return { pago: pagoAprobado, reserva: reservaConfirmada, idempotent: false };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Concurrencia: crear reservas se serializa por fecha (turnos y stock de extras
+  // se revisan y guardan sin que otra solicitud se intercale) y los cambios de
+  // estado de una reserva y sus pagos se serializan por reserva.
+  // ---------------------------------------------------------------------------
+
+  async crearReserva(payload: any): Promise<Reserva> {
+    const fecha = String(payload?.fecha || '').trim();
+    try {
+      return await dataRepository.conBloqueo(`reservas:${fecha}`, () =>
+        this.crearReservaSinBloqueo(payload)
+      );
+    } catch (error) {
+      // Última defensa: la restricción de exclusión de PostgreSQL (23P01)
+      if ((error as { code?: string })?.code === '23P01') {
+        throw Errors.conflict('El turno elegido acaba de ser reservado por otra persona. Elige otro horario.');
+      }
+      throw error;
+    }
+  }
+
+  async registrarPago(reservaId: number, payload: any): Promise<{ pago: Pago; reserva: Reserva }> {
+    return dataRepository.conBloqueo(`reserva:${reservaId}`, () =>
+      this.registrarPagoSinBloqueo(reservaId, payload)
+    );
+  }
+
+  async aprobarPago(pagoId: number): Promise<{ pago: Pago; reserva: Reserva; idempotent: boolean }> {
+    const pago = Number.isInteger(pagoId) && pagoId > 0 ? await dataRepository.getPagoById(pagoId) : null;
+    if (!pago) return this.aprobarPagoSinBloqueo(pagoId);
+    return dataRepository.conBloqueo(`reserva:${pago.reserva_id}`, () =>
+      this.aprobarPagoSinBloqueo(pagoId)
+    );
+  }
+
+  async rechazarPago(
+    pagoId: number,
+    observacion: unknown
+  ): Promise<{ pago: Pago; reserva: Reserva; idempotent: boolean }> {
+    const pago = Number.isInteger(pagoId) && pagoId > 0 ? await dataRepository.getPagoById(pagoId) : null;
+    if (!pago) return this.rechazarPagoSinBloqueo(pagoId, observacion);
+    return dataRepository.conBloqueo(`reserva:${pago.reserva_id}`, () =>
+      this.rechazarPagoSinBloqueo(pagoId, observacion)
+    );
+  }
+
+  async cancelarReserva(reservaId: number, motivo?: string) {
+    return dataRepository.conBloqueo(`reserva:${reservaId}`, () =>
+      this.cancelarReservaSinBloqueo(reservaId, motivo)
+    );
   }
 
   /**
@@ -580,7 +640,7 @@ export class ReservationService {
    * - Si la reserva estaba EN_REVISION, vuelve a PENDIENTE_PAGO con un nuevo bloqueo de 20 min
    *   para que el jugador reenvíe un comprobante válido.
    */
-  async rechazarPago(
+  private async rechazarPagoSinBloqueo(
     pagoId: number,
     observacion: unknown
   ): Promise<{ pago: Pago; reserva: Reserva; idempotent: boolean }> {
@@ -641,7 +701,7 @@ export class ReservationService {
    * - < 24 horas de anticipación: retención del 50% por penalidad y devolución del 50%.
    * Revoca el código QR y libera el turno de la cancha y el stock de extras.
    */
-  async cancelarReserva(
+  private async cancelarReservaSinBloqueo(
     reservaId: number,
     motivo?: string
   ): Promise<{

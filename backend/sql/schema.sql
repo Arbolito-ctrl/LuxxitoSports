@@ -114,6 +114,18 @@ ALTER TABLE reservas ADD COLUMN IF NOT EXISTS qr_usado_at TIMESTAMPTZ;
 -- Foto propia de cada cancha (bucket público 'canchas'); sin foto se usa la del complejo
 ALTER TABLE canchas ADD COLUMN IF NOT EXISTS imagen_url TEXT;
 
+-- Concurrencia: dos reservas activas de la misma cancha no pueden cruzarse en fecha y horario,
+-- aunque dos solicitudes lleguen al mismo tiempo (la API responde 409 ante el error 23P01)
+CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA extensions;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'reservas_sin_solapamiento') THEN
+        ALTER TABLE reservas ADD CONSTRAINT reservas_sin_solapamiento
+            EXCLUDE USING gist (cancha_id WITH =, fecha WITH =, int4range(hora_inicio, hora_fin) WITH &&)
+            WHERE (estado IN ('PENDIENTE_PAGO', 'EN_REVISION', 'CONFIRMADA'));
+    END IF;
+END $$;
+
 -- Índices para optimizar consultas de disponibilidad y cruce de horarios
 CREATE INDEX IF NOT EXISTS idx_canchas_complejo ON canchas(complejo_id);
 CREATE INDEX IF NOT EXISTS idx_canchas_deporte ON canchas(deporte);
