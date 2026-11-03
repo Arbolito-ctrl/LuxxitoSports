@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import app from '../app';
 import { dataRepository } from '../repositories/dataRepository';
@@ -8,6 +8,13 @@ function getFutureDate(daysAhead: number = 5): string {
   const d = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000);
   return d.toISOString().split('T')[0];
 }
+
+const titular = (dni: string) => ({
+  cliente_nombre: `Jugador ${dni}`,
+  cliente_dni: dni,
+  cliente_telefono: '987000111',
+  cliente_email: `jugador${dni}@uni.pe`,
+});
 
 describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => {
   beforeEach(() => {
@@ -349,5 +356,126 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
       .send({ observacion: 'Comprobante ilegible' });
     expect(yaAprobado.status).toBe(409);
     expect(yaAprobado.body.ok).toBe(false);
+  });
+  it('Caso 12 (Fallo - Regla de Negocio 422): Rechaza reservas en fechas u horas que ya pasaron', async () => {
+    const res = await request(app)
+      .post('/api/reservas')
+      .send({ cancha_id: 1, ...titular('71110001'), fecha: getFutureDate(-1), hora_inicio: 10, hora_fin: 11 });
+
+    expect(res.status).toBe(422);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.code).toBe('BUSINESS_RULE_VIOLATION');
+    expect(res.body.message).toContain('ya han transcurrido');
+  });
+
+  it('Caso 13 (Fallo - Regla de Negocio 422): Rechaza horarios fuera de atención y reservas de más de 4 horas', async () => {
+    const fecha = getFutureDate(5);
+    const fueraDeHorario = await request(app)
+      .post('/api/reservas/cotizar')
+      .send({ cancha_id: 1, fecha, hora_inicio: 5, hora_fin: 6 });
+    expect(fueraDeHorario.status).toBe(422);
+    expect(fueraDeHorario.body.message).toContain('fuera del horario de atención');
+
+    const muyLarga = await request(app)
+      .post('/api/reservas/cotizar')
+      .send({ cancha_id: 1, fecha, hora_inicio: 8, hora_fin: 13 });
+    expect(muyLarga.status).toBe(422);
+    expect(muyLarga.body.message).toContain('4 horas');
+  });
+
+  it('Caso 14 (Éxito - Cotización): Tarifa diurna pura y seña del 50% calculadas por el servidor', async () => {
+    // Cancha 1: S/ 90 por hora diurna -> 10:00 a 12:00 = S/ 180, seña S/ 90
+    const res = await request(app)
+      .post('/api/reservas/cotizar')
+      .send({ cancha_id: 1, fecha: getFutureDate(5), hora_inicio: 10, hora_fin: 12 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.duracion_horas).toBe(2);
+    expect(res.body.data.subtotal_cancha).toBe(180);
+    expect(res.body.data.total).toBe(180);
+    expect(res.body.data.monto_sena_50).toBe(90);
+  });
+
+  it('Caso 15 (Éxito - Cancelación < 24h): Retiene el 50% de lo pagado y revoca el QR', async () => {
+    const fecha = getFutureDate(3);
+    const createRes = await request(app)
+      .post('/api/reservas')
+      .send({ cancha_id: 1, ...titular('71110002'), fecha, hora_inicio: 10, hora_fin: 11 });
+    const reservaId = createRes.body.data.id;
+    await request(app).post(`/api/reservas/${reservaId}/pagos`).send({
+      metodo: 'YAPE',
+      modalidad: 'TOTAL',
+      monto: 90,
+      numero_operacion: 'YAPE-240001',
+      auto_aprobar: true,
+    });
+
+    // Simular que faltan 2 horas para el turno (08:00 hora de Lima del mismo día)
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(`${fecha}T08:00:00-05:00`));
+    try {
+      const cancelRes = await request(app)
+        .post(`/api/reservas/${reservaId}/cancelar`)
+        .send({ motivo: 'Lesión de un jugador' });
+
+      expect(cancelRes.status).toBe(200);
+      expect(cancelRes.body.data.politica_aplicada).toBe('RETENCION_50_MENOR_24H');
+      expect(cancelRes.body.data.horas_anticipacion).toBe(2);
+      expect(cancelRes.body.data.penalidad).toBe(45);
+      expect(cancelRes.body.data.monto_devolucion).toBe(45);
+      expect(cancelRes.body.data.reserva.codigo_qr).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+
+    const otraVez = await request(app).post(`/api/reservas/${reservaId}/cancelar`).send({});
+    expect(otraVez.status).toBe(409);
+  });
+
+  it('Caso 16 (Éxito - Filtros y Fallo 400/404): Lista reservas por DNI y valida IDs de reserva', async () => {
+    const fecha = getFutureDate(6);
+    await request(app)
+      .post('/api/reservas')
+      .send({ cancha_id: 1, ...titular('71110003'), fecha, hora_inicio: 8, hora_fin: 9 });
+    await request(app)
+      .post('/api/reservas')
+      .send({ cancha_id: 1, ...titular('71110004'), fecha, hora_inicio: 9, hora_fin: 10 });
+
+    const propias = await request(app).get('/api/reservas?cliente_dni=71110003');
+    expect(propias.status).toBe(200);
+    expect(propias.body.count).toBe(1);
+    expect(propias.body.data[0].cliente_dni).toBe('71110003');
+
+    const inexistente = await request(app).get('/api/reservas/999999');
+    expect(inexistente.status).toBe(404);
+    expect(inexistente.body.code).toBe('NOT_FOUND');
+
+    const invalido = await request(app).get('/api/reservas/abc');
+    expect(invalido.status).toBe(400);
+  });
+
+  it('Caso 17 (Éxito y Fallo - Autenticación): Login válido con JWT, credenciales inválidas 401 y registro duplicado 409', async () => {
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'admin@luxxitosports.pe', password: 'admin2026' });
+    expect(login.status).toBe(200);
+    expect(typeof login.body.data.token).toBe('string');
+    expect(login.body.data.user.rol).toBe('ADMIN');
+    expect(login.body.data.user.password_hash).toBeUndefined();
+
+    const malaClave = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'admin@luxxitosports.pe', password: 'incorrecta' });
+    expect(malaClave.status).toBe(401);
+
+    const duplicado = await request(app).post('/api/auth/registro').send({
+      nombre: 'Elvis Duplicado',
+      dni: '74125896',
+      telefono: '987654321',
+      email: 'otro.correo@uni.pe',
+      password: 'secreta123',
+    });
+    expect(duplicado.status).toBe(409);
+    expect(duplicado.body.code).toBe('CONFLICT');
   });
 });

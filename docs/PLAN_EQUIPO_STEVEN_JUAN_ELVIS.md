@@ -104,7 +104,7 @@ Para cerrar al 100% la **demostración en vivo del Taller 3** y completar las ca
 
 ### Bloque de Steven (FrontEnd UI / Panel Web · Pagos/Comprobantes · QA y Demostración Taller 3)
 
-#### `LX-300` — Desarrollo y Pulido de FrontEnd (Componentes UI, Estados de Pantalla y Panel Administrativo)
+#### `LX-300` — Desarrollo y Pulido de FrontEnd (Componentes UI, Estados de Pantalla y Panel Administrativo) (`[x] Completado` · PR #4)
 - **Responsable:** Steven
 - **Rama sugerida:** `steven/frontend-ui-admin`
 - **Problema:** Asegurar que tanto las vistas móviles como el panel administrativo FrontEnd mantengan la línea gráfica de Luxxito Sports (azul oscuro `#0F172A` y verde `#10B981`, tarjetas de complejos con imágenes, estados de carga/vacío/error/reintento y accesibilidad).
@@ -113,7 +113,7 @@ Para cerrar al 100% la **demostración en vivo del Taller 3** y completar las ca
   2. Garantizar que cada pantalla maneje explícitamente los 4 estados visuales: cargando (`skeleton/spinner`), lista vacía, error de red con botón de reintento y confirmación exitosa.
 - **Criterio de aceptación:** Interfaz consistente y responsiva conectada en tiempo real a los endpoints de la API REST sin usar datos simulados (`mocks`).
 
-#### `LX-301` — Captura/Subida de Imagen de Comprobante y Bandeja Administrativa de Revisión
+#### `LX-301` — Captura/Subida de Imagen de Comprobante y Bandeja Administrativa de Revisión (`[~] Bandeja completada` · PR #3 · falta subida de imagen: requiere bucket, issue #5)
 - **Responsable:** Steven
 - **Rama sugerida:** `steven/comprobantes-y-revision`
 - **Problema:** Separar el flujo del jugador (que sube el comprobante y deja la reserva en `EN_REVISION`) del flujo del administrador (que revisa los pagos pendientes y los aprueba o rechaza con motivo).
@@ -122,7 +122,7 @@ Para cerrar al 100% la **demostración en vivo del Taller 3** y completar las ca
   2. En la app móvil (pestaña **Mis Reservas** o sección **Modo Operador en Perfil**), permitir previsualizar el comprobante y probar tanto la aprobación (`PATCH /api/pagos/:id/aprobar`) como el rechazo (`PATCH /api/pagos/:id/rechazar`).
 - **Criterio de aceptación:** Un pago rechazado registra el motivo de rechazo y permite al jugador reintentar el envío de un comprobante válido.
 
-#### `LX-302` — Ampliación de Suite de Pruebas y Colección Postman con Casos de Borde
+#### `LX-302` — Ampliación de Suite de Pruebas y Colección Postman con Casos de Borde (`[~] 17 pruebas y Postman listos` · faltan casos de LX-202 y LX-203)
 - **Responsable:** Steven
 - **Rama sugerida:** `steven/qa-pruebas-y-postman`
 - **Dependencias:** `LX-202`, `LX-203`, `LX-301`

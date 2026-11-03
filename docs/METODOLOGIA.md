@@ -14,7 +14,7 @@ Adaptación de la metodología incremental basada en contratos, responsabilidade
 | **Arquitectura en capas** | Separación estricta de Controladores (`controllers/`), Servicios (`services/`) y Acceso a Datos (`repositories/`). | `backend/src/controllers/`, `services/`, `repositories/` |
 | **Separación de secretos y ambientes** | Las credenciales de Supabase viven en `.env` (ignorado en Git); el repositorio provee `.env.example` y modo aislado para pruebas. | `.gitignore`, `backend/.env.example`, `backend/src/config/database.ts` |
 | **Decisiones trazables (ADR)** | Registro formal de decisiones de arquitectura, reglas de pago manual, bloqueo y cancelación. | `docs/adr/0001-arquitectura-api-supabase-flutter.md` |
-| **Verificación reproducible** | Suite automatizada con 8 casos de prueba (éxitos y fallos) en el backend y widget test + análisis estático en Flutter. | `backend/src/tests/api.test.ts`, `mobile/test/widget_test.dart`, `.github/workflows/ci.yml` |
+| **Verificación reproducible** | Suite automatizada con 17 casos de prueba (éxitos y fallos) en el backend, colección Postman con aserciones y widget test + análisis estático en Flutter. | `backend/src/tests/api.test.ts`, `mobile/test/widget_test.dart`, `.github/workflows/ci.yml` |
 
 ---
 
@@ -33,6 +33,6 @@ Adaptación de la metodología incremental basada en contratos, responsabilidade
 1. **Definir**: Necesidad concreta, regla de negocio y códigos HTTP esperados.
 2. **Acordar contrato**: Documentar ruta, parámetros y respuesta en `contracts/openapi.yaml` y `docs/API_DOCUMENTATION.md`.
 3. **Implementar en capas**: Repositorio (SQL/Supabase) → Servicio (validación y regla de negocio) → Controlador (HTTP) → Pantalla Flutter.
-4. **Verificar**: Ejecutar `npm test` (8 pruebas backend), `npm run build` y `flutter analyze` / `flutter test`.
+4. **Verificar**: Ejecutar `npm test` (17 pruebas backend), `npm run build` y `flutter analyze` / `flutter test`.
 5. **Registrar evidencia**: Documentar resultados en `docs/ESTADO.md` y `docs/validaciones/2026-11-02-taller3.md`.
 

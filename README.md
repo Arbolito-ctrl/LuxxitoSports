@@ -20,7 +20,7 @@ LuxxitoSports/
 │   │   ├── services/                 # Capa de Servicios y 5 Reglas de Negocio
 │   │   ├── repositories/             # Capa de Acceso a Datos y Transacciones
 │   │   ├── routes/apiRoutes.ts       # Definición de los 14 endpoints bajo /api
-│   │   └── tests/api.test.ts         # 8 casos de prueba automatizados (éxitos y fallos)
+│   │   └── tests/api.test.ts         # 17 casos de prueba automatizados (éxitos y fallos)
 │   ├── .env.example                  # Plantilla pública de variables de entorno
 │   └── package.json
 ├── mobile/                           # Aplicación Cliente Móvil (Flutter + Dart)
@@ -100,7 +100,13 @@ npm run dev
 cd backend
 npm test
 ```
-Ejecuta los **8 casos de prueba** con Vitest y Supertest verificando operaciones CRUD, cotización de tarifa diurna/nocturna, conflicto `409` por cruce de horario, conflicto `409` por stock insuficiente de extras, aprobación idempotente con Ticket QR y cancelación con regla de 24 horas.
+Ejecuta los **17 casos de prueba** con Vitest y Supertest verificando operaciones CRUD, cotización de tarifa diurna/nocturna, conflicto `409` por cruce de horario y por stock de extras, `422` por horarios pasados o fuera de atención, aprobación y rechazo idempotentes de comprobantes con Ticket QR, cancelación con regla de 24 horas (100% y 50%) y autenticación.
+
+La colección Postman también se puede ejecutar completa desde la terminal (con el backend levantado):
+
+```bash
+npx newman run docs/LuxxitoSports.postman_collection.json
+```
 
 ### 3.3. Ejecutar la Aplicación Cliente Móvil (`mobile/`)
 ```bash
