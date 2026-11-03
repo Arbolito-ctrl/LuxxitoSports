@@ -60,9 +60,12 @@ LuxxitoSports/
 │   └── CHANGELOG.md
 ├── entregables/                      # Índice de entregables del Taller 3
 │   ├── README.md                     # Dónde está cada entregable
-│   └── DOCUMENTO_TECNICO_TALLER3.pdf # Documento Técnico (carátula + 5 páginas)
+│   ├── DOCUMENTO_TECNICO_TALLER3.pdf # Documento Técnico (carátula + 5 páginas)
+│   ├── DOCUMENTACION_API_TALLER3.pdf # Documentación de la API en PDF
+│   └── DEMOSTRACION_TALLER3.pdf      # Informe de la demostración con capturas
 ├── docs/                             # Documentación técnica y metodológica
 │   ├── DOCUMENTO_TECNICO_TALLER3.md  # Versión Markdown del Documento Técnico
+│   ├── GUIA_DE_ESTUDIO.md / .pdf     # Guía para entender el proyecto y preparar la sustentación
 │   ├── API_DOCUMENTATION.md          # Documentación detallada de rutas, JSON y códigos HTTP
 │   ├── LuxxitoSports.postman_collection.json # Colección Postman lista para importar
 │   ├── PLAN.md                       # Plan y alcance del proyecto
