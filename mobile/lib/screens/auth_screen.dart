@@ -1,6 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
 import '../models/luxxito_models.dart';
 import '../services/api_service.dart';
+import '../theme/luxxito_theme.dart';
+import '../widgets/luxxito_widgets.dart';
 
 class AuthScreen extends StatefulWidget {
   final ValueChanged<UserSession> onAuthenticated;
@@ -17,14 +21,22 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
+  // Cuentas de prueba del backend, visibles solo en compilaciones de desarrollo.
+  static const _cuentasDemo = [
+    ('Jugador demo', 'elvis.arboleda@uni.pe', 'luxxito2026'),
+    ('Admin demo', 'admin@luxxitosports.pe', 'admin2026'),
+  ];
+
+  final _formKey = GlobalKey<FormState>();
   bool _esRegistro = false;
   bool _cargando = false;
+  bool _verPassword = false;
 
-  final _nombreCtrl = TextEditingController(text: 'Elvis Arboleda');
-  final _dniCtrl = TextEditingController(text: '74125896');
-  final _telefonoCtrl = TextEditingController(text: '987654321');
-  final _emailCtrl = TextEditingController(text: 'elvis.arboleda@uni.pe');
-  final _passwordCtrl = TextEditingController(text: 'luxxito2026');
+  final _nombreCtrl = TextEditingController();
+  final _dniCtrl = TextEditingController();
+  final _telefonoCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
 
   @override
   void dispose() {
@@ -36,13 +48,32 @@ class _AuthScreenState extends State<AuthScreen> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    setState(() {
-      _cargando = true;
-    });
+  String? _validarRequerido(String? v, String campo) =>
+      (v == null || v.trim().isEmpty) ? 'Ingresa tu $campo' : null;
 
+  String? _validarEmail(String? v) {
+    final texto = v?.trim() ?? '';
+    if (texto.isEmpty) return 'Ingresa tu correo';
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(texto)) {
+      return 'Revisa el formato del correo';
+    }
+    return null;
+  }
+
+  String? _validarPassword(String? v) {
+    final texto = v?.trim() ?? '';
+    if (texto.isEmpty) return 'Ingresa tu contraseña';
+    if (_esRegistro && texto.length < 6) return 'Usa al menos 6 caracteres';
+    return null;
+  }
+
+  Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _cargando = true);
     try {
-      UserSession session;
+      final UserSession session;
       if (_esRegistro) {
         session = await ApiService.registrarUsuario(
           nombre: _nombreCtrl.text.trim(),
@@ -59,51 +90,48 @@ class _AuthScreenState extends State<AuthScreen> {
       }
 
       if (!mounted) return;
-      setState(() {
-        _cargando = false;
-      });
+      setState(() => _cargando = false);
       widget.onAuthenticated(session);
       if (widget.isStandalonePage && Navigator.of(context).canPop()) {
         Navigator.of(context).pop(session);
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _cargando = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      setState(() => _cargando = false);
+      mostrarAviso(context, mensajeError(e), tipo: TipoAviso.error);
     }
+  }
+
+  void _cambiarModo() {
+    setState(() => _esRegistro = !_esRegistro);
+    _formKey.currentState?.reset();
   }
 
   Future<void> _mostrarRecuperarAcceso() async {
     final recCtrl = TextEditingController(text: _emailCtrl.text);
-    await showDialog(
+    final correo = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text(
-          'Recuperar Acceso',
-          style: TextStyle(color: Colors.white),
+        icon: const Icon(
+          Icons.lock_reset,
+          color: LuxxitoColors.primario,
+          size: 36,
         ),
+        title: const Text('Recuperar acceso'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Ingresa tu correo registrado para enviarte el enlace de restablecimiento:',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+              'Te enviaremos un enlace para crear una nueva contraseña.',
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             TextField(
               controller: recCtrl,
-              style: const TextStyle(color: Colors.white),
+              keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
-                labelText: 'Correo Electrónico',
-                labelStyle: TextStyle(color: Colors.white70),
+                labelText: 'Correo electrónico',
+                prefixIcon: Icon(Icons.email_outlined),
               ),
             ),
           ],
@@ -113,190 +141,242 @@ class _AuthScreenState extends State<AuthScreen> {
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Cancelar'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
-              foregroundColor: Colors.black,
-            ),
-            onPressed: () {
-              final correo = recCtrl.text.trim();
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Instrucciones de recuperación enviadas a $correo',
-                  ),
-                  backgroundColor: const Color(0xFF059669),
-                ),
-              );
-            },
-            child: const Text('Enviar Instrucciones'),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(recCtrl.text.trim()),
+            child: const Text('Enviar enlace'),
           ),
         ],
       ),
     );
+    if (correo == null || correo.isEmpty || !mounted) return;
+    mostrarAviso(context, 'Listo. Revisa tu bandeja de entrada en $correo.');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        foregroundColor: Colors.white,
-        title: Text(
-          _esRegistro
-              ? 'Luxxito Sports · Crear Cuenta'
-              : 'Luxxito Sports · Iniciar Sesión',
-        ),
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
-          child: ListView(
-            padding: const EdgeInsets.all(24),
-            shrinkWrap: true,
-            children: [
-              const CircleAvatar(
-                radius: 36,
-                backgroundColor: Color(0xFF10B981),
-                child: Icon(
-                  Icons.sports_soccer,
-                  size: 42,
-                  color: Colors.black,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                _esRegistro
-                    ? 'Crear Cuenta de Jugador'
-                    : 'Bienvenido a Luxxito Sports',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Reserva canchas en Lima, agrega equipamiento y obtén tu Ticket QR verificable.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-              const SizedBox(height: 24),
-
-              if (_esRegistro) ...[
-                _buildInput(_nombreCtrl, 'Nombre Completo', Icons.person),
-                const SizedBox(height: 12),
-                _buildInput(_dniCtrl, 'DNI (8 dígitos)', Icons.badge_outlined),
-                const SizedBox(height: 12),
-                _buildInput(_telefonoCtrl, 'Teléfono / Celular', Icons.phone),
-                const SizedBox(height: 12),
-              ],
-
-              _buildInput(
-                  _emailCtrl, 'Correo Electrónico', Icons.email_outlined),
-              const SizedBox(height: 12),
-              _buildInput(
-                _passwordCtrl,
-                'Contraseña',
-                Icons.lock_outline,
-                obscure: true,
-              ),
-              const SizedBox(height: 20),
-
-              SizedBox(
-                height: 50,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981),
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: _cargando ? null : _submit,
-                  icon: _cargando
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.black,
-                          ),
-                        )
-                      : Icon(_esRegistro ? Icons.person_add : Icons.login),
-                  label: Text(
-                    _esRegistro
-                        ? 'Registrarme e Ingresar'
-                        : 'Iniciar Sesión',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+                shrinkWrap: true,
                 children: [
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _esRegistro = !_esRegistro;
-                      });
-                    },
-                    child: Text(
-                      _esRegistro ? 'Ya tengo cuenta' : 'Crear cuenta nueva',
-                      style: const TextStyle(
-                        color: Color(0xFF34D399),
-                        fontWeight: FontWeight.bold,
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: LuxxitoColors.primario,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        Icons.sports_soccer,
+                        size: 40,
+                        color: Colors.white,
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    _esRegistro
+                        ? 'Crea tu cuenta'
+                        : 'Bienvenido a Luxxito Sports',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: LuxxitoColors.texto,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _esRegistro
+                        ? 'Regístrate en segundos y reserva tu próxima pichanga.'
+                        : 'Reserva canchas en Lima y recibe tu ticket QR al instante.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: LuxxitoColors.textoSecundario,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  if (_esRegistro) ...[
+                    TextFormField(
+                      controller: _nombreCtrl,
+                      textCapitalization: TextCapitalization.words,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre completo',
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
+                      validator: (v) => _validarRequerido(v, 'nombre'),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _dniCtrl,
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.next,
+                            maxLength: 8,
+                            decoration: const InputDecoration(
+                              labelText: 'DNI',
+                              counterText: '',
+                              prefixIcon: Icon(Icons.badge_outlined),
+                            ),
+                            validator: (v) =>
+                                RegExp(r'^\d{8}$').hasMatch(v?.trim() ?? '')
+                                ? null
+                                : '8 dígitos',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _telefonoCtrl,
+                            keyboardType: TextInputType.phone,
+                            textInputAction: TextInputAction.next,
+                            maxLength: 9,
+                            decoration: const InputDecoration(
+                              labelText: 'Celular',
+                              counterText: '',
+                              prefixIcon: Icon(Icons.phone_outlined),
+                            ),
+                            validator: (v) =>
+                                RegExp(r'^9\d{8}$').hasMatch(v?.trim() ?? '')
+                                ? null
+                                : '9 dígitos (9…)',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  TextFormField(
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.email],
+                    decoration: const InputDecoration(
+                      labelText: 'Correo electrónico',
+                      prefixIcon: Icon(Icons.email_outlined),
+                    ),
+                    validator: _validarEmail,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _passwordCtrl,
+                    obscureText: !_verPassword,
+                    textInputAction: TextInputAction.done,
+                    autofillHints: const [AutofillHints.password],
+                    onFieldSubmitted: (_) => _submit(),
+                    decoration: InputDecoration(
+                      labelText: 'Contraseña',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        tooltip: _verPassword ? 'Ocultar' : 'Mostrar',
+                        icon: Icon(
+                          _verPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: LuxxitoColors.textoTenue,
+                        ),
+                        onPressed: () =>
+                            setState(() => _verPassword = !_verPassword),
+                      ),
+                    ),
+                    validator: _validarPassword,
                   ),
                   if (!_esRegistro)
-                    TextButton(
-                      onPressed: _mostrarRecuperarAcceso,
-                      child: const Text(
-                        '¿Olvidaste tu clave?',
-                        style: TextStyle(color: Colors.white70),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: _mostrarRecuperarAcceso,
+                        child: const Text(
+                          '¿Olvidaste tu contraseña?',
+                          style: TextStyle(
+                            color: LuxxitoColors.textoSecundario,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 20),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 52,
+                    child: FilledButton(
+                      onPressed: _cargando ? null : _submit,
+                      child: _cargando
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              _esRegistro ? 'Crear cuenta' : 'Iniciar Sesión',
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _esRegistro ? '¿Ya tienes cuenta?' : '¿Eres nuevo?',
+                        style: const TextStyle(
+                          color: LuxxitoColors.textoSecundario,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _cargando ? null : _cambiarModo,
+                        child: Text(
+                          _esRegistro ? 'Inicia sesión' : 'Crea tu cuenta',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (kDebugMode && !_esRegistro) ...[
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Cuentas de prueba (solo desarrollo)',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: LuxxitoColors.textoTenue,
+                        fontSize: 12,
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 8,
+                      children: _cuentasDemo
+                          .map(
+                            (c) => ActionChip(
+                              avatar: const Icon(Icons.bolt, size: 16),
+                              label: Text(c.$1),
+                              onPressed: () => setState(() {
+                                _emailCtrl.text = c.$2;
+                                _passwordCtrl.text = c.$3;
+                              }),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ],
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInput(
-    TextEditingController ctrl,
-    String label,
-    IconData icon, {
-    bool obscure = false,
-  }) {
-    return TextField(
-      controller: ctrl,
-      obscureText: obscure,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white70),
-        prefixIcon: Icon(icon, color: const Color(0xFF10B981)),
-        filled: true,
-        fillColor: const Color(0xFF1E293B),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Colors.white24),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFF10B981)),
         ),
       ),
     );

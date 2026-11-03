@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+
 import 'screens/auth_screen.dart';
 import 'screens/explorar_screen.dart';
 import 'screens/mis_reservas_screen.dart';
 import 'screens/perfil_config_screen.dart';
 import 'services/api_service.dart';
+import 'theme/luxxito_theme.dart';
 
 void main() {
   runApp(const LuxxitoSportsApp());
@@ -17,16 +19,7 @@ class LuxxitoSportsApp extends StatelessWidget {
     return MaterialApp(
       title: 'Luxxito Sports',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0F172A),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF10B981),
-          secondary: Color(0xFF0EA5E9),
-          surface: Color(0xFF1E293B),
-        ),
-        useMaterial3: true,
-      ),
+      theme: buildLuxxitoTheme(),
       home: const AuthGateScreen(),
     );
   }
@@ -69,82 +62,80 @@ class MainShellScreen extends StatefulWidget {
 
 class _MainShellScreenState extends State<MainShellScreen> {
   int _selectedIndex = 0;
+  final _misReservasKey = GlobalKey<MisReservasScreenState>();
 
   void _irAMisReservas() {
     setState(() {
       _selectedIndex = 1;
     });
+    _misReservasKey.currentState?.recargar();
+  }
+
+  void _irAExplorar() {
+    setState(() {
+      _selectedIndex = 0;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final titulos = [
-      'Luxxito Sports · Explorar',
-      'Mis Reservas y Tickets QR',
-      'Perfil y Estado de API',
-    ];
+    const titulos = ['Explorar canchas', 'Mis reservas', 'Mi perfil'];
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        foregroundColor: Colors.white,
-        elevation: 0,
+        titleSpacing: 16,
         title: Row(
           children: [
-            const Icon(Icons.sports_soccer, color: Color(0xFF10B981)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                titulos[_selectedIndex],
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: LuxxitoColors.primario.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.sports_soccer,
+                color: LuxxitoColors.primario,
+                size: 22,
               ),
             ),
+            const SizedBox(width: 12),
+            Text(titulos[_selectedIndex]),
           ],
         ),
-        actions: [
-          if (widget.onLogout != null)
-            IconButton(
-              onPressed: widget.onLogout,
-              icon: const Icon(Icons.logout, color: Colors.white70),
-              tooltip: 'Cerrar sesión',
-            ),
-        ],
       ),
       body: IndexedStack(
         index: _selectedIndex,
         children: [
           ExplorarScreen(onNavigateToReservas: _irAMisReservas),
-          const MisReservasScreen(),
+          MisReservasScreen(key: _misReservasKey, onExplorar: _irAExplorar),
           PerfilConfigScreen(onLogout: widget.onLogout),
         ],
       ),
       bottomNavigationBar: NavigationBar(
-        backgroundColor: const Color(0xFF1E293B),
-        indicatorColor: const Color(0xFF10B981).withValues(alpha: 0.25),
         selectedIndex: _selectedIndex,
         onDestinationSelected: (idx) {
           setState(() {
             _selectedIndex = idx;
           });
+          if (idx == 1) _misReservasKey.currentState?.recargar();
         },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.explore_outlined),
-            selectedIcon: Icon(Icons.explore, color: Color(0xFF10B981)),
+            selectedIcon: Icon(Icons.explore, color: LuxxitoColors.primario),
             label: 'Explorar',
           ),
           NavigationDestination(
             icon: Icon(Icons.confirmation_number_outlined),
-            selectedIcon:
-                Icon(Icons.confirmation_number, color: Color(0xFF10B981)),
+            selectedIcon: Icon(
+              Icons.confirmation_number,
+              color: LuxxitoColors.primario,
+            ),
             label: 'Mis reservas',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person, color: Color(0xFF10B981)),
+            selectedIcon: Icon(Icons.person, color: LuxxitoColors.primario),
             label: 'Perfil',
           ),
         ],

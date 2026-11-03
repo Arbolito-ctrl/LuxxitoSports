@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+
 import '../models/luxxito_models.dart';
 import '../services/api_service.dart';
+import '../theme/luxxito_theme.dart';
+import '../widgets/luxxito_widgets.dart';
 import 'disponibilidad_reserva_screen.dart';
 
 class ExplorarScreen extends StatefulWidget {
@@ -15,20 +18,21 @@ class ExplorarScreen extends StatefulWidget {
 class _ExplorarScreenState extends State<ExplorarScreen> {
   List<Complejo> _complejos = [];
   List<Cancha> _canchas = [];
+  Map<int, String?> _fotos = {};
   bool _cargando = true;
   String? _errorMsg;
 
   String _distritoFiltro = '';
   String _deporteFiltro = '';
 
-  final List<String> _distritos = [
+  static const List<String> _distritos = [
     '',
     'San Miguel',
     'Santiago de Surco',
     'Miraflores',
   ];
 
-  final List<String> _deportes = [
+  static const List<String> _deportes = [
     '',
     'Futbol 7',
     'Futbol 5',
@@ -63,448 +67,543 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
       if (!mounted) return;
       setState(() {
         _complejos = results[0] as List<Complejo>;
+        _fotos = {for (final c in _complejos) c.id: c.imagenUrl};
         _canchas = results[1] as List<Cancha>;
         _cargando = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMsg = e.toString();
+        _errorMsg = mensajeError(e);
         _cargando = false;
       });
     }
   }
 
+  Future<void> _abrirReserva(Cancha cancha) async {
+    final ok = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => DisponibilidadReservaScreen(
+          cancha: cancha,
+          onReservaCreada: widget.onNavigateToReservas,
+        ),
+      ),
+    );
+    if (ok == true) widget.onNavigateToReservas();
+  }
+
   Future<void> _mostrarDialogoNuevaCancha() async {
+    final formKey = GlobalKey<FormState>();
     final nombreCtrl = TextEditingController();
-    final superficieCtrl = TextEditingController(text: 'Grass Sintetico Pro');
+    final superficieCtrl = TextEditingController(text: 'Grass sintético');
     final diurnoCtrl = TextEditingController(text: '85');
     final nocturnoCtrl = TextEditingController(text: '115');
-    int complejoSel = _complejos.isNotEmpty ? _complejos.first.id : 1;
+    int? complejoSel = _complejos.isNotEmpty ? _complejos.first.id : null;
     String deporteSel = 'Futbol 7';
     bool techada = false;
+    bool guardando = false;
 
-    final creado = await showDialog<bool>(
+    final creado = await showModalBottomSheet<bool>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF1E293B),
-          title: const Text(
-            'Registrar Nueva Cancha (CRUD)',
-            style: TextStyle(color: Colors.white),
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            0,
+            20,
+            20 + espacioInferior(ctx),
           ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<int>(
-                  initialValue: complejoSel,
-                  dropdownColor: const Color(0xFF1E293B),
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Complejo Deportivo',
-                    labelStyle: TextStyle(color: Colors.white70),
+          child: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Nueva cancha',
+                    style: TextStyle(
+                      color: LuxxitoColors.texto,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  items: (_complejos.isNotEmpty
-                          ? _complejos
-                          : [
-                              Complejo(
-                                id: 1,
-                                nombre: 'Luxxito Arena San Miguel',
-                                distrito: 'San Miguel',
-                                direccion: '',
-                                telefono: '',
-                                horaApertura: 7,
-                                horaCierre: 23,
-                              )
-                            ])
-                      .map((c) => DropdownMenuItem(
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Se publicará de inmediato en el catálogo.',
+                    style: TextStyle(color: LuxxitoColors.textoSecundario),
+                  ),
+                  const SizedBox(height: 18),
+                  DropdownButtonFormField<int>(
+                    initialValue: complejoSel,
+                    dropdownColor: LuxxitoColors.superficieAlta,
+                    decoration: const InputDecoration(
+                      labelText: 'Complejo',
+                      prefixIcon: Icon(Icons.stadium_outlined),
+                    ),
+                    items: _complejos
+                        .map(
+                          (c) => DropdownMenuItem(
                             value: c.id,
                             child: Text(c.nombre),
-                          ))
-                      .toList(),
-                  onChanged: (v) => setDialogState(() => complejoSel = v ?? 1),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: nombreCtrl,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre de la Cancha',
-                    labelStyle: TextStyle(color: Colors.white70),
+                          ),
+                        )
+                        .toList(),
+                    validator: (v) => v == null ? 'Elige un complejo' : null,
+                    onChanged: (v) => setSheetState(() => complejoSel = v),
                   ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: deporteSel,
-                  dropdownColor: const Color(0xFF1E293B),
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Deporte',
-                    labelStyle: TextStyle(color: Colors.white70),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: nombreCtrl,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre de la cancha',
+                      prefixIcon: Icon(Icons.edit_outlined),
+                    ),
+                    validator: (v) => (v ?? '').trim().length < 3
+                        ? 'Escribe un nombre'
+                        : null,
                   ),
-                  items: ['Futbol 7', 'Futbol 5', 'Voley', 'Padel', 'Tenis']
-                      .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                      .toList(),
-                  onChanged: (v) =>
-                      setDialogState(() => deporteSel = v ?? 'Futbol 7'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: diurnoCtrl,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Precio Hora Diurno (S/)',
-                    labelStyle: TextStyle(color: Colors.white70),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          initialValue: deporteSel,
+                          dropdownColor: LuxxitoColors.superficieAlta,
+                          decoration: const InputDecoration(
+                            labelText: 'Deporte',
+                          ),
+                          items: _deportes
+                              .where((d) => d.isNotEmpty)
+                              .map(
+                                (d) =>
+                                    DropdownMenuItem(value: d, child: Text(d)),
+                              )
+                              .toList(),
+                          onChanged: (v) =>
+                              setSheetState(() => deporteSel = v ?? deporteSel),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: superficieCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Superficie',
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: nocturnoCtrl,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Precio Hora Nocturno >=18h (S/)',
-                    labelStyle: TextStyle(color: Colors.white70),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: diurnoCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Precio día',
+                            prefixText: 'S/ ',
+                            helperText: 'Antes de 18:00',
+                          ),
+                          validator: (v) => (double.tryParse(v ?? '') ?? 0) <= 0
+                              ? 'Precio inválido'
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: nocturnoCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Precio noche',
+                            prefixText: 'S/ ',
+                            helperText: 'Desde 18:00',
+                          ),
+                          validator: (v) {
+                            final noche = double.tryParse(v ?? '') ?? 0;
+                            final dia = double.tryParse(diurnoCtrl.text) ?? 0;
+                            if (noche <= 0) return 'Precio inválido';
+                            if (noche < dia) return 'Debe ser ≥ día';
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
                   ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Cancha techada'),
+                    value: techada,
+                    onChanged: (v) => setSheetState(() => techada = v),
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton(
+                    onPressed: guardando
+                        ? null
+                        : () async {
+                            if (!formKey.currentState!.validate()) return;
+                            setSheetState(() => guardando = true);
+                            try {
+                              await ApiService.crearCancha(
+                                complejoId: complejoSel!,
+                                nombre: nombreCtrl.text.trim(),
+                                deporte: deporteSel,
+                                superficie: superficieCtrl.text.trim(),
+                                techada: techada,
+                                precioDiurno: double.parse(diurnoCtrl.text),
+                                precioNocturno: double.parse(nocturnoCtrl.text),
+                              );
+                              if (!ctx.mounted) return;
+                              Navigator.of(ctx).pop(true);
+                            } catch (e) {
+                              setSheetState(() => guardando = false);
+                              if (!ctx.mounted) return;
+                              mostrarAviso(
+                                ctx,
+                                mensajeError(e),
+                                tipo: TipoAviso.error,
+                              );
+                            }
+                          },
+                    child: Text(guardando ? 'Guardando…' : 'Publicar cancha'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+
+    if (creado == true && mounted) {
+      mostrarAviso(context, 'Cancha publicada en el catálogo.');
+      _cargarCatalogo();
+    }
+  }
+
+  Widget _filtros() {
+    final nombre = ApiService.currentSession?.nombre.split(' ').first ?? '';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            nombre.isEmpty ? '¡Hola!' : '¡Hola, $nombre!',
+            style: const TextStyle(
+              color: LuxxitoColors.texto,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 2),
+          const Text(
+            '¿Dónde y a qué juegas hoy?',
+            style: TextStyle(color: LuxxitoColors.textoSecundario),
+          ),
+          const SizedBox(height: 14),
+          _filaChips(
+            opciones: _distritos,
+            seleccion: _distritoFiltro,
+            etiquetaTodos: 'Todo Lima',
+            icono: (_) => Icons.location_on_outlined,
+            onSeleccion: (v) {
+              setState(() => _distritoFiltro = v);
+              _cargarCatalogo();
+            },
+          ),
+          const SizedBox(height: 8),
+          _filaChips(
+            opciones: _deportes,
+            seleccion: _deporteFiltro,
+            etiquetaTodos: 'Todos los deportes',
+            icono: (d) => d.isEmpty ? Icons.sports : iconoDeporte(d),
+            onSeleccion: (v) {
+              setState(() => _deporteFiltro = v);
+              _cargarCatalogo();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _filaChips({
+    required List<String> opciones,
+    required String seleccion,
+    required String etiquetaTodos,
+    required IconData Function(String) icono,
+    required ValueChanged<String> onSeleccion,
+  }) {
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: opciones.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, idx) {
+          final valor = opciones[idx];
+          final sel = valor == seleccion;
+          return ChoiceChip(
+            showCheckmark: false,
+            avatar: Icon(
+              icono(valor),
+              size: 16,
+              color: sel ? Colors.white : LuxxitoColors.textoSecundario,
+            ),
+            label: Text(valor.isEmpty ? etiquetaTodos : valor),
+            selected: sel,
+            onSelected: (_) => onSeleccion(valor),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _tarjetaCancha(Cancha cancha) {
+    final activa = cancha.estado == 'ACTIVA';
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: activa ? () => _abrirReserva(cancha) : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Stack(
+              children: [
+                FotoComplejo(
+                  url: _fotos[cancha.complejoId],
+                  iconoRespaldo: iconoDeporte(cancha.deporte),
                 ),
-                SwitchListTile(
-                  title: const Text('Cancha Techada',
-                      style: TextStyle(color: Colors.white)),
-                  value: techada,
-                  activeThumbColor: const Color(0xFF10B981),
-                  onChanged: (v) => setDialogState(() => techada = v),
+                Positioned(
+                  left: 12,
+                  top: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          iconoDeporte(cancha.deporte),
+                          size: 14,
+                          color: LuxxitoColors.texto,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          cancha.deporte,
+                          style: const TextStyle(
+                            color: LuxxitoColors.texto,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
-                foregroundColor: Colors.black,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+              child: Text(
+                cancha.nombre,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: LuxxitoColors.texto,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-              onPressed: () async {
-                try {
-                  await ApiService.crearCancha(
-                    complejoId: complejoSel,
-                    nombre: nombreCtrl.text.trim(),
-                    deporte: deporteSel,
-                    superficie: superficieCtrl.text.trim(),
-                    techada: techada,
-                    precioDiurno: double.tryParse(diurnoCtrl.text) ?? 0,
-                    precioNocturno: double.tryParse(nocturnoCtrl.text) ?? 0,
-                  );
-                  if (!ctx.mounted) return;
-                  Navigator.of(ctx).pop(true);
-                } catch (e) {
-                  if (!ctx.mounted) return;
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    SnackBar(
-                      content: Text(e.toString()),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
-                }
-              },
-              child: const Text('Guardar'),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DatoFila(
+                    Icons.location_on_outlined,
+                    '${cancha.complejoNombre} · ${cancha.distrito}',
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      Insignia(
+                        cancha.superficie,
+                        color: LuxxitoColors.textoSecundario,
+                        icono: Icons.grass,
+                      ),
+                      Insignia(
+                        cancha.techada ? 'Techada' : 'Aire libre',
+                        color: LuxxitoColors.secundario,
+                        icono: cancha.techada
+                            ? Icons.roofing
+                            : Icons.wb_sunny_outlined,
+                      ),
+                      if (cancha.iluminacion)
+                        const Insignia(
+                          'Iluminación',
+                          color: LuxxitoColors.advertencia,
+                          icono: Icons.lightbulb_outline,
+                        ),
+                      if (!activa)
+                        const Insignia(
+                          'En mantenimiento',
+                          color: LuxxitoColors.error,
+                          icono: Icons.construction,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text.rich(
+                              TextSpan(
+                                children: [
+                                  const TextSpan(
+                                    text: 'Desde ',
+                                    style: TextStyle(
+                                      color: LuxxitoColors.textoSecundario,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text:
+                                        'S/ ${cancha.precioHoraDiurno.toStringAsFixed(0)}',
+                                    style: const TextStyle(
+                                      color: LuxxitoColors.texto,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const TextSpan(
+                                    text: ' /hora',
+                                    style: TextStyle(
+                                      color: LuxxitoColors.textoSecundario,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              'Noche (desde 18:00): S/ ${cancha.precioHoraNocturno.toStringAsFixed(0)}',
+                              style: const TextStyle(
+                                color: LuxxitoColors.textoTenue,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      FilledButton.icon(
+                        onPressed: activa ? () => _abrirReserva(cancha) : null,
+                        icon: const Icon(Icons.calendar_month, size: 18),
+                        label: const Text('Reservar'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
+  }
 
-    if (creado == true) {
-      _cargarCatalogo();
+  Widget _contenido() {
+    if (_cargando) {
+      return const EstadoVista.cargando(titulo: 'Buscando canchas…');
     }
+    if (_errorMsg != null) {
+      return EstadoVista.error(
+        titulo: 'No pudimos cargar las canchas',
+        mensaje: _errorMsg!,
+        onReintentar: _cargarCatalogo,
+      );
+    }
+    if (_canchas.isEmpty) {
+      return EstadoVista(
+        icono: Icons.search_off,
+        color: LuxxitoColors.secundario,
+        titulo: 'Sin canchas para estos filtros',
+        detalle: 'Prueba con otro distrito o deporte.',
+        accion: OutlinedButton(
+          onPressed: () {
+            setState(() {
+              _distritoFiltro = '';
+              _deporteFiltro = '';
+            });
+            _cargarCatalogo();
+          },
+          child: const Text('Quitar filtros'),
+        ),
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
+      itemCount: _canchas.length + 1,
+      separatorBuilder: (_, _) => const SizedBox(height: 14),
+      itemBuilder: (context, idx) {
+        if (idx == 0) {
+          return Text(
+            _canchas.length == 1
+                ? '1 cancha disponible'
+                : '${_canchas.length} canchas disponibles',
+            style: const TextStyle(
+              color: LuxxitoColors.textoTenue,
+              fontSize: 13,
+            ),
+          );
+        }
+        return _tarjetaCancha(_canchas[idx - 1]);
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: const Color(0xFF10B981),
-        foregroundColor: Colors.black,
-        onPressed: _mostrarDialogoNuevaCancha,
-        icon: const Icon(Icons.add),
-        label: const Text(
-          'Nueva Cancha',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ),
+      floatingActionButton: ApiService.esAdmin
+          ? FloatingActionButton.extended(
+              onPressed: _mostrarDialogoNuevaCancha,
+              icon: const Icon(Icons.add),
+              label: const Text(
+                'Nueva cancha',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            )
+          : null,
       body: Column(
         children: [
-          // Panel de Filtros por Distrito y Deporte
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            color: const Color(0xFF1E293B),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Filtrar por Distrito:',
-                  style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  height: 36,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _distritos.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 8),
-                    itemBuilder: (context, idx) {
-                      final dist = _distritos[idx];
-                      final sel = dist == _distritoFiltro;
-                      return ChoiceChip(
-                        label: Text(dist.isEmpty ? 'Todos' : dist),
-                        selected: sel,
-                        selectedColor: const Color(0xFF10B981),
-                        backgroundColor: const Color(0xFF0F172A),
-                        labelStyle: TextStyle(
-                          color: sel ? Colors.black : Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        onSelected: (_) {
-                          setState(() => _distritoFiltro = dist);
-                          _cargarCatalogo();
-                        },
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Filtrar por Deporte:',
-                  style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  height: 36,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _deportes.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 8),
-                    itemBuilder: (context, idx) {
-                      final dep = _deportes[idx];
-                      final sel = dep == _deporteFiltro;
-                      return ChoiceChip(
-                        label: Text(dep.isEmpty ? 'Todos' : dep),
-                        selected: sel,
-                        selectedColor: const Color(0xFF0EA5E9),
-                        backgroundColor: const Color(0xFF0F172A),
-                        labelStyle: TextStyle(
-                          color: sel ? Colors.black : Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        onSelected: (_) {
-                          setState(() => _deporteFiltro = dep);
-                          _cargarCatalogo();
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-
+          _filtros(),
           Expanded(
-            child: _cargando
-                ? const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF10B981)),
-                  )
-                : _errorMsg != null
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.wifi_off,
-                                  size: 56, color: Colors.redAccent),
-                              const SizedBox(height: 12),
-                              Text(
-                                _errorMsg!,
-                                style: const TextStyle(color: Colors.white70),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton.icon(
-                                onPressed: _cargarCatalogo,
-                                icon: const Icon(Icons.refresh),
-                                label: const Text('Reintentar conexión'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : _canchas.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'No se encontraron canchas para los filtros seleccionados.',
-                              style: TextStyle(color: Colors.white70),
-                            ),
-                          )
-                        : RefreshIndicator(
-                            onRefresh: _cargarCatalogo,
-                            child: ListView.builder(
-                              padding:
-                                  const EdgeInsets.fromLTRB(16, 12, 16, 85),
-                              itemCount: _canchas.length,
-                              itemBuilder: (context, idx) {
-                                final cancha = _canchas[idx];
-                                return Card(
-                                  color: const Color(0xFF1E293B),
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    side: const BorderSide(
-                                        color: Colors.white12),
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(14),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                '${cancha.complejoNombre} · ${cancha.distrito}',
-                                                style: const TextStyle(
-                                                  color: Color(0xFF10B981),
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFF0EA5E9)
-                                                    .withValues(alpha: 0.2),
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                cancha.deporte,
-                                                style: const TextStyle(
-                                                  color: Color(0xFF38BDF8),
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 11,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          cancha.nombre,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${cancha.superficie} · ${cancha.techada ? "Techada" : "Aire libre"} · ${cancha.estado}',
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  'Día: S/ ${cancha.precioHoraDiurno.toStringAsFixed(2)} /h',
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  'Noche (>=18h): S/ ${cancha.precioHoraNocturno.toStringAsFixed(2)} /h',
-                                                  style: const TextStyle(
-                                                    color: Colors.white70,
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            ElevatedButton.icon(
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor:
-                                                    const Color(0xFF10B981),
-                                                foregroundColor: Colors.black,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                ),
-                                              ),
-                                              onPressed: () async {
-                                                final ok = await Navigator.of(
-                                                        context)
-                                                    .push<bool>(
-                                                  MaterialPageRoute(
-                                                    builder: (_) =>
-                                                        DisponibilidadReservaScreen(
-                                                      cancha: cancha,
-                                                      onReservaCreada: widget
-                                                          .onNavigateToReservas,
-                                                    ),
-                                                  ),
-                                                );
-                                                if (ok == true) {
-                                                  widget.onNavigateToReservas();
-                                                }
-                                              },
-                                              icon: const Icon(
-                                                  Icons.calendar_month,
-                                                  size: 18),
-                                              label: const Text(
-                                                'Ver Horarios',
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
+            child: RefreshIndicator(
+              onRefresh: _cargarCatalogo,
+              child: _contenido(),
+            ),
           ),
         ],
       ),

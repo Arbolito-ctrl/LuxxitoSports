@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+
 import '../models/luxxito_models.dart';
 import '../services/api_service.dart';
+import '../theme/luxxito_theme.dart';
+import '../widgets/luxxito_widgets.dart';
 
 class DisponibilidadReservaScreen extends StatefulWidget {
   final Cancha cancha;
@@ -19,6 +22,8 @@ class DisponibilidadReservaScreen extends StatefulWidget {
 
 class _DisponibilidadReservaScreenState
     extends State<DisponibilidadReservaScreen> {
+  static const int _maxHoras = 3;
+
   late String _fechaSeleccionada;
   DisponibilidadData? _disponibilidad;
   bool _cargando = true;
@@ -31,11 +36,13 @@ class _DisponibilidadReservaScreenState
   Map<String, dynamic>? _cotizacionServidor;
   bool _cotizando = false;
   bool _enviandoReserva = false;
+  bool _editarTitular = false;
 
-  final _nombreCtrl = TextEditingController(text: 'Carlos Mendoza');
-  final _dniCtrl = TextEditingController(text: '74125896');
-  final _telefonoCtrl = TextEditingController(text: '987654321');
-  final _emailCtrl = TextEditingController(text: 'carlos.mendoza@uni.pe');
+  final _titularKey = GlobalKey<FormState>();
+  final _nombreCtrl = TextEditingController();
+  final _dniCtrl = TextEditingController();
+  final _telefonoCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _notasCtrl = TextEditingController();
 
   @override
@@ -48,8 +55,10 @@ class _DisponibilidadReservaScreenState
       _telefonoCtrl.text = session.telefono;
       _emailCtrl.text = session.email;
     }
-    final manana = DateTime.now().add(const Duration(days: 1));
-    _fechaSeleccionada = _formatDate(manana);
+    _editarTitular = session == null;
+    _fechaSeleccionada = _formatDate(
+      DateTime.now().add(const Duration(days: 1)),
+    );
     _cargarDisponibilidad();
   }
 
@@ -70,9 +79,9 @@ class _DisponibilidadReservaScreenState
     return '$y-$m-$d';
   }
 
-  List<String> _proximosDias() {
+  List<DateTime> _proximosDias() {
     final hoy = DateTime.now();
-    return List.generate(7, (i) => _formatDate(hoy.add(Duration(days: i + 1))));
+    return List.generate(8, (i) => DateTime(hoy.year, hoy.month, hoy.day + i));
   }
 
   Future<void> _cargarDisponibilidad() async {
@@ -98,7 +107,7 @@ class _DisponibilidadReservaScreenState
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMsg = e.toString();
+        _errorMsg = mensajeError(e);
         _cargando = false;
       });
     }
@@ -108,13 +117,18 @@ class _DisponibilidadReservaScreenState
     if (turno.estado != 'DISPONIBLE') return;
 
     setState(() {
-      if (_horaInicioSel == null ||
-          (_horaInicioSel != null && _horaFinSel != _horaInicioSel! + 1)) {
-        _horaInicioSel = turno.horaInicio;
-        _horaFinSel = turno.horaFin;
-      } else if (turno.horaInicio == _horaFinSel &&
-          (_horaFinSel! - _horaInicioSel!) < 3) {
-        // Permite seleccionar hasta 3 horas consecutivas
+      final extiende =
+          _horaInicioSel != null &&
+          turno.horaInicio == _horaFinSel &&
+          (_horaFinSel! - _horaInicioSel!) < _maxHoras;
+      final esUnicoSeleccionado =
+          _horaInicioSel == turno.horaInicio && _horaFinSel == turno.horaFin;
+
+      if (esUnicoSeleccionado) {
+        _horaInicioSel = null;
+        _horaFinSel = null;
+        _cotizacionServidor = null;
+      } else if (extiende) {
         _horaFinSel = turno.horaFin;
       } else {
         _horaInicioSel = turno.horaInicio;
@@ -126,21 +140,14 @@ class _DisponibilidadReservaScreenState
 
   Future<void> _solicitarCotizacionServidor() async {
     if (_horaInicioSel == null || _horaFinSel == null) return;
-    setState(() {
-      _cotizando = true;
-    });
+    setState(() => _cotizando = true);
     try {
-      final extrasPayload = _extrasSeleccionados.entries
-          .where((e) => e.value > 0)
-          .map((e) => {'extra_id': e.key, 'cantidad': e.value})
-          .toList();
-
       final quote = await ApiService.cotizarReserva(
         canchaId: widget.cancha.id,
         fecha: _fechaSeleccionada,
         horaInicio: _horaInicioSel!,
         horaFin: _horaFinSel!,
-        extras: extrasPayload,
+        extras: _extrasPayload(),
       );
       if (!mounted) return;
       setState(() {
@@ -149,36 +156,29 @@ class _DisponibilidadReservaScreenState
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _cotizando = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
+      setState(() => _cotizando = false);
+      mostrarAviso(context, mensajeError(e), tipo: TipoAviso.error);
     }
   }
 
+  List<Map<String, int>> _extrasPayload() => _extrasSeleccionados.entries
+      .where((e) => e.value > 0)
+      .map((e) => {'extra_id': e.key, 'cantidad': e.value})
+      .toList();
+
   Future<void> _confirmarCreacionReserva() async {
-    if (_horaInicioSel == null || _horaFinSel == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona primero un horario disponible.')),
+    if (_horaInicioSel == null || _horaFinSel == null) return;
+    if (_editarTitular && !(_titularKey.currentState?.validate() ?? true)) {
+      mostrarAviso(
+        context,
+        'Completa los datos del titular.',
+        tipo: TipoAviso.error,
       );
       return;
     }
 
-    setState(() {
-      _enviandoReserva = true;
-    });
-
+    setState(() => _enviandoReserva = true);
     try {
-      final extrasPayload = _extrasSeleccionados.entries
-          .where((e) => e.value > 0)
-          .map((e) => {'extra_id': e.key, 'cantidad': e.value})
-          .toList();
-
       final reserva = await ApiService.crearReserva(
         canchaId: widget.cancha.id,
         clienteNombre: _nombreCtrl.text.trim(),
@@ -189,44 +189,63 @@ class _DisponibilidadReservaScreenState
         horaInicio: _horaInicioSel!,
         horaFin: _horaFinSel!,
         notas: _notasCtrl.text.trim().isEmpty ? null : _notasCtrl.text.trim(),
-        extras: extrasPayload,
+        extras: _extrasPayload(),
       );
 
       if (!mounted) return;
-      setState(() {
-        _enviandoReserva = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '¡Reserva #${reserva.id} creada con bloqueo de 20 min! Total: S/ ${reserva.total.toStringAsFixed(2)}',
+      setState(() => _enviandoReserva = false);
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(
+            Icons.check_circle,
+            color: LuxxitoColors.exito,
+            size: 48,
           ),
-          backgroundColor: const Color(0xFF059669),
+          title: const Text('¡Turno reservado!'),
+          content: Text(
+            '${widget.cancha.nombre}\n'
+            '${Formato.fechaLarga(reserva.fecha)} · ${Formato.rango(reserva.horaInicio, reserva.horaFin)}\n\n'
+            'Te guardamos el turno por 20 minutos. Envía tu comprobante de '
+            '${Formato.soles(reserva.total)} desde "Mis reservas" para confirmarlo.',
+            textAlign: TextAlign.center,
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Ir a pagar'),
+            ),
+          ],
         ),
       );
+      if (!mounted) return;
       widget.onReservaCreada();
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _enviandoReserva = false;
-      });
-      showDialog(
+      setState(() => _enviandoReserva = false);
+      final ocupado = e is ApiException && e.statusCode == 409;
+      showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.error_outline, color: Colors.redAccent),
-              SizedBox(width: 8),
-              Expanded(child: Text('Validación del Servidor')),
-            ],
+          icon: Icon(
+            ocupado ? Icons.event_busy : Icons.error_outline,
+            color: LuxxitoColors.error,
+            size: 44,
           ),
-          content: Text(e.toString()),
+          title: Text(
+            ocupado ? 'Ese horario ya no está libre' : 'No pudimos reservar',
+          ),
+          content: Text(mensajeError(e), textAlign: TextAlign.center),
+          actionsAlignment: MainAxisAlignment.center,
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Entendido'),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                if (ocupado) _cargarDisponibilidad();
+              },
+              child: Text(ocupado ? 'Ver horarios actualizados' : 'Entendido'),
             ),
           ],
         ),
@@ -234,458 +253,731 @@ class _DisponibilidadReservaScreenState
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final dias = _proximosDias();
+  // ---------------------------------------------------------------------------
+  // Secciones
+  // ---------------------------------------------------------------------------
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        foregroundColor: Colors.white,
-        title: Text(widget.cancha.nombre),
-        actions: [
-          IconButton(
-            onPressed: _cargarDisponibilidad,
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Actualizar disponibilidad',
+  Widget _cabecera() {
+    final complejo = _disponibilidad?.complejo;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FotoComplejo(
+            url: complejo?.imagenUrl,
+            iconoRespaldo: iconoDeporte(widget.cancha.deporte),
+            height: 140,
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: LuxxitoColors.primario.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    iconoDeporte(widget.cancha.deporte),
+                    color: LuxxitoColors.primario,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${widget.cancha.deporte} · ${widget.cancha.superficie}',
+                        style: const TextStyle(
+                          color: LuxxitoColors.texto,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        complejo != null && complejo.direccion.isNotEmpty
+                            ? '${complejo.nombre} · ${complejo.direccion}'
+                            : '${widget.cancha.complejoNombre} · ${widget.cancha.distrito}',
+                        style: const TextStyle(
+                          color: LuxxitoColors.textoSecundario,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          Insignia(
+                            'Día S/ ${widget.cancha.precioHoraDiurno.toStringAsFixed(0)}',
+                            color: LuxxitoColors.secundario,
+                            icono: Icons.wb_sunny_outlined,
+                          ),
+                          Insignia(
+                            'Noche S/ ${widget.cancha.precioHoraNocturno.toStringAsFixed(0)}',
+                            color: LuxxitoColors.nocturno,
+                            icono: Icons.nightlight_outlined,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
-      body: _cargando
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF10B981)),
-            )
-          : _errorMsg != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+    );
+  }
+
+  Widget _selectorFechas() {
+    final dias = _proximosDias();
+    return SizedBox(
+      height: 78,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: dias.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (context, idx) {
+          final d = dias[idx];
+          final iso = _formatDate(d);
+          final activo = iso == _fechaSeleccionada;
+          final etiqueta = idx == 0
+              ? 'Hoy'
+              : idx == 1
+              ? 'Mañana'
+              : Formato.diaSemana(d);
+          return InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () {
+              if (activo) return;
+              setState(() => _fechaSeleccionada = iso);
+              _cargarDisponibilidad();
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 64,
+              decoration: BoxDecoration(
+                color: activo
+                    ? LuxxitoColors.primario
+                    : LuxxitoColors.superficie,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: activo ? LuxxitoColors.primario : LuxxitoColors.borde,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    etiqueta,
+                    style: TextStyle(
+                      color: activo
+                          ? Colors.white
+                          : LuxxitoColors.textoSecundario,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                  Text(
+                    '${d.day}',
+                    style: TextStyle(
+                      color: activo ? Colors.white : LuxxitoColors.texto,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    Formato.mesCorto(d),
+                    style: TextStyle(
+                      color: activo ? Colors.white70 : LuxxitoColors.textoTenue,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _etiquetaNoDisponible(String estado) {
+    switch (estado) {
+      case 'OCUPADA':
+        return 'Ocupado';
+      case 'BLOQUEADA':
+        return 'Reservándose';
+      case 'MANTENIMIENTO':
+        return 'Mantenimiento';
+      case 'PASADA':
+        return 'Ya pasó';
+      default:
+        return 'No disponible';
+    }
+  }
+
+  Widget _leyenda() {
+    Widget item(Color color, String texto) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          texto,
+          style: const TextStyle(color: LuxxitoColors.textoTenue, fontSize: 12),
+        ),
+      ],
+    );
+    return Wrap(
+      spacing: 16,
+      runSpacing: 6,
+      children: [
+        item(LuxxitoColors.superficieAlta, 'Libre'),
+        item(LuxxitoColors.primario, 'Tu selección'),
+        item(LuxxitoColors.error.withValues(alpha: 0.5), 'No disponible'),
+      ],
+    );
+  }
+
+  Widget _grillaTurnos() {
+    final turnos = _disponibilidad?.turnos ?? [];
+    if (turnos.isEmpty) {
+      return const AvisoBanner(
+        icono: Icons.event_busy,
+        color: LuxxitoColors.advertencia,
+        texto: 'No hay horarios publicados para este día.',
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const columnas = 3;
+        const espacio = 10.0;
+        final ancho =
+            (constraints.maxWidth - espacio * (columnas - 1)) / columnas;
+        return Wrap(
+          spacing: espacio,
+          runSpacing: espacio,
+          children: turnos.map((turno) {
+            final libre = turno.estado == 'DISPONIBLE';
+            final seleccionado =
+                _horaInicioSel != null &&
+                turno.horaInicio >= _horaInicioSel! &&
+                turno.horaFin <= _horaFinSel!;
+            final nocturno = turno.tarifaTipo == 'NOCTURNA';
+
+            final fondo = seleccionado
+                ? LuxxitoColors.primario
+                : libre
+                ? LuxxitoColors.superficie
+                : LuxxitoColors.error.withValues(alpha: 0.08);
+            final colorTexto = seleccionado
+                ? Colors.white
+                : libre
+                ? LuxxitoColors.texto
+                : LuxxitoColors.textoTenue;
+
+            return InkWell(
+              onTap: libre ? () => _seleccionarTurno(turno) : null,
+              borderRadius: BorderRadius.circular(12),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: ancho,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: fondo,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: seleccionado
+                        ? LuxxitoColors.primario
+                        : libre
+                        ? LuxxitoColors.borde
+                        : LuxxitoColors.error.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.cloud_off,
-                            size: 56, color: Colors.redAccent),
-                        const SizedBox(height: 12),
+                        if (nocturno && libre) ...[
+                          Icon(
+                            Icons.nightlight_round,
+                            size: 12,
+                            color: seleccionado
+                                ? Colors.white70
+                                : LuxxitoColors.nocturno,
+                          ),
+                          const SizedBox(width: 4),
+                        ],
                         Text(
-                          _errorMsg!,
-                          style: const TextStyle(color: Colors.white70),
-                          textAlign: TextAlign.center,
+                          Formato.hora(turno.horaInicio),
+                          style: TextStyle(
+                            color: colorTexto,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            decoration: libre
+                                ? null
+                                : TextDecoration.lineThrough,
+                          ),
                         ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: _cargarDisponibilidad,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Reintentar'),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      libre
+                          ? 'S/ ${turno.precio.toStringAsFixed(0)}'
+                          : _etiquetaNoDisponible(turno.estado),
+                      style: TextStyle(
+                        color: seleccionado
+                            ? Colors.white70
+                            : LuxxitoColors.textoTenue,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _extras() {
+    final extras = _disponibilidad?.extrasDisponibles ?? [];
+    if (extras.isEmpty) {
+      return const Text(
+        'Este complejo no ofrece extras por ahora.',
+        style: TextStyle(color: LuxxitoColors.textoTenue),
+      );
+    }
+    final sinHorario = _horaInicioSel == null;
+    return Column(
+      children: extras.map((extra) {
+        final cant = _extrasSeleccionados[extra.id] ?? 0;
+        final agotado = extra.stockDisponible <= 0;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          extra.nombre,
+                          style: const TextStyle(
+                            color: LuxxitoColors.texto,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          agotado
+                              ? 'Agotado para este horario'
+                              : '${Formato.soles(extra.precioUnitario)} c/u · quedan ${extra.stockDisponible}',
+                          style: TextStyle(
+                            color: agotado
+                                ? LuxxitoColors.error
+                                : LuxxitoColors.textoTenue,
+                            fontSize: 12.5,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                )
-              : ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    // Cabecera de cancha
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${widget.cancha.complejoNombre} · ${widget.cancha.distrito}',
-                            style: const TextStyle(
-                              color: Color(0xFF10B981),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${widget.cancha.deporte} · ${widget.cancha.superficie}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              _buildPriceTag(
-                                'Día (<18h): S/ ${widget.cancha.precioHoraDiurno.toStringAsFixed(0)}',
-                                const Color(0xFF0EA5E9),
-                              ),
-                              const SizedBox(width: 8),
-                              _buildPriceTag(
-                                'Noche (>=18h): S/ ${widget.cancha.precioHoraNocturno.toStringAsFixed(0)}',
-                                const Color(0xFF8B5CF6),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Selector horizontal de fechas
-                    const Text(
-                      '1. Selecciona la Fecha',
+                  IconButton(
+                    tooltip: 'Quitar',
+                    icon: const Icon(Icons.remove_circle_outline),
+                    color: LuxxitoColors.textoSecundario,
+                    onPressed: cant > 0
+                        ? () {
+                            setState(
+                              () => _extrasSeleccionados[extra.id] = cant - 1,
+                            );
+                            _solicitarCotizacionServidor();
+                          }
+                        : null,
+                  ),
+                  SizedBox(
+                    width: 24,
+                    child: Text(
+                      '$cant',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
+                        color: cant > 0
+                            ? LuxxitoColors.primario
+                            : LuxxitoColors.textoTenue,
                         fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 46,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: dias.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 8),
-                        itemBuilder: (context, idx) {
-                          final d = dias[idx];
-                          final activo = d == _fechaSeleccionada;
-                          return ChoiceChip(
-                            label: Text(d),
-                            selected: activo,
-                            selectedColor: const Color(0xFF10B981),
-                            backgroundColor: const Color(0xFF1E293B),
-                            labelStyle: TextStyle(
-                              color: activo ? Colors.black : Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            onSelected: (_) {
-                              setState(() {
-                                _fechaSeleccionada = d;
-                              });
-                              _cargarDisponibilidad();
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-
-                    // Grilla de horarios
-                    const Text(
-                      '2. Elige tu Turno (Toca horas consecutivas para ampliar)',
-                      style: TextStyle(
-                        color: Colors.white,
                         fontSize: 16,
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: (_disponibilidad?.turnos ?? []).map((turno) {
-                        final seleccionado = _horaInicioSel != null &&
-                            _horaFinSel != null &&
-                            turno.horaInicio >= _horaInicioSel! &&
-                            turno.horaFin <= _horaFinSel!;
+                  ),
+                  IconButton(
+                    tooltip: sinHorario
+                        ? 'Elige primero un horario'
+                        : 'Agregar',
+                    icon: const Icon(Icons.add_circle),
+                    color: LuxxitoColors.primario,
+                    onPressed: !sinHorario && cant < extra.stockDisponible
+                        ? () {
+                            setState(
+                              () => _extrasSeleccionados[extra.id] = cant + 1,
+                            );
+                            _solicitarCotizacionServidor();
+                          }
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
 
-                        Color bgColor = const Color(0xFF1E293B);
-                        Color borderColor = Colors.white24;
-                        if (turno.estado != 'DISPONIBLE') {
-                          bgColor = Colors.red.withValues(alpha: 0.18);
-                          borderColor = Colors.redAccent;
-                        } else if (seleccionado) {
-                          bgColor = const Color(0xFF10B981);
-                          borderColor = const Color(0xFF10B981);
-                        }
+  Widget _resumen() {
+    final q = _cotizacionServidor;
+    if (_cotizando && q == null) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (q == null) return const SizedBox.shrink();
 
-                        return InkWell(
-                          onTap: turno.estado == 'DISPONIBLE'
-                              ? () => _seleccionarTurno(turno)
-                              : null,
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            width: 155,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: bgColor,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: borderColor),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  turno.etiqueta,
-                                  style: TextStyle(
-                                    color: seleccionado
-                                        ? Colors.black
-                                        : Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${turno.estado} · S/ ${turno.precio.toStringAsFixed(0)} (${turno.tarifaTipo == 'NOCTURNA' ? 'Noche' : 'Día'})',
-                                  style: TextStyle(
-                                    color: seleccionado
-                                        ? Colors.black87
-                                        : Colors.white70,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Selección de Extras con stock del servidor
-                    const Text(
-                      '3. Equipamiento Adicional / Extras (Opcional)',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ...(_disponibilidad?.extrasDisponibles ?? []).map((extra) {
-                      final cant = _extrasSeleccionados[extra.id] ?? 0;
-                      return Card(
-                        color: const Color(0xFF1E293B),
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          title: Text(
-                            extra.nombre,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          subtitle: Text(
-                            'S/ ${extra.precioUnitario.toStringAsFixed(2)} c/u · Stock máx: ${extra.stockDisponible}',
-                            style: const TextStyle(color: Colors.white70),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove_circle_outline,
-                                    color: Colors.white70),
-                                onPressed: cant > 0
-                                    ? () {
-                                        setState(() {
-                                          _extrasSeleccionados[extra.id] =
-                                              cant - 1;
-                                        });
-                                        _solicitarCotizacionServidor();
-                                      }
-                                    : null,
-                              ),
-                              Text(
-                                '$cant',
-                                style: const TextStyle(
-                                  color: Color(0xFF10B981),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.add_circle_outline,
-                                    color: Color(0xFF10B981)),
-                                onPressed: cant < extra.stockDisponible
-                                    ? () {
-                                        setState(() {
-                                          _extrasSeleccionados[extra.id] =
-                                              cant + 1;
-                                        });
-                                        _solicitarCotizacionServidor();
-                                      }
-                                    : null,
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
-                    const SizedBox(height: 16),
-
-                    // Resumen de Cotización del Servidor
-                    if (_cotizando)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: CircularProgressIndicator(
-                              color: Color(0xFF10B981)),
-                        ),
-                      )
-                    else if (_cotizacionServidor != null)
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF064E3B),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF10B981)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Cotización Verificada por el Servidor',
-                              style: TextStyle(
-                                color: Color(0xFF34D399),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Horario: ${_cotizacionServidor!['hora_inicio']}:00 - ${_cotizacionServidor!['hora_fin']}:00 (${_cotizacionServidor!['duracion_horas']} h)',
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                            Text(
-                              'Subtotal Cancha: S/ ${(_cotizacionServidor!['subtotal_cancha'] as num).toStringAsFixed(2)}',
-                              style: const TextStyle(color: Colors.white70),
-                            ),
-                            Text(
-                              'Subtotal Extras: S/ ${(_cotizacionServidor!['subtotal_extras'] as num).toStringAsFixed(2)}',
-                              style: const TextStyle(color: Colors.white70),
-                            ),
-                            const Divider(color: Colors.white24),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'TOTAL: S/ ${(_cotizacionServidor!['total'] as num).toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 17,
-                                  ),
-                                ),
-                                Text(
-                                  'Seña 50%: S/ ${(_cotizacionServidor!['monto_sena_50'] as num).toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                    color: Color(0xFF6EE7B7),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    const SizedBox(height: 18),
-
-                    // Formulario de datos del cliente
-                    const Text(
-                      '4. Datos del Titular de la Reserva',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _buildTextField(_nombreCtrl, 'Nombre Completo', Icons.person),
-                    const SizedBox(height: 10),
-                    _buildTextField(
-                        _dniCtrl, 'DNI (8 dígitos)', Icons.badge_outlined),
-                    const SizedBox(height: 10),
-                    _buildTextField(
-                        _telefonoCtrl, 'Teléfono / Celular', Icons.phone),
-                    const SizedBox(height: 10),
-                    _buildTextField(
-                        _emailCtrl, 'Correo Electrónico', Icons.email_outlined),
-                    const SizedBox(height: 10),
-                    _buildTextField(
-                      _notasCtrl,
-                      'Notas adicionales (opcional)',
-                      Icons.notes,
-                    ),
-                    const SizedBox(height: 20),
-
-                    SizedBox(
-                      height: 52,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF10B981),
-                          foregroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed:
-                            _enviandoReserva ? null : _confirmarCreacionReserva,
-                        icon: _enviandoReserva
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.black),
-                              )
-                            : const Icon(Icons.lock_clock),
-                        label: Text(
-                          _enviandoReserva
-                              ? 'Procesando en servidor...'
-                              : 'Adquirir Bloqueo (20 min) y Reservar',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                  ],
+    Widget fila(String etiqueta, num monto, {bool destacado = false}) =>
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  etiqueta,
+                  style: TextStyle(
+                    color: destacado
+                        ? LuxxitoColors.texto
+                        : LuxxitoColors.textoSecundario,
+                    fontWeight: destacado ? FontWeight.bold : FontWeight.normal,
+                    fontSize: destacado ? 16 : 14,
+                  ),
                 ),
+              ),
+              Text(
+                Formato.soles(monto),
+                style: TextStyle(
+                  color: LuxxitoColors.texto,
+                  fontWeight: destacado ? FontWeight.bold : FontWeight.w500,
+                  fontSize: destacado ? 18 : 14,
+                ),
+              ),
+            ],
+          ),
+        );
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 200),
+      opacity: _cotizando ? 0.5 : 1,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              fila(
+                'Cancha · ${q['duracion_horas']} h (${Formato.rango((q['hora_inicio'] as num).toInt(), (q['hora_fin'] as num).toInt())})',
+                q['subtotal_cancha'] as num,
+              ),
+              if ((q['subtotal_extras'] as num) > 0)
+                fila('Extras', q['subtotal_extras'] as num),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Divider(),
+              ),
+              fila('Total', q['total'] as num, destacado: true),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    size: 14,
+                    color: LuxxitoColors.textoTenue,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Puedes adelantar solo el 50% (${Formato.soles(q['monto_sena_50'] as num)}) y pagar el resto en el complejo.',
+                      style: const TextStyle(
+                        color: LuxxitoColors.textoTenue,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildPriceTag(String text, Color color) {
+  Widget _titular() {
+    if (!_editarTitular) {
+      return Card(
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: LuxxitoColors.primario.withValues(alpha: 0.2),
+            child: Text(
+              Formato.iniciales(_nombreCtrl.text),
+              style: const TextStyle(
+                color: LuxxitoColors.primario,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          title: Text(
+            _nombreCtrl.text,
+            style: const TextStyle(
+              color: LuxxitoColors.texto,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          subtitle: Text(
+            'DNI ${_dniCtrl.text} · ${_telefonoCtrl.text}',
+            style: const TextStyle(color: LuxxitoColors.textoTenue),
+          ),
+          trailing: TextButton(
+            onPressed: () => setState(() => _editarTitular = true),
+            child: const Text('Cambiar'),
+          ),
+        ),
+      );
+    }
+    return Form(
+      key: _titularKey,
+      child: Column(
+        children: [
+          TextFormField(
+            controller: _nombreCtrl,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(
+              labelText: 'Nombre completo',
+              prefixIcon: Icon(Icons.person_outline),
+            ),
+            validator: (v) =>
+                (v ?? '').trim().isEmpty ? 'Ingresa el nombre' : null,
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _dniCtrl,
+                  keyboardType: TextInputType.number,
+                  maxLength: 8,
+                  decoration: const InputDecoration(
+                    labelText: 'DNI',
+                    counterText: '',
+                    prefixIcon: Icon(Icons.badge_outlined),
+                  ),
+                  validator: (v) => RegExp(r'^\d{8}$').hasMatch(v?.trim() ?? '')
+                      ? null
+                      : '8 dígitos',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _telefonoCtrl,
+                  keyboardType: TextInputType.phone,
+                  maxLength: 9,
+                  decoration: const InputDecoration(
+                    labelText: 'Celular',
+                    counterText: '',
+                    prefixIcon: Icon(Icons.phone_outlined),
+                  ),
+                  validator: (v) =>
+                      RegExp(r'^9\d{8}$').hasMatch(v?.trim() ?? '')
+                      ? null
+                      : '9 dígitos',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _emailCtrl,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: 'Correo electrónico',
+              prefixIcon: Icon(Icons.email_outlined),
+            ),
+            validator: (v) =>
+                RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(v?.trim() ?? '')
+                ? null
+                : 'Revisa el correo',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _barraInferior() {
+    final total = _cotizacionServidor?['total'] as num?;
+    final hayHorario = _horaInicioSel != null;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + espacioInferior(context)),
+      decoration: const BoxDecoration(
+        color: LuxxitoColors.superficie,
+        border: Border(top: BorderSide(color: LuxxitoColors.borde)),
       ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hayHorario
+                      ? '${Formato.fecha(_fechaSeleccionada)} · ${Formato.rango(_horaInicioSel!, _horaFinSel!)}'
+                      : 'Elige un horario',
+                  style: const TextStyle(
+                    color: LuxxitoColors.textoSecundario,
+                    fontSize: 12.5,
+                  ),
+                ),
+                Text(
+                  total != null ? Formato.soles(total) : '—',
+                  style: const TextStyle(
+                    color: LuxxitoColors.texto,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          FilledButton.icon(
+            onPressed:
+                hayHorario && total != null && !_enviandoReserva && !_cotizando
+                ? _confirmarCreacionReserva
+                : null,
+            icon: _enviandoReserva
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.lock_clock),
+            label: Text(_enviandoReserva ? 'Reservando…' : 'Reservar'),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildTextField(
-      TextEditingController ctrl, String label, IconData icon) {
-    return TextField(
-      controller: ctrl,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white70),
-        prefixIcon: Icon(icon, color: const Color(0xFF10B981)),
-        filled: true,
-        fillColor: const Color(0xFF1E293B),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Colors.white24),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.cancha.nombre, style: const TextStyle(fontSize: 18)),
+            Text(
+              widget.cancha.complejoNombre,
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: LuxxitoColors.textoSecundario,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFF10B981)),
-        ),
+        actions: [
+          IconButton(
+            onPressed: _cargando ? null : _cargarDisponibilidad,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Actualizar horarios',
+          ),
+        ],
       ),
+      bottomNavigationBar: _cargando || _errorMsg != null
+          ? null
+          : _barraInferior(),
+      body: _cargando
+          ? const EstadoVista.cargando(titulo: 'Consultando horarios…')
+          : _errorMsg != null
+          ? EstadoVista.error(
+              titulo: 'No pudimos cargar los horarios',
+              mensaje: _errorMsg!,
+              onReintentar: _cargarDisponibilidad,
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              children: [
+                _cabecera(),
+                const SizedBox(height: 22),
+                const SeccionTitulo('¿Qué día quieres jugar?'),
+                _selectorFechas(),
+                const SizedBox(height: 22),
+                SeccionTitulo(
+                  '¿A qué hora?',
+                  subtitulo:
+                      'Toca horas seguidas para jugar hasta $_maxHoras horas.',
+                ),
+                _leyenda(),
+                const SizedBox(height: 12),
+                _grillaTurnos(),
+                const SizedBox(height: 22),
+                const SeccionTitulo(
+                  'Extras',
+                  subtitulo: 'Opcional: chalecos, balones, árbitro y más.',
+                ),
+                _extras(),
+                if (_cotizacionServidor != null || _cotizando) ...[
+                  const SizedBox(height: 12),
+                  const SeccionTitulo('Resumen'),
+                  _resumen(),
+                ],
+                const SizedBox(height: 22),
+                const SeccionTitulo('Titular de la reserva'),
+                _titular(),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _notasCtrl,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Notas para el complejo (opcional)',
+                    prefixIcon: Icon(Icons.notes),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

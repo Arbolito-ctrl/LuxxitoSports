@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../services/api_service.dart';
-import 'auth_screen.dart';
+import '../theme/luxxito_theme.dart';
+import '../widgets/luxxito_widgets.dart';
 import 'revision_pagos_screen.dart';
 
 class PerfilConfigScreen extends StatefulWidget {
@@ -15,112 +17,315 @@ class PerfilConfigScreen extends StatefulWidget {
 
 class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
   static const String currentInstalledVersion = '1.0.0';
-
-  late TextEditingController _urlCtrl;
-  Map<String, dynamic>? _healthInfo;
-  Map<String, dynamic>? _updateInfo;
-  String? _errorMsg;
-  bool _verificando = false;
   bool _buscandoUpdate = false;
+  int? _pagosPendientes;
 
   @override
   void initState() {
     super.initState();
-    _urlCtrl = TextEditingController(text: ApiService.baseUrl);
-    _verificarConexion();
-    _verificarActualizacionApk();
+    if (ApiService.esAdmin) _contarPagosPendientes();
   }
 
-  @override
-  void dispose() {
-    _urlCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _verificarConexion() async {
-    setState(() {
-      _verificando = true;
-      _errorMsg = null;
-    });
+  Future<void> _contarPagosPendientes() async {
     try {
-      ApiService.setBaseUrl(_urlCtrl.text);
-      final data = await ApiService.checkHealth();
-      if (!mounted) return;
-      setState(() {
-        _healthInfo = data;
-        _verificando = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _healthInfo = null;
-        _errorMsg = e.toString();
-        _verificando = false;
-      });
+      final pagos = await ApiService.listarPagos();
+      if (mounted) setState(() => _pagosPendientes = pagos.length);
+    } catch (_) {
+      // El contador es informativo: si falla, la bandeja mostrará el error.
     }
   }
 
-  Future<void> _verificarActualizacionApk() async {
-    setState(() {
-      _buscandoUpdate = true;
-    });
+  Future<void> _buscarActualizacion() async {
+    setState(() => _buscandoUpdate = true);
     final info = await ApiService.checkAppUpdate();
     if (!mounted) return;
-    setState(() {
-      _updateInfo = info;
-      _buscandoUpdate = false;
-    });
-  }
+    setState(() => _buscandoUpdate = false);
 
-  void _mostrarModalDescargaApk(String url, String origen) {
-    Clipboard.setData(ClipboardData(text: url));
-    showDialog(
+    final ultima = info['version']?.toString() ?? currentInstalledVersion;
+    final hayNueva = ultima != currentInstalledVersion;
+    final url =
+        info['github_release_apk_url']?.toString() ??
+        'https://github.com/Arbolito-ctrl/LuxxitoSports/releases/latest/download/luxxito-sports.apk';
+
+    await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: Row(
-          children: [
-            const Icon(Icons.system_update, color: Color(0xFF10B981)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Descargar Actualización APK ($origen)',
-                style: const TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ),
-          ],
+        icon: Icon(
+          hayNueva ? Icons.system_update : Icons.verified,
+          color: LuxxitoColors.primario,
+          size: 40,
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'El enlace directo al archivo APK actualizado ha sido copiado al portapapeles para abrirlo en el navegador de tu teléfono Android:',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF10B981)),
-              ),
-              child: SelectableText(
-                url,
-                style: const TextStyle(
-                  color: Color(0xFF34D399),
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ],
+        title: Text(
+          hayNueva
+              ? 'Nueva versión $ultima disponible'
+              : 'Tienes la última versión',
         ),
+        content: Text(
+          hayNueva
+              ? (info['release_notes']?.toString() ??
+                    'Descarga el APK e instálalo sobre la versión actual.')
+              : 'Luxxito Sports $currentInstalledVersion está al día.',
+          textAlign: TextAlign.center,
+        ),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Cerrar'),
+          ),
+          if (hayNueva)
+            FilledButton.icon(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: url));
+                Navigator.of(ctx).pop();
+                mostrarAviso(
+                  context,
+                  'Enlace copiado. Pégalo en tu navegador para descargar el APK.',
+                  tipo: TipoAviso.info,
+                );
+              },
+              icon: const Icon(Icons.link),
+              label: const Text('Copiar enlace'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _mostrarPoliticas() {
+    Widget regla(IconData icono, String titulo, String texto) => Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: LuxxitoColors.primario.withValues(alpha: 0.15),
+            child: Icon(icono, color: LuxxitoColors.primario, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: const TextStyle(
+                    color: LuxxitoColors.texto,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  texto,
+                  style: const TextStyle(
+                    color: LuxxitoColors.textoSecundario,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Cómo funcionan las reservas',
+                style: TextStyle(
+                  color: LuxxitoColors.texto,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              regla(
+                Icons.wb_twilight,
+                'Tarifa de día y de noche',
+                'Desde las 18:00 rige la tarifa nocturna. El precio final siempre lo calcula nuestro sistema.',
+              ),
+              regla(
+                Icons.lock_clock,
+                'Te guardamos el turno 20 minutos',
+                'Al reservar, nadie más puede tomar ese horario mientras envías tu comprobante. Puedes pagar el total o un adelanto del 50%.',
+              ),
+              regla(
+                Icons.fact_check_outlined,
+                'Revisamos tu pago',
+                'Mientras validamos el comprobante tu turno sigue protegido. Si hay un problema te diremos el motivo para que envíes uno nuevo.',
+              ),
+              regla(
+                Icons.inventory_2_outlined,
+                'Extras según disponibilidad',
+                'Chalecos, balones y árbitros dependen del stock del complejo en ese horario.',
+              ),
+              regla(
+                Icons.event_busy,
+                'Cancelaciones',
+                'Con 24 horas o más de anticipación te devolvemos el 100%. Con menos de 24 horas se retiene el 50% de lo pagado.',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmarCerrarSesion() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Cerrar sesión?'),
+        content: const Text('Podrás volver a ingresar cuando quieras.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Cerrar sesión'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    ApiService.logout();
+    widget.onLogout?.call();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Componentes
+  // ---------------------------------------------------------------------------
+
+  Widget _grupo(String titulo, List<Widget> items) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(
+              titulo.toUpperCase(),
+              style: const TextStyle(
+                color: LuxxitoColors.textoTenue,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                for (var i = 0; i < items.length; i++) ...[
+                  if (i > 0) const Divider(indent: 56),
+                  items[i],
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _opcion({
+    required IconData icono,
+    required String titulo,
+    String? subtitulo,
+    Widget? trailing,
+    VoidCallback? onTap,
+    Color color = LuxxitoColors.primario,
+  }) {
+    return ListTile(
+      onTap: onTap,
+      leading: Icon(icono, color: color),
+      title: Text(titulo, style: const TextStyle(color: LuxxitoColors.texto)),
+      subtitle: subtitulo == null
+          ? null
+          : Text(
+              subtitulo,
+              style: const TextStyle(color: LuxxitoColors.textoTenue),
+            ),
+      trailing:
+          trailing ??
+          (onTap != null
+              ? const Icon(Icons.chevron_right, color: LuxxitoColors.textoTenue)
+              : null),
+    );
+  }
+
+  Widget _cabecera() {
+    final session = ApiService.currentSession;
+    final nombre = session?.nombre ?? 'Invitado';
+    final esAdmin = ApiService.esAdmin;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: LuxxitoColors.superficie,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: LuxxitoColors.borde),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 30,
+            backgroundColor: LuxxitoColors.primarioSuave,
+            child: Text(
+              Formato.iniciales(nombre),
+              style: const TextStyle(
+                color: LuxxitoColors.primario,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  nombre,
+                  style: const TextStyle(
+                    color: LuxxitoColors.texto,
+                    fontSize: 19,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (session != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    session.email,
+                    style: const TextStyle(
+                      color: LuxxitoColors.textoSecundario,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Insignia(
+                  esAdmin ? 'Administrador' : 'Jugador',
+                  color: esAdmin
+                      ? LuxxitoColors.secundario
+                      : LuxxitoColors.primario,
+                  icono: esAdmin ? Icons.shield_outlined : Icons.sports_soccer,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -129,425 +334,109 @@ class _PerfilConfigScreenState extends State<PerfilConfigScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final latestVersion = _updateInfo?['version']?.toString() ?? '1.0.1';
-    final hayNuevaVersion = latestVersion != currentInstalledVersion;
     final session = ApiService.currentSession;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          _cabecera(),
+          if (session != null)
+            _grupo('Mi cuenta', [
+              _opcion(
+                icono: Icons.badge_outlined,
+                titulo: 'DNI',
+                subtitulo: session.dni,
+              ),
+              _opcion(
+                icono: Icons.phone_outlined,
+                titulo: 'Celular',
+                subtitulo: session.telefono.isEmpty
+                    ? 'Sin registrar'
+                    : session.telefono,
+              ),
+              _opcion(
+                icono: Icons.email_outlined,
+                titulo: 'Correo',
+                subtitulo: session.email,
+              ),
+            ]),
+          if (ApiService.esAdmin)
+            _grupo('Administración', [
+              _opcion(
+                icono: Icons.fact_check_outlined,
+                color: LuxxitoColors.secundario,
+                titulo: 'Revisión de pagos',
+                subtitulo: 'Aprueba o rechaza comprobantes',
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const CircleAvatar(
-                      radius: 28,
-                      backgroundColor: Color(0xFF10B981),
-                      child: Icon(Icons.sports_soccer,
-                          color: Colors.black, size: 32),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            session != null
-                                ? session.nombre
-                                : 'Luxxito Sports Mobile',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            session != null
-                                ? '${session.email} · DNI ${session.dni}'
-                                : 'Versión instalada: v1.0.0 · Sesión de Invitado',
-                            style: const TextStyle(
-                              color: Color(0xFF10B981),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+                    if ((_pagosPendientes ?? 0) > 0)
+                      Badge(
+                        label: Text('$_pagosPendientes'),
+                        backgroundColor: LuxxitoColors.advertencia,
+                        textColor: Colors.black,
                       ),
+                    const SizedBox(width: 8),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: LuxxitoColors.textoTenue,
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    if (session == null)
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF10B981),
-                          foregroundColor: Colors.black,
-                        ),
-                        onPressed: () async {
-                          await Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => AuthScreen(
-                                onAuthenticated: (_) {
-                                  setState(() {});
-                                },
-                              ),
-                            ),
-                          );
-                          setState(() {});
-                        },
-                        icon: const Icon(Icons.login, size: 18),
-                        label: const Text(
-                          'Iniciar Sesión / Crear Cuenta',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      )
-                    else
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.redAccent,
-                          side: const BorderSide(color: Colors.redAccent),
-                        ),
-                        onPressed: () {
-                          ApiService.logout();
-                          setState(() {});
-                          widget.onLogout?.call();
-                        },
-                        icon: const Icon(Icons.logout, size: 18),
-                        label: const Text('Cerrar Sesión'),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // MODO OPERADOR: BANDEJA DE REVISIÓN DE COMPROBANTES (LX-301)
-          Card(
-            color: const Color(0xFF1E293B),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-              side: const BorderSide(color: Color(0xFF0EA5E9)),
-            ),
-            child: ListTile(
-              leading: const Icon(Icons.admin_panel_settings,
-                  color: Color(0xFF38BDF8)),
-              title: const Text(
-                'Modo Operador · Revisión de Pagos',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              subtitle: const Text(
-                'Aprobar o rechazar comprobantes Yape/Plin pendientes.',
-                style: TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-              trailing: const Icon(Icons.chevron_right, color: Colors.white54),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const RevisionPagosScreen()),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // TARJETA DE ACTUALIZACIÓN DESCARGABLE DE APK (OTA / GITHUB RELEASES)
-          Container(
-            padding: const EdgeInsets.all(15),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: hayNuevaVersion
-                    ? const Color(0xFF10B981)
-                    : Colors.white24,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.android, color: Color(0xFF10B981)),
-                        SizedBox(width: 8),
-                        Text(
-                          'Actualizaciones de APK (OTA)',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ],
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const RevisionPagosScreen(),
                     ),
-                    IconButton(
-                      onPressed:
-                          _buscandoUpdate ? null : _verificarActualizacionApk,
-                      icon: const Icon(Icons.refresh, color: Colors.white70),
-                      tooltip: 'Buscar nueva versión de APK',
-                    ),
-                  ],
-                ),
-                Text(
-                  'Versión instalada: $currentInstalledVersion  |  Última en servidor: $latestVersion',
-                  style: const TextStyle(
-                    color: Color(0xFF6EE7B7),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _updateInfo?['release_notes']?.toString() ??
-                      'Cada push a main/develop compila y publica automáticamente el nuevo APK en GitHub Releases.',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF10B981),
-                        foregroundColor: Colors.black,
-                      ),
-                      onPressed: () {
-                        final ghUrl = _updateInfo?['github_release_apk_url']
-                                ?.toString() ??
-                            'https://github.com/Arbolito-ctrl/LuxxitoSports/releases/latest/download/luxxito-sports.apk';
-                        _mostrarModalDescargaApk(ghUrl, 'GitHub Releases');
-                      },
-                      icon: const Icon(Icons.download, size: 18),
-                      label: const Text(
-                        'Descargar APK (GitHub Release)',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Color(0xFF0EA5E9)),
-                      ),
-                      onPressed: () {
-                        final srvUrl =
-                            _updateInfo?['server_apk_url']?.toString() ??
-                                '${ApiService.baseUrl}/apk/download';
-                        _mostrarModalDescargaApk(srvUrl, 'Servidor API');
-                      },
-                      icon: const Icon(Icons.cloud_download,
-                          size: 18, color: Color(0xFF38BDF8)),
-                      label: const Text('Descargar APK desde API'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 18),
-          const Text(
-            'Configuración de Conexión a la API REST',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _urlCtrl,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              labelText: 'URL Base de la API',
-              labelStyle: const TextStyle(color: Colors.white70),
-              prefixIcon: const Icon(Icons.link, color: Color(0xFF10B981)),
-              filled: true,
-              fillColor: const Color(0xFF1E293B),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Colors.white24),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            children: [
-              ActionChip(
-                backgroundColor: const Color(0xFF1E293B),
-                label: const Text('Localhost (Windows/Web/iOS)',
-                    style: TextStyle(color: Colors.white, fontSize: 12)),
-                onPressed: () {
-                  _urlCtrl.text = 'http://localhost:3000/api';
-                  _verificarConexion();
+                  );
+                  _contarPagosPendientes();
                 },
               ),
-              ActionChip(
-                backgroundColor: const Color(0xFF1E293B),
-                label: const Text('Emulador Android (10.0.2.2)',
-                    style: TextStyle(color: Colors.white, fontSize: 12)),
-                onPressed: () {
-                  _urlCtrl.text = 'http://10.0.2.2:3000/api';
-                  _verificarConexion();
-                },
-              ),
-              ActionChip(
-                backgroundColor: const Color(0xFF064E3B),
-                label: const Text('Supabase Cloud (4.5G / Internet)',
-                    style: TextStyle(color: Color(0xFF6EE7B7), fontSize: 12)),
-                onPressed: () {
-                  ApiService.enableSupabaseCloudMode();
-                  _urlCtrl.text = ApiService.baseUrl;
-                  _verificarConexion();
-                },
-              ),
-              ActionChip(
-                backgroundColor: const Color(0xFF1E293B),
-                label: const Text('Wi-Fi Laptop (192.168.1.14)',
-                    style: TextStyle(color: Colors.white, fontSize: 12)),
-                onPressed: () {
-                  _urlCtrl.text = 'http://192.168.1.14:3000/api';
-                  _verificarConexion();
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
-              foregroundColor: Colors.black,
+            ]),
+          _grupo('Ayuda', [
+            _opcion(
+              icono: Icons.menu_book_outlined,
+              titulo: 'Cómo funcionan las reservas',
+              subtitulo: 'Pagos, tiempos y cancelaciones',
+              onTap: _mostrarPoliticas,
             ),
-            onPressed: _verificando ? null : _verificarConexion,
-            icon: const Icon(Icons.network_check),
-            label: Text(_verificando
-                ? 'Verificando...'
-                : 'Probar Conexión con GET /api/health'),
-          ),
-          const SizedBox(height: 14),
-
-          if (_healthInfo != null)
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFF064E3B),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF10B981)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.check_circle, color: Color(0xFF34D399)),
-                      SizedBox(width: 8),
-                      Text(
-                        'Conectado a la API REST',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Servicio: ${_healthInfo!['service']}',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  Text(
-                    'Modo BD: ${_healthInfo!['db_mode']}',
-                    style: const TextStyle(
-                      color: Color(0xFF6EE7B7),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else if (_errorMsg != null)
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.redAccent),
-              ),
-              child: Text(
-                _errorMsg!,
-                style: const TextStyle(color: Colors.white),
-              ),
+          ]),
+          _grupo('Acerca de', [
+            _opcion(
+              icono: Icons.system_update_outlined,
+              titulo: 'Buscar actualizaciones',
+              trailing: _buscandoUpdate
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+              onTap: _buscandoUpdate ? null : _buscarActualizacion,
             ),
-
-          const SizedBox(height: 22),
-          const Text(
-            'Reglas de Negocio Verificadas en Servidor',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+            _opcion(
+              icono: Icons.info_outline,
+              titulo: 'Versión',
+              subtitulo: 'Luxxito Sports $currentInstalledVersion',
+              trailing: const SizedBox.shrink(),
             ),
-          ),
-          const SizedBox(height: 8),
-          _buildRuleTile(
-            Icons.price_check,
-            'Tarifa Diferenciada y Cotización en Servidor',
-            'Tarifa diurna (< 18:00) y tarifa nocturna (>= 18:00) calculadas exclusivamente en el backend junto con el 50% de seña.',
-          ),
-          _buildRuleTile(
-            Icons.event_busy,
-            'Exclusión Mutua y Bloqueo de 20 Minutos',
-            'Impide solapamientos de reservas activas (HTTP 409 Conflict) y protege reservas en revisión de comprobante.',
-          ),
-          _buildRuleTile(
-            Icons.inventory_2_outlined,
-            'Control de Capacidad de Extras por Intervalo',
-            'Descuenta y verifica el stock disponible de chalecos, balones y árbitros en el mismo complejo e intervalo horario.',
-          ),
-          _buildRuleTile(
-            Icons.assignment_return_outlined,
-            'Política de Cancelación de 24 Horas y Ticket QR',
-            'Reembolso del 100% si se cancela con >= 24h de anticipación o retención del 50% si faltan < 24h, revocando el QR.',
-          ),
+          ]),
+          if (session != null) ...[
+            const SizedBox(height: 28),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: LuxxitoColors.error,
+                side: BorderSide(
+                  color: LuxxitoColors.error.withValues(alpha: 0.5),
+                ),
+              ),
+              onPressed: _confirmarCerrarSesion,
+              icon: const Icon(Icons.logout),
+              label: const Text('Cerrar sesión'),
+            ),
+          ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildRuleTile(IconData icon, String title, String desc) {
-    return Card(
-      color: const Color(0xFF1E293B),
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(icon, color: const Color(0xFF10B981)),
-        title: Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
-        ),
-        subtitle: Text(
-          desc,
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
-        ),
       ),
     );
   }

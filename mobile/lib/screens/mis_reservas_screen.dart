@@ -1,28 +1,39 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+
 import '../models/luxxito_models.dart';
 import '../services/api_service.dart';
+import '../theme/luxxito_theme.dart';
+import '../widgets/luxxito_widgets.dart';
 
 class MisReservasScreen extends StatefulWidget {
-  const MisReservasScreen({super.key});
+  final VoidCallback? onExplorar;
+
+  const MisReservasScreen({super.key, this.onExplorar});
 
   @override
-  State<MisReservasScreen> createState() => _MisReservasScreenState();
+  State<MisReservasScreen> createState() => MisReservasScreenState();
 }
 
-class _MisReservasScreenState extends State<MisReservasScreen>
+class MisReservasScreenState extends State<MisReservasScreen>
     with WidgetsBindingObserver {
+  static const String _numeroYape = '987 654 321';
+
   List<Reserva> _reservas = [];
   bool _cargando = true;
   String? _errorMsg;
   String _estadoFiltro = '';
   Timer? _countdownTimer;
 
-  final List<String> _estados = [
-    '',
-    'PENDIENTE_PAGO',
-    'CONFIRMADA',
-    'CANCELADA',
+  static const List<(String, String)> _filtros = [
+    ('', 'Todas'),
+    ('PENDIENTE_PAGO', 'Por pagar'),
+    ('EN_REVISION', 'En revisión'),
+    ('CONFIRMADA', 'Confirmadas'),
+    ('CANCELADA', 'Canceladas'),
   ];
 
   @override
@@ -31,8 +42,7 @@ class _MisReservasScreenState extends State<MisReservasScreen>
     WidgetsBinding.instance.addObserver(this);
     _cargarReservas();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted &&
-          _reservas.any((r) => r.estado == 'PENDIENTE_PAGO')) {
+      if (mounted && _reservas.any((r) => r.estado == 'PENDIENTE_PAGO')) {
         setState(() {});
       }
     });
@@ -53,14 +63,17 @@ class _MisReservasScreenState extends State<MisReservasScreen>
     }
   }
 
-  String _formatearTiempoRestante(String expiresAtIso) {
+  /// Permite que la navegación principal refresque la lista al entrar a la pestaña.
+  void recargar() {
+    if (!_cargando) _cargarReservas();
+  }
+
+  String? _tiempoRestante(String expiresAtIso) {
     final exp = DateTime.tryParse(expiresAtIso);
-    if (exp == null) return '20:00';
+    if (exp == null) return null;
     final diff = exp.difference(DateTime.now());
-    if (diff.isNegative) {
-      return 'Expirado (pendiente liberación)';
-    }
-    final mins = diff.inMinutes.remainder(60).toString().padLeft(2, '0');
+    if (diff.isNegative) return null;
+    final mins = diff.inMinutes.toString().padLeft(2, '0');
     final secs = diff.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$mins:$secs';
   }
@@ -72,8 +85,10 @@ class _MisReservasScreenState extends State<MisReservasScreen>
     });
 
     try {
+      // El administrador ve todas; el jugador solo las suyas.
       final list = await ApiService.getReservas(
         estado: _estadoFiltro.isEmpty ? null : _estadoFiltro,
+        clienteDni: ApiService.esAdmin ? null : ApiService.currentSession?.dni,
       );
       if (!mounted) return;
       setState(() {
@@ -83,155 +98,332 @@ class _MisReservasScreenState extends State<MisReservasScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMsg = e.toString();
+        _errorMsg = mensajeError(e);
         _cargando = false;
       });
     }
   }
 
-  Future<void> _mostrarDialogoPago(Reserva r) async {
+  // ---------------------------------------------------------------------------
+  // Pago con comprobante
+  // ---------------------------------------------------------------------------
+
+  Future<void> _mostrarHojaPago(Reserva r) async {
+    final formKey = GlobalKey<FormState>();
+    final opCtrl = TextEditingController();
+    final primerPago = r.montoPagado == 0;
     String metodo = 'YAPE';
     String modalidad = 'TOTAL';
-    final opCtrl = TextEditingController(
-      text: 'YAPE-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
-    );
+    bool enviando = false;
 
-    final ok = await showDialog<bool>(
+    final ok = await showModalBottomSheet<bool>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          final montoRequerido = modalidad == 'SENA_50'
+        builder: (ctx, setSheetState) {
+          final monto = modalidad == 'SENA_50'
               ? double.parse((r.total * 0.5).toStringAsFixed(2))
               : double.parse((r.total - r.montoPagado).toStringAsFixed(2));
 
-          return AlertDialog(
-            backgroundColor: const Color(0xFF1E293B),
-            title: Text(
-              'Enviar Comprobante · Reserva #${r.id}',
-              style: const TextStyle(color: Colors.white, fontSize: 17),
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              0,
+              20,
+              20 + espacioInferior(ctx),
             ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Destinatario Verificado: Luxxito Sports SAC (987-654-321)',
-                    style: TextStyle(color: Color(0xFF34D399), fontSize: 12),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: metodo,
-                    dropdownColor: const Color(0xFF1E293B),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Método de Pago',
-                      labelStyle: TextStyle(color: Colors.white70),
-                    ),
-                    items: ['YAPE', 'PLIN', 'TRANSFERENCIA']
-                        .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                        .toList(),
-                    onChanged: (v) => setDialogState(() => metodo = v ?? 'YAPE'),
-                  ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    initialValue: modalidad,
-                    dropdownColor: const Color(0xFF1E293B),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Modalidad de Pago',
-                      labelStyle: TextStyle(color: Colors.white70),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                          value: 'TOTAL', child: Text('Pago Total (100%)')),
-                      DropdownMenuItem(
-                          value: 'SENA_50', child: Text('Seña / Adelanto (50%)')),
-                    ],
-                    onChanged: (v) =>
-                        setDialogState(() => modalidad = v ?? 'TOTAL'),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: opCtrl,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'N° de Operación del Comprobante',
-                      labelStyle: TextStyle(color: Colors.white70),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF064E3B),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'Importe a Conciliar: S/ ${montoRequerido.toStringAsFixed(2)}',
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      primerPago ? 'Paga tu reserva' : 'Paga el saldo',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: LuxxitoColors.texto,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      '${r.canchaNombre} · ${Formato.fecha(r.fecha)}, ${Formato.rango(r.horaInicio, r.horaFin)}',
+                      style: const TextStyle(
+                        color: LuxxitoColors.textoSecundario,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    if (primerPago) ...[
+                      SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(
+                            value: 'TOTAL',
+                            label: Text('Pago total'),
+                          ),
+                          ButtonSegment(
+                            value: 'SENA_50',
+                            label: Text('Adelanto 50%'),
+                          ),
+                        ],
+                        selected: {modalidad},
+                        showSelectedIcon: false,
+                        onSelectionChanged: (s) =>
+                            setSheetState(() => modalidad = s.first),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: LuxxitoColors.primarioSuave,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Monto a pagar',
+                            style: TextStyle(
+                              color: LuxxitoColors.primario,
+                              fontSize: 13,
+                            ),
+                          ),
+                          Text(
+                            Formato.soles(monto),
+                            style: const TextStyle(
+                              color: LuxxitoColors.texto,
+                              fontSize: 30,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      '1. Envía el pago a Luxxito Sports SAC',
+                      style: TextStyle(
+                        color: LuxxitoColors.texto,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Card(
+                      color: LuxxitoColors.fondo,
+                      child: ListTile(
+                        leading: const Icon(
+                          Icons.qr_code_2,
+                          color: LuxxitoColors.primario,
+                        ),
+                        title: const Text(
+                          _numeroYape,
+                          style: TextStyle(
+                            color: LuxxitoColors.texto,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        subtitle: const Text(
+                          'Yape · Plin',
+                          style: TextStyle(color: LuxxitoColors.textoTenue),
+                        ),
+                        trailing: IconButton(
+                          tooltip: 'Copiar número',
+                          icon: const Icon(Icons.copy, size: 20),
+                          onPressed: () {
+                            Clipboard.setData(
+                              ClipboardData(
+                                text: _numeroYape.replaceAll(' ', ''),
+                              ),
+                            );
+                            mostrarAviso(
+                              ctx,
+                              'Número copiado',
+                              tipo: TipoAviso.info,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      '2. Cuéntanos cómo pagaste',
+                      style: TextStyle(
+                        color: LuxxitoColors.texto,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'YAPE', label: Text('Yape')),
+                        ButtonSegment(value: 'PLIN', label: Text('Plin')),
+                        ButtonSegment(
+                          value: 'TRANSFERENCIA',
+                          label: Text('Transfer.'),
+                        ),
+                      ],
+                      selected: {metodo},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (s) =>
+                          setSheetState(() => metodo = s.first),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: opCtrl,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: const InputDecoration(
+                        labelText: 'N° de operación',
+                        hintText: 'Lo encuentras en tu constancia',
+                        prefixIcon: Icon(Icons.tag),
+                      ),
+                      validator: (v) => (v ?? '').trim().length < 4
+                          ? 'Ingresa al menos 4 caracteres'
+                          : null,
+                    ),
+                    const SizedBox(height: 18),
+                    FilledButton.icon(
+                      onPressed: enviando
+                          ? null
+                          : () async {
+                              if (!formKey.currentState!.validate()) return;
+                              setSheetState(() => enviando = true);
+                              try {
+                                await ApiService.registrarPago(
+                                  reservaId: r.id,
+                                  metodo: metodo,
+                                  modalidad: modalidad,
+                                  monto: monto,
+                                  numeroOperacion: opCtrl.text.trim(),
+                                );
+                                if (!ctx.mounted) return;
+                                Navigator.of(ctx).pop(true);
+                              } catch (e) {
+                                setSheetState(() => enviando = false);
+                                if (!ctx.mounted) return;
+                                mostrarAviso(
+                                  ctx,
+                                  mensajeError(e),
+                                  tipo: TipoAviso.error,
+                                );
+                              }
+                            },
+                      icon: enviando
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.send),
+                      label: Text(
+                        enviando ? 'Enviando…' : 'Enviar comprobante',
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cerrar'),
-              ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981),
-                  foregroundColor: Colors.black,
-                ),
-                onPressed: () async {
-                  try {
-                    await ApiService.registrarPago(
-                      reservaId: r.id,
-                      metodo: metodo,
-                      modalidad: modalidad,
-                      monto: montoRequerido,
-                      numeroOperacion: opCtrl.text.trim(),
-                    );
-                    if (!ctx.mounted) return;
-                    Navigator.of(ctx).pop(true);
-                  } catch (e) {
-                    if (!ctx.mounted) return;
-                    ScaffoldMessenger.of(ctx).showSnackBar(
-                      SnackBar(
-                        content: Text(e.toString()),
-                        backgroundColor: Colors.redAccent,
-                      ),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.send),
-                label: const Text('Enviar Comprobante'),
-              ),
-            ],
           );
         },
       ),
     );
 
-    if (ok == true) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Comprobante enviado. Tu turno queda protegido mientras el operador lo revisa.',
-            ),
-            backgroundColor: Color(0xFF059669),
-          ),
-        );
-      }
+    if (ok == true && mounted) {
+      mostrarAviso(
+        context,
+        'Comprobante enviado. Te avisaremos cuando lo revisemos.',
+      );
       _cargarReservas();
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Ticket QR
+  // ---------------------------------------------------------------------------
+
+  void _mostrarTicket(Reserva r) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Tu ticket de ingreso',
+                style: TextStyle(
+                  color: LuxxitoColors.texto,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Muestra este código en la entrada del complejo.',
+                style: TextStyle(color: LuxxitoColors.textoSecundario),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: LuxxitoColors.texto,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: QrImageView(
+                  data: r.codigoQr!,
+                  size: 220,
+                  backgroundColor: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 12),
+              SelectableText(
+                r.codigoQr!,
+                style: const TextStyle(
+                  color: LuxxitoColors.textoSecundario,
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: [
+                      DatoFila(
+                        Icons.stadium_outlined,
+                        '${r.canchaNombre} · ${r.complejoNombre}',
+                      ),
+                      DatoFila(
+                        Icons.event_outlined,
+                        '${Formato.fechaLarga(r.fecha)} · ${Formato.rango(r.horaInicio, r.horaFin)}',
+                      ),
+                      DatoFila(
+                        Icons.person_outline,
+                        '${r.clienteNombre} · DNI ${r.clienteDni}',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Editar, cancelar y eliminar
+  // ---------------------------------------------------------------------------
 
   Future<void> _mostrarDialogoEditar(Reserva r) async {
     final telCtrl = TextEditingController(text: r.clienteTelefono);
@@ -240,29 +432,25 @@ class _MisReservasScreenState extends State<MisReservasScreen>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: Text(
-          'Editar Reserva #${r.id} (CRUD PUT)',
-          style: const TextStyle(color: Colors.white),
-        ),
+        title: const Text('Editar datos de contacto'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: telCtrl,
-              style: const TextStyle(color: Colors.white),
+              keyboardType: TextInputType.phone,
               decoration: const InputDecoration(
-                labelText: 'Teléfono de Contacto',
-                labelStyle: TextStyle(color: Colors.white70),
+                labelText: 'Celular de contacto',
+                prefixIcon: Icon(Icons.phone_outlined),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             TextField(
               controller: notasCtrl,
-              style: const TextStyle(color: Colors.white),
+              maxLines: 2,
               decoration: const InputDecoration(
-                labelText: 'Notas o requerimientos',
-                labelStyle: TextStyle(color: Colors.white70),
+                labelText: 'Notas para el complejo',
+                prefixIcon: Icon(Icons.notes),
               ),
             ),
           ],
@@ -272,11 +460,7 @@ class _MisReservasScreenState extends State<MisReservasScreen>
             onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Cancelar'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
-              foregroundColor: Colors.black,
-            ),
+          FilledButton(
             onPressed: () async {
               try {
                 await ApiService.actualizarReserva(
@@ -288,597 +472,496 @@ class _MisReservasScreenState extends State<MisReservasScreen>
                 Navigator.of(ctx).pop(true);
               } catch (e) {
                 if (!ctx.mounted) return;
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  SnackBar(
-                    content: Text(e.toString()),
-                    backgroundColor: Colors.redAccent,
-                  ),
-                );
+                mostrarAviso(ctx, mensajeError(e), tipo: TipoAviso.error);
               }
             },
-            child: const Text('Actualizar'),
+            child: const Text('Guardar'),
           ),
         ],
       ),
     );
 
-    if (ok == true) {
+    if (ok == true && mounted) {
+      mostrarAviso(context, 'Datos actualizados.');
       _cargarReservas();
     }
   }
 
   Future<void> _confirmarCancelacion(Reserva r) async {
-    final motivoCtrl =
-        TextEditingController(text: 'Cancelación solicitada desde la app');
+    final inicio = DateTime.tryParse(
+      '${r.fecha}T${r.horaInicio.toString().padLeft(2, '0')}:00:00',
+    );
+    final horas = inicio == null
+        ? 48.0
+        : inicio.difference(DateTime.now()).inMinutes / 60;
+    final reembolsoTotal = horas >= 24;
+    final devolucion = reembolsoTotal ? r.montoPagado : r.montoPagado * 0.5;
+    String motivo = 'Ya no podré asistir';
 
     final resultado = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: Text(
-          'Cancelar Reserva #${r.id}',
-          style: const TextStyle(color: Colors.white),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Política de Cancelación (24 Horas):\n• >= 24h antes: Devolución del 100% pagado.\n• < 24h antes: Retención del 50% por penalidad.',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: motivoCtrl,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Motivo de cancelación',
-                labelStyle: TextStyle(color: Colors.white70),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          icon: const Icon(
+            Icons.event_busy,
+            color: LuxxitoColors.advertencia,
+            size: 40,
+          ),
+          title: const Text('¿Cancelar esta reserva?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${r.canchaNombre} · ${Formato.fecha(r.fecha)}, ${Formato.rango(r.horaInicio, r.horaFin)}',
+                textAlign: TextAlign.center,
               ),
+              const SizedBox(height: 14),
+              if (r.montoPagado > 0)
+                AvisoBanner(
+                  icono: reembolsoTotal
+                      ? Icons.savings_outlined
+                      : Icons.warning_amber,
+                  color: reembolsoTotal
+                      ? LuxxitoColors.exito
+                      : LuxxitoColors.advertencia,
+                  titulo: 'Te devolveremos ${Formato.soles(devolucion)}',
+                  texto: reembolsoTotal
+                      ? 'Cancelas con más de 24 horas de anticipación: reembolso del 100%.'
+                      : 'Faltan menos de 24 horas: se retiene el 50% de lo pagado.',
+                )
+              else
+                const AvisoBanner(
+                  icono: Icons.info_outline,
+                  color: LuxxitoColors.info,
+                  texto: 'Aún no has pagado, así que no hay cargos.',
+                ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: motivo,
+                dropdownColor: LuxxitoColors.superficieAlta,
+                decoration: const InputDecoration(labelText: 'Motivo'),
+                items:
+                    const [
+                          'Ya no podré asistir',
+                          'Cambio de fecha u horario',
+                          'Problemas de clima',
+                          'Otro motivo',
+                        ]
+                        .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                        .toList(),
+                onChanged: (v) => setDialogState(() => motivo = v ?? motivo),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Volver'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                try {
+                  final data = await ApiService.cancelarReserva(
+                    reservaId: r.id,
+                    motivo: motivo,
+                  );
+                  if (!ctx.mounted) return;
+                  Navigator.of(ctx).pop(data);
+                } catch (e) {
+                  if (!ctx.mounted) return;
+                  mostrarAviso(ctx, mensajeError(e), tipo: TipoAviso.error);
+                }
+              },
+              child: const Text('Sí, cancelar'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Volver'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              try {
-                final data = await ApiService.cancelarReserva(
-                  reservaId: r.id,
-                  motivo: motivoCtrl.text.trim(),
-                );
-                if (!ctx.mounted) return;
-                Navigator.of(ctx).pop(data);
-              } catch (e) {
-                if (!ctx.mounted) return;
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  SnackBar(
-                    content: Text(e.toString()),
-                    backgroundColor: Colors.redAccent,
-                  ),
-                );
-              }
-            },
-            child: const Text('Confirmar Cancelación'),
-          ),
-        ],
       ),
     );
 
     if (resultado != null && mounted) {
       final dev = (resultado['monto_devolucion'] as num?)?.toDouble() ?? 0.0;
-      final pol = resultado['politica_aplicada']?.toString() ?? '';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Reserva cancelada ($pol). Devolución calculada: S/ ${dev.toStringAsFixed(2)}',
-          ),
-          backgroundColor: Colors.orange.shade800,
-        ),
+      mostrarAviso(
+        context,
+        dev > 0
+            ? 'Reserva cancelada. Te devolveremos ${Formato.soles(dev)}.'
+            : 'Reserva cancelada.',
+        tipo: TipoAviso.info,
       );
       _cargarReservas();
     }
   }
 
-  Future<void> _eliminarReservaNoConfirmada(Reserva r) async {
+  Future<void> _confirmarEliminacion(Reserva r) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(
+          Icons.delete_outline,
+          color: LuxxitoColors.error,
+          size: 40,
+        ),
+        title: const Text('¿Eliminar del historial?'),
+        content: const Text(
+          'La reserva desaparecerá de tu lista. Esta acción no se puede deshacer.',
+          textAlign: TextAlign.center,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Volver'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
     try {
       await ApiService.eliminarReserva(r.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Reserva #${r.id} eliminada de la base de datos.'),
-        ),
-      );
+      mostrarAviso(context, 'Reserva eliminada.', tipo: TipoAviso.info);
       _cargarReservas();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      mostrarAviso(context, mensajeError(e), tipo: TipoAviso.error);
     }
   }
 
-  Color _colorEstado(String estado) {
-    switch (estado) {
-      case 'CONFIRMADA':
-        return const Color(0xFF10B981);
-      case 'EN_REVISION':
-        return const Color(0xFF0EA5E9);
-      case 'PENDIENTE_PAGO':
-        return const Color(0xFFF59E0B);
-      case 'CANCELADA':
-      case 'VENCIDA':
-        return Colors.redAccent;
-      default:
-        return Colors.grey;
+  // ---------------------------------------------------------------------------
+  // Componentes visuales
+  // ---------------------------------------------------------------------------
+
+  Widget _barraFiltros() {
+    return SizedBox(
+      height: 52,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+        scrollDirection: Axis.horizontal,
+        itemCount: _filtros.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, idx) {
+          final (valor, etiqueta) = _filtros[idx];
+          return ChoiceChip(
+            showCheckmark: false,
+            label: Text(etiqueta),
+            selected: valor == _estadoFiltro,
+            onSelected: (_) {
+              setState(() => _estadoFiltro = valor);
+              _cargarReservas();
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  List<Widget> _avisos(Reserva r) {
+    final avisos = <Widget>[];
+    if (r.estado == 'PENDIENTE_PAGO') {
+      final rechazo = r.rechazoVigente;
+      if (rechazo != null) {
+        avisos.add(
+          AvisoBanner(
+            icono: Icons.report_outlined,
+            color: LuxxitoColors.error,
+            titulo: 'Tu comprobante fue rechazado',
+            texto:
+                '${rechazo.observacion ?? 'Sin motivo indicado'}. '
+                'Envía uno nuevo antes de que se libere el turno.',
+          ),
+        );
+      }
+      final restante = _tiempoRestante(r.expiresAt);
+      avisos.add(
+        AvisoBanner(
+          icono: Icons.timer_outlined,
+          color: LuxxitoColors.advertencia,
+          titulo: restante != null
+              ? 'Turno guardado por $restante'
+              : 'Tiempo agotado',
+          texto: restante != null
+              ? 'Paga y envía tu comprobante para confirmarlo.'
+              : 'El turno se liberará en breve. Si aún lo quieres, reserva de nuevo.',
+        ),
+      );
+    } else if (r.estado == 'EN_REVISION') {
+      avisos.add(
+        const AvisoBanner(
+          icono: Icons.hourglass_top,
+          color: LuxxitoColors.info,
+          titulo: 'Estamos revisando tu pago',
+          texto: 'Tu turno está protegido mientras confirmamos el comprobante.',
+        ),
+      );
+    } else if (r.estado == 'CANCELADA' && r.motivoCancelacion != null) {
+      avisos.add(
+        AvisoBanner(
+          icono: Icons.info_outline,
+          color: LuxxitoColors.textoTenue,
+          texto: r.motivoCancelacion!,
+        ),
+      );
     }
+    return avisos;
+  }
+
+  Widget _tarjetaReserva(Reserva r) {
+    final estado = EstadoReservaInfo.de(r.estado);
+    final activa = r.estado != 'CANCELADA' && r.estado != 'VENCIDA';
+    final saldo = double.parse((r.total - r.montoPagado).toStringAsFixed(2));
+    final puedePagar =
+        r.estado == 'PENDIENTE_PAGO' || (r.estado == 'CONFIRMADA' && saldo > 0);
+    final tieneQr = r.codigoQr != null && r.estado == 'CONFIRMADA';
+    final avisos = _avisos(r);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: estado.color.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(iconoDeporte(r.deporte), color: estado.color),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        r.canchaNombre,
+                        style: const TextStyle(
+                          color: LuxxitoColors.texto,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        '${r.complejoNombre} · Reserva #${r.id}',
+                        style: const TextStyle(
+                          color: LuxxitoColors.textoTenue,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Insignia(
+                  estado.etiqueta,
+                  color: estado.color,
+                  icono: estado.icono,
+                ),
+                PopupMenuButton<String>(
+                  tooltip: 'Más opciones',
+                  icon: const Icon(
+                    Icons.more_vert,
+                    color: LuxxitoColors.textoSecundario,
+                  ),
+                  color: LuxxitoColors.superficieAlta,
+                  onSelected: (accion) {
+                    switch (accion) {
+                      case 'editar':
+                        _mostrarDialogoEditar(r);
+                      case 'cancelar':
+                        _confirmarCancelacion(r);
+                      case 'eliminar':
+                        _confirmarEliminacion(r);
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    if (activa)
+                      const PopupMenuItem(
+                        value: 'editar',
+                        child: ListTile(
+                          leading: Icon(Icons.edit_outlined),
+                          title: Text('Editar contacto'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    if (activa)
+                      const PopupMenuItem(
+                        value: 'cancelar',
+                        child: ListTile(
+                          leading: Icon(
+                            Icons.event_busy,
+                            color: LuxxitoColors.advertencia,
+                          ),
+                          title: Text('Cancelar reserva'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    if (r.estado != 'CONFIRMADA')
+                      const PopupMenuItem(
+                        value: 'eliminar',
+                        child: ListTile(
+                          leading: Icon(
+                            Icons.delete_outline,
+                            color: LuxxitoColors.error,
+                          ),
+                          title: Text('Eliminar del historial'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 6),
+                  DatoFila(
+                    Icons.event_outlined,
+                    '${Formato.fechaLarga(r.fecha)} · ${Formato.rango(r.horaInicio, r.horaFin)}',
+                  ),
+                  if (ApiService.esAdmin)
+                    DatoFila(
+                      Icons.person_outline,
+                      '${r.clienteNombre} · DNI ${r.clienteDni}',
+                    ),
+                  if (r.extras.isNotEmpty)
+                    DatoFila(
+                      Icons.inventory_2_outlined,
+                      r.extras
+                          .map((e) => '${e.nombre} ×${e.cantidad}')
+                          .join(', '),
+                    ),
+                  if (r.notas != null && r.notas!.isNotEmpty)
+                    DatoFila(Icons.notes, r.notas!),
+                  for (final aviso in avisos) ...[
+                    const SizedBox(height: 10),
+                    aviso,
+                  ],
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              Formato.soles(r.total),
+                              style: const TextStyle(
+                                color: LuxxitoColors.texto,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              r.montoDevolucion > 0
+                                  ? 'Reembolso: ${Formato.soles(r.montoDevolucion)}'
+                                  : r.montoPagado > 0
+                                  ? 'Pagado: ${Formato.soles(r.montoPagado)}'
+                                  : 'Sin pagos aún',
+                              style: TextStyle(
+                                color: r.montoDevolucion > 0
+                                    ? LuxxitoColors.advertencia
+                                    : LuxxitoColors.textoTenue,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (tieneQr) ...[
+                        OutlinedButton.icon(
+                          onPressed: () => _mostrarTicket(r),
+                          icon: const Icon(Icons.qr_code_2, size: 18),
+                          label: const Text('Ticket'),
+                        ),
+                        if (puedePagar) const SizedBox(width: 8),
+                      ],
+                      if (puedePagar)
+                        FilledButton.icon(
+                          onPressed: () => _mostrarHojaPago(r),
+                          icon: const Icon(Icons.payments_outlined, size: 18),
+                          label: Text(
+                            r.montoPagado > 0 ? 'Pagar saldo' : 'Pagar',
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _contenido() {
+    if (_cargando && _reservas.isEmpty) {
+      return const EstadoVista.cargando(titulo: 'Cargando tus reservas…');
+    }
+    if (_errorMsg != null) {
+      return EstadoVista.error(
+        titulo: 'No pudimos cargar tus reservas',
+        mensaje: _errorMsg!,
+        onReintentar: _cargarReservas,
+      );
+    }
+    if (_reservas.isEmpty) {
+      final sinFiltro = _estadoFiltro.isEmpty;
+      return EstadoVista(
+        icono: Icons.confirmation_number_outlined,
+        color: LuxxitoColors.secundario,
+        titulo: sinFiltro ? 'Aún no tienes reservas' : 'Nada por aquí',
+        detalle: sinFiltro
+            ? 'Encuentra una cancha cerca de ti y reserva tu primer turno.'
+            : 'No tienes reservas con este estado.',
+        accion: sinFiltro && widget.onExplorar != null
+            ? FilledButton.icon(
+                onPressed: widget.onExplorar,
+                icon: const Icon(Icons.explore),
+                label: const Text('Explorar canchas'),
+              )
+            : null,
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      itemCount: _reservas.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 14),
+      itemBuilder: (context, idx) => _tarjetaReserva(_reservas[idx]),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
       body: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            color: const Color(0xFF1E293B),
-            child: Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 36,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _estados.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 8),
-                      itemBuilder: (context, idx) {
-                        final est = _estados[idx];
-                        final sel = est == _estadoFiltro;
-                        return ChoiceChip(
-                          label: Text(est.isEmpty ? 'Todas' : est),
-                          selected: sel,
-                          selectedColor: const Color(0xFF10B981),
-                          backgroundColor: const Color(0xFF0F172A),
-                          labelStyle: TextStyle(
-                            color: sel ? Colors.black : Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          onSelected: (_) {
-                            setState(() => _estadoFiltro = est);
-                            _cargarReservas();
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: _cargarReservas,
-                  icon: const Icon(Icons.refresh, color: Colors.white),
-                  tooltip: 'Recargar reservas',
-                ),
-              ],
-            ),
-          ),
+          _barraFiltros(),
+          if (_cargando && _reservas.isNotEmpty)
+            const LinearProgressIndicator(minHeight: 2),
           Expanded(
-            child: _cargando
-                ? const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF10B981)),
-                  )
-                : _errorMsg != null
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.error_outline,
-                                  size: 48, color: Colors.redAccent),
-                              const SizedBox(height: 10),
-                              Text(
-                                _errorMsg!,
-                                style: const TextStyle(color: Colors.white70),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 12),
-                              ElevatedButton(
-                                onPressed: _cargarReservas,
-                                child: const Text('Reintentar'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : _reservas.isEmpty
-                        ? const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(24),
-                              child: Text(
-                                'Aún no tienes reservas registradas.\nVe a la pestaña "Explorar" para elegir una cancha y horario.',
-                                style: TextStyle(
-                                    color: Colors.white70, fontSize: 15),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          )
-                        : RefreshIndicator(
-                            onRefresh: _cargarReservas,
-                            child: ListView.builder(
-                              padding: const EdgeInsets.all(16),
-                              itemCount: _reservas.length,
-                              itemBuilder: (context, idx) {
-                                final r = _reservas[idx];
-                                final badgeColor = _colorEstado(r.estado);
-
-                                return Card(
-                                  color: const Color(0xFF1E293B),
-                                  margin: const EdgeInsets.only(bottom: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    side: BorderSide(
-                                        color:
-                                            badgeColor.withValues(alpha: 0.5)),
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(14),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              'Reserva #${r.id} · ${r.fecha}',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16,
-                                              ),
-                                            ),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 10,
-                                                      vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: badgeColor.withValues(
-                                                    alpha: 0.2),
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                                border: Border.all(
-                                                    color: badgeColor),
-                                              ),
-                                              child: Text(
-                                                r.estado,
-                                                style: TextStyle(
-                                                  color: badgeColor,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 11,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          '${r.canchaNombre} (${r.deporte}) - ${r.complejoNombre}',
-                                          style: const TextStyle(
-                                            color: Color(0xFF10B981),
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Horario: ${r.horaInicio}:00 - ${r.horaFin}:00 · Cliente: ${r.clienteNombre} (DNI ${r.clienteDni})',
-                                          style: const TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 13),
-                                        ),
-                                        if (r.extras.isNotEmpty) ...[
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            'Extras: ${r.extras.map((e) => "${e.nombre} x${e.cantidad}").join(", ")}',
-                                            style: const TextStyle(
-                                              color: Color(0xFF38BDF8),
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                        if (r.notas != null &&
-                                            r.notas!.isNotEmpty) ...[
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Notas: ${r.notas}',
-                                            style: const TextStyle(
-                                              color: Colors.white60,
-                                              fontStyle: FontStyle.italic,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                        if (r.estado == 'PENDIENTE_PAGO') ...[
-                                          if (r.rechazoVigente != null) ...[
-                                            const SizedBox(height: 8),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 10,
-                                                vertical: 6,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.redAccent
-                                                    .withValues(alpha: 0.16),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                border: Border.all(
-                                                    color: Colors.redAccent),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  const Icon(
-                                                    Icons.report_outlined,
-                                                    size: 16,
-                                                    color: Colors.redAccent,
-                                                  ),
-                                                  const SizedBox(width: 6),
-                                                  Expanded(
-                                                    child: Text(
-                                                      'Comprobante ${r.rechazoVigente!.numeroOperacion} rechazado: ${r.rechazoVigente!.observacion ?? 'sin motivo'}. Envía uno nuevo antes de que venza el bloqueo.',
-                                                      style: const TextStyle(
-                                                        color:
-                                                            Color(0xFFFECACA),
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                          const SizedBox(height: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 6,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFF59E0B)
-                                                  .withValues(alpha: 0.16),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              border: Border.all(
-                                                  color:
-                                                      const Color(0xFFF59E0B)),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.timer_outlined,
-                                                  size: 16,
-                                                  color: Color(0xFFFBBF24),
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Expanded(
-                                                  child: Text(
-                                                    'Bloqueo de servidor (20 min) vence en: ${_formatearTiempoRestante(r.expiresAt)}',
-                                                    style: const TextStyle(
-                                                      color: Color(0xFFFDE68A),
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ] else if (r.estado == 'EN_REVISION') ...[
-                                          const SizedBox(height: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 6,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFF0EA5E9)
-                                                  .withValues(alpha: 0.16),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              border: Border.all(
-                                                  color:
-                                                      const Color(0xFF38BDF8)),
-                                            ),
-                                            child: const Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.shield_outlined,
-                                                  size: 16,
-                                                  color: Color(0xFF38BDF8),
-                                                ),
-                                                SizedBox(width: 6),
-                                                Expanded(
-                                                  child: Text(
-                                                    'Comprobante enviado: turno protegido en revisión administrativa.',
-                                                    style: TextStyle(
-                                                      color: Color(0xFFBAE6FD),
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                        const Divider(color: Colors.white24),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              'Total: S/ ${r.total.toStringAsFixed(2)}',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 15,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Pagado: S/ ${r.montoPagado.toStringAsFixed(2)}',
-                                              style: const TextStyle(
-                                                color: Color(0xFF34D399),
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            if (r.montoDevolucion > 0)
-                                              Text(
-                                                'Reembolso: S/ ${r.montoDevolucion.toStringAsFixed(2)}',
-                                                style: const TextStyle(
-                                                  color: Colors.amberAccent,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                        if (r.codigoQr != null) ...[
-                                          const SizedBox(height: 10),
-                                          Container(
-                                            width: double.infinity,
-                                            padding: const EdgeInsets.all(10),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFF064E3B),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              border: Border.all(
-                                                  color:
-                                                      const Color(0xFF10B981)),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                const Icon(Icons.qr_code_2,
-                                                    color: Colors.white,
-                                                    size: 32),
-                                                const SizedBox(width: 10),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      const Text(
-                                                        'TICKET QR VERIFICABLE DE INGRESO',
-                                                        style: TextStyle(
-                                                          color:
-                                                              Color(0xFF6EE7B7),
-                                                          fontSize: 10,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                      Text(
-                                                        r.codigoQr!,
-                                                        style: const TextStyle(
-                                                          color: Colors.white,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          fontFamily:
-                                                              'monospace',
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                        const SizedBox(height: 10),
-                                        Wrap(
-                                          spacing: 8,
-                                          runSpacing: 8,
-                                          children: [
-                                            if (r.estado == 'PENDIENTE_PAGO' ||
-                                                (r.estado == 'CONFIRMADA' &&
-                                                    r.montoPagado < r.total))
-                                              ElevatedButton.icon(
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      const Color(0xFF10B981),
-                                                  foregroundColor: Colors.black,
-                                                ),
-                                                onPressed: () =>
-                                                    _mostrarDialogoPago(r),
-                                                icon: const Icon(Icons.payments,
-                                                    size: 16),
-                                                label:
-                                                    const Text('Pagar / Yape'),
-                                              ),
-                                            if (r.estado != 'CANCELADA')
-                                              OutlinedButton.icon(
-                                                style: OutlinedButton.styleFrom(
-                                                  foregroundColor: Colors.white,
-                                                  side: const BorderSide(
-                                                      color: Colors.white38),
-                                                ),
-                                                onPressed: () =>
-                                                    _mostrarDialogoEditar(r),
-                                                icon: const Icon(Icons.edit,
-                                                    size: 16),
-                                                label: const Text('Editar'),
-                                              ),
-                                            if (r.estado != 'CANCELADA')
-                                              OutlinedButton.icon(
-                                                style: OutlinedButton.styleFrom(
-                                                  foregroundColor:
-                                                      Colors.orangeAccent,
-                                                  side: const BorderSide(
-                                                      color:
-                                                          Colors.orangeAccent),
-                                                ),
-                                                onPressed: () =>
-                                                    _confirmarCancelacion(r),
-                                                icon: const Icon(Icons.cancel,
-                                                    size: 16),
-                                                label: const Text('Cancelar'),
-                                              ),
-                                            if (r.estado != 'CONFIRMADA')
-                                              IconButton(
-                                                onPressed: () =>
-                                                    _eliminarReservaNoConfirmada(
-                                                        r),
-                                                icon: const Icon(
-                                                    Icons.delete_outline,
-                                                    color: Colors.redAccent),
-                                                tooltip:
-                                                    'Eliminar registro (CRUD Delete)',
-                                              ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
+            child: RefreshIndicator(
+              onRefresh: _cargarReservas,
+              child: _contenido(),
+            ),
           ),
         ],
       ),
