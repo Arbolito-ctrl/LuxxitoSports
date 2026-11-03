@@ -27,6 +27,8 @@ export const Errors = {
     new AppError(message, 409, 'CONFLICT', details),
   unprocessable: (message: string, details?: unknown) =>
     new AppError(message, 422, 'BUSINESS_RULE_VIOLATION', details),
+  storage: (message: string) =>
+    new AppError(message, 502, 'STORAGE_ERROR'),
   internal: (message: string = 'Error interno del servidor') =>
     new AppError(message, 500, 'INTERNAL_SERVER_ERROR'),
 };

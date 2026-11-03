@@ -936,6 +936,7 @@ class ApiService {
     required String modalidad,
     required double monto,
     required String numeroOperacion,
+    String? comprobanteUrl,
     bool autoAprobar = false,
   }) async {
     if (numeroOperacion.trim().length < 4) {
@@ -957,6 +958,7 @@ class ApiService {
                 'modalidad': modalidad,
                 'monto': monto,
                 'numero_operacion': numeroOperacion,
+                'comprobante_url': ?comprobanteUrl,
                 'auto_aprobar': autoAprobar,
               }),
             )
@@ -984,6 +986,35 @@ class ApiService {
 
     final list = await getReservas();
     return list.firstWhere((r) => r.id == reservaId);
+  }
+
+  // 11a. POST /api/pagos/comprobante (Foto del voucher al bucket privado)
+  // Devuelve la referencia `supabase://comprobantes/...` para adjuntarla al pago.
+  static Future<String> subirComprobante({
+    required int reservaId,
+    required List<int> bytes,
+    required String mimeType,
+  }) async {
+    if (_useSupabaseDirect) {
+      throw ApiException(
+        statusCode: 0,
+        code: 'STORAGE_NO_DISPONIBLE',
+        message: 'Para adjuntar la foto del comprobante se necesita conexión con la API.',
+      );
+    }
+    final res = await http
+        .post(
+          Uri.parse('$_baseUrl/pagos/comprobante'),
+          headers: _headers,
+          body: jsonEncode({
+            'reserva_id': reservaId,
+            'mime_type': mimeType,
+            'contenido_base64': base64Encode(bytes),
+          }),
+        )
+        .timeout(const Duration(seconds: 30));
+    final body = _decodeResponse(res);
+    return (body['data'] as Map<String, dynamic>)['comprobante_url'] as String;
   }
 
   // 11b. GET /api/pagos?estado= (Bandeja de revisión del operador - requiere rol ADMIN)

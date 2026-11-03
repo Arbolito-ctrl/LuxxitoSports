@@ -6,6 +6,9 @@ import { AppError } from './utils/errors';
 const app = express();
 
 app.use(cors());
+// La foto del voucher viaja en base64: 5 MB del bucket equivalen a ~6,7 MB de JSON.
+// El resto de la API mantiene el límite por defecto de 100 KB.
+app.use('/api/pagos/comprobante', express.json({ limit: '8mb' }));
 app.use(express.json());
 
 // Rutas principales de la API REST
@@ -28,6 +31,25 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
       code: err.code,
       message: err.message,
       details: err.details || undefined,
+    });
+    return;
+  }
+
+  // Errores del lector de JSON (cuerpo demasiado grande o mal formado)
+  const tipo = (err as Error & { type?: string }).type;
+  if (tipo === 'entity.too.large') {
+    res.status(413).json({
+      ok: false,
+      code: 'PAYLOAD_TOO_LARGE',
+      message: 'El contenido enviado es demasiado grande. Usa una imagen de máximo 5 MB.',
+    });
+    return;
+  }
+  if (tipo === 'entity.parse.failed') {
+    res.status(400).json({
+      ok: false,
+      code: 'INVALID_JSON',
+      message: 'El cuerpo de la solicitud no es un JSON válido.',
     });
     return;
   }
