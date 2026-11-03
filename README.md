@@ -4,6 +4,9 @@ Proyecto desarrollado para el **Taller 3: Desarrollo e Integración de una API R
 
 Implementa una **API REST propia en capas** (`Node.js + Express + TypeScript`) conectada a **PostgreSQL en Supabase** y consumida en tiempo real por una **aplicación cliente móvil en Flutter + Dart**.
 
+
+![Arquitectura de Luxxito Sports](docs/arquitectura/arquitectura.png)
+
 ## API pública y estado de la entrega (issue #14)
 
 El backend se despliega automáticamente desde GitHub Actions: push/merge a `main` → pruebas backend y Flutter correctas → hook privado de Render con el SHA probado. Los PR y `develop` no publican el servicio. El secreto `RENDER_DEPLOY_HOOK_URL` se configura en GitHub Actions y nunca se guarda en el código. Si main avanzó durante una ejecución antigua, esa ejecución no despliega. El job confirma que Render aceptó la petición; el estado final se consulta en el panel Render y `/api/health`. La automatización no instala APK en los teléfonos ni ejecuta migraciones de base de datos.
