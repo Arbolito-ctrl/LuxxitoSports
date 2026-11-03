@@ -79,6 +79,7 @@ export class CatalogService {
     if (nombre.length < 3) {
       throw Errors.badRequest('El nombre de la cancha debe tener al menos 3 caracteres.');
     }
+    await this.validarNombreLibre(complejoId, nombre);
 
     const deporte = payload.deporte as DeporteTipo;
     if (!VALID_DEPORTES.includes(deporte)) {
@@ -116,6 +117,23 @@ export class CatalogService {
       precio_hora_nocturno: precioNocturno,
       estado,
     });
+  }
+
+  /**
+   * Dos canchas del mismo complejo no pueden llamarse igual (sin distinguir
+   * mayúsculas ni espacios). El índice canchas_nombre_unico_por_complejo de
+   * PostgreSQL respalda esta regla.
+   */
+  private async validarNombreLibre(complejoId: number, nombre: string, excluirId?: number) {
+    const clave = nombre.trim().toLowerCase();
+    const repetida = (await dataRepository.getCanchas({ complejo_id: complejoId })).find(
+      (c) => c.id !== excluirId && c.nombre.trim().toLowerCase() === clave
+    );
+    if (repetida) {
+      throw Errors.conflict(
+        `Ya existe una cancha llamada "${repetida.nombre}" en este complejo (cancha #${repetida.id}). Usa otro nombre.`
+      );
+    }
   }
 
   /**
@@ -167,6 +185,9 @@ export class CatalogService {
 
   async actualizarCancha(id: number, payload: any): Promise<Cancha> {
     const existing = await this.obtenerCancha(id);
+    if (payload.nombre) {
+      await this.validarNombreLibre(existing.complejo_id, String(payload.nombre).trim(), id);
+    }
 
     if (payload.deporte !== undefined && !VALID_DEPORTES.includes(payload.deporte)) {
       throw Errors.badRequest(
