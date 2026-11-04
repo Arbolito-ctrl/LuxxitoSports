@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authController } from '../controllers/authController';
 import { catalogController } from '../controllers/catalogController';
+import { docsController } from '../controllers/docsController';
 import { reservationController } from '../controllers/reservationController';
 import { requireAuth, requireRole, requireTitularDeReserva } from '../middlewares/authMiddleware';
 
@@ -18,6 +19,10 @@ router.post('/auth/recuperar', (req, res, next) =>
 router.get('/health', (req, res) => catalogController.healthCheck(req, res));
 router.get('/version', (req, res) => catalogController.obtenerVersionApp(req, res));
 router.get('/apk/download', (req, res) => catalogController.descargarApkLocal(req, res));
+
+// 1b. Documentación interactiva (Swagger UI) y contrato OpenAPI
+router.get('/docs', (req, res) => docsController.pagina(req, res));
+router.get('/openapi.yaml', (req, res) => docsController.contrato(req, res));
 
 // 2. Complejos deportivos
 router.get('/complejos', (req, res, next) =>

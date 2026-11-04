@@ -72,6 +72,7 @@ Ejemplo: el jugador toca **Reservar**.
 | **CRUD** | Create, Read, Update, Delete | `POST`, `GET`, `PUT`, `DELETE` sobre `/canchas` y `/reservas` |
 | **Idempotencia** | Repetir la misma operación deja el mismo resultado | Aprobar dos veces un pago no suma dos veces |
 | **Contrato (OpenAPI)** | Documento formal de rutas, parámetros y respuestas | `contracts/openapi.yaml` |
+| **Swagger UI** | Página que lee el contrato OpenAPI y permite probar cada endpoint desde el navegador | `GET /api/docs` |
 | **CORS** | Regla del navegador que limita qué sitios llaman a una API | Configurado en `app.ts` |
 
 ### 4.1. Métodos HTTP
@@ -327,6 +328,8 @@ cd backend && npm run dev
 
 # Ejecutar la colección de Postman por consola
 npx newman run docs/LuxxitoSports.postman_collection.json --env-var baseUrl=https://luxxito-sports-api.onrender.com/api
+
+# Probar la API desde el navegador (Swagger UI): abrir https://luxxito-sports-api.onrender.com/api/docs
 
 # Ver el estado de la API pública
 curl https://luxxito-sports-api.onrender.com/api/health

@@ -1,5 +1,12 @@
 # Historial de Cambios de Contratos — Luxxito Sports API
 
+## [1.7.0] - 2026-11-03 (Swagger UI)
+
+### Añadido
+- `GET /docs`: documentación interactiva con Swagger UI para probar la API desde el navegador (botón *Authorize* para el JWT).
+- `GET /openapi.yaml`: entrega este contrato.
+- Cuerpos de solicitud con ejemplos en `POST /auth/login`, `POST /auth/registro`, `POST /canchas`, `PUT /canchas/{id}`, `POST /reservas/cotizar`, `POST /reservas`, `PUT /reservas/{id}` y `POST /reservas/{id}/cancelar`.
+
 ## [1.6.0] - 2026-11-03 (Entregables y seguridad)
 
 ### Añadido
