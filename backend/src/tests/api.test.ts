@@ -963,4 +963,15 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     expect((await request(app).post('/api/auth/login').send({ email: 'hash@uni.pe', password: 'clave-segura' })).status).toBe(200);
     expect((await request(app).post('/api/auth/login').send({ email: 'hash@uni.pe', password: 'incorrecta' })).status).toBe(401);
   });
+  it('Caso 29 (Documentación - Swagger UI): /api/docs muestra la documentación y /api/openapi.yaml entrega el contrato', async () => {
+    const pagina = await request(app).get('/api/docs');
+    expect(pagina.status).toBe(200);
+    expect(pagina.headers['content-type']).toContain('text/html');
+    expect(pagina.text).toContain('swagger-ui');
+
+    const contrato = await request(app).get('/api/openapi.yaml');
+    expect(contrato.status).toBe(200);
+    expect(contrato.text).toContain('openapi: 3.0.3');
+    expect(contrato.text).toContain('/reservas/{id}/cancelar');
+  });
 });

@@ -6,7 +6,8 @@
 **Formato de Intercambio:** `application/json; charset=utf-8`  
 **Autenticación y Autorización:** JWT (`Authorization: Bearer <token>`) firmado con `JWT_SECRET`, vigente 30 días (`exp`). Roles `JUGADOR` y `ADMIN`.
 **Contraseñas:** se guardan con hash `scrypt` y sal aleatoria por usuario (`scrypt$<sal>$<hash>`); nunca en texto plano.
-**Contrato:** `contracts/openapi.yaml` (versión 1.6.0) · historial en `contracts/CHANGELOG.md`.  
+**Contrato:** `contracts/openapi.yaml` (versión 1.7.0) · historial en `contracts/CHANGELOG.md`.  
+**Probar la API desde el navegador (Swagger UI):** `https://luxxito-sports-api.onrender.com/api/docs`  
 **Persistencia:** PostgreSQL en Supabase (`usuarios`, `complejos`, `canchas`, `extras`, `reservas`, `reserva_extras`, `pagos`) con Row Level Security (RLS) y bucket privado `comprobantes`.
 
 ---
