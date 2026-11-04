@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Luxxito Sports REST API
-  version: 1.6.0
+  version: 1.7.0
   description: >
     Contrato OpenAPI de la API REST propia de Luxxito Sports (SI806 - Taller 3 UNI).
     El servidor es la autoridad sobre disponibilidad, precios, stock de extras por intervalo,
@@ -27,6 +27,20 @@ paths:
     post:
       security: []
       summary: Autenticación de usuario (Jugador o Administrador) y emisión de JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  example: "elvis.arboleda@uni.pe"
+                password:
+                  type: string
+                  example: "luxxito2026"
       responses:
         '200':
           description: Inicio de sesión exitoso con token JWT y perfil del usuario
@@ -36,6 +50,29 @@ paths:
     post:
       security: []
       summary: Registro de nuevo usuario (rol JUGADOR) y emisión de JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombre, dni, telefono, email, password]
+              properties:
+                nombre:
+                  type: string
+                  example: "Ana Torres"
+                dni:
+                  type: string
+                  example: "71234567"
+                telefono:
+                  type: string
+                  example: "987654321"
+                email:
+                  type: string
+                  example: "ana.torres@uni.pe"
+                password:
+                  type: string
+                  example: "clave2026"
       responses:
         '201':
           description: Cuenta creada exitosamente
@@ -113,6 +150,43 @@ paths:
       summary: Crear nueva cancha deportiva (CRUD Create, solo ADMIN)
       security:
         - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [complejo_id, nombre, deporte, precio_hora_diurno, precio_hora_nocturno]
+              properties:
+                complejo_id:
+                  type: integer
+                  example: 1
+                nombre:
+                  type: string
+                  example: "Cancha Sintética 3"
+                deporte:
+                  type: string
+                  enum: [Futbol 5, Futbol 7, Futbol 11, Voley, Tenis, Padel, Basquet]
+                  example: Futbol 7
+                superficie:
+                  type: string
+                  example: "Grass sintético"
+                techada:
+                  type: boolean
+                  example: false
+                iluminacion:
+                  type: boolean
+                  example: true
+                precio_hora_diurno:
+                  type: number
+                  example: 90
+                precio_hora_nocturno:
+                  type: number
+                  example: 120
+                estado:
+                  type: string
+                  enum: [ACTIVA, MANTENIMIENTO, INACTIVA]
+                  example: ACTIVA
       responses:
         '201':
           description: Cancha creada
@@ -149,6 +223,42 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                complejo_id:
+                  type: integer
+                  example: 1
+                nombre:
+                  type: string
+                  example: "Cancha Sintética 3"
+                deporte:
+                  type: string
+                  enum: [Futbol 5, Futbol 7, Futbol 11, Voley, Tenis, Padel, Basquet]
+                  example: Futbol 7
+                superficie:
+                  type: string
+                  example: "Grass sintético"
+                techada:
+                  type: boolean
+                  example: false
+                iluminacion:
+                  type: boolean
+                  example: true
+                precio_hora_diurno:
+                  type: number
+                  example: 90
+                precio_hora_nocturno:
+                  type: number
+                  example: 120
+                estado:
+                  type: string
+                  enum: [ACTIVA, MANTENIMIENTO, INACTIVA]
+                  example: ACTIVA
       responses:
         '200':
           description: Cancha actualizada
@@ -253,6 +363,37 @@ paths:
     post:
       security: []
       summary: Cotizar reserva y extras en el servidor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cancha_id, fecha, hora_inicio, hora_fin]
+              properties:
+                cancha_id:
+                  type: integer
+                  example: 1
+                fecha:
+                  type: string
+                  example: "2026-11-20"
+                hora_inicio:
+                  type: integer
+                  example: 17
+                hora_fin:
+                  type: integer
+                  example: 19
+                extras:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      extra_id:
+                        type: integer
+                        example: 1
+                      cantidad:
+                        type: integer
+                        example: 2
       responses:
         '200':
           description: Cotización exacta con desglose de horas y seña del 50%
@@ -271,6 +412,52 @@ paths:
     post:
       security: []
       summary: Crear reserva con bloqueo temporal de 20 minutos y exclusión mutua
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cancha_id, fecha, hora_inicio, hora_fin, cliente_nombre, cliente_dni, cliente_telefono, cliente_email]
+              properties:
+                cancha_id:
+                  type: integer
+                  example: 1
+                fecha:
+                  type: string
+                  example: "2026-11-20"
+                hora_inicio:
+                  type: integer
+                  example: 17
+                hora_fin:
+                  type: integer
+                  example: 19
+                cliente_nombre:
+                  type: string
+                  example: "Ana Torres"
+                cliente_dni:
+                  type: string
+                  example: "71234567"
+                cliente_telefono:
+                  type: string
+                  example: "987654321"
+                cliente_email:
+                  type: string
+                  example: "ana.torres@uni.pe"
+                notas:
+                  type: string
+                  example: "Partido de la promoción"
+                extras:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      extra_id:
+                        type: integer
+                        example: 1
+                      cantidad:
+                        type: integer
+                        example: 2
       responses:
         '201':
           description: Reserva creada con estado PENDIENTE_PAGO
@@ -310,6 +497,25 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cliente_nombre:
+                  type: string
+                  example: "Ana Torres"
+                cliente_telefono:
+                  type: string
+                  example: "912345678"
+                cliente_email:
+                  type: string
+                  example: "ana.torres@uni.pe"
+                notas:
+                  type: string
+                  example: "Llevamos balón propio"
       responses:
         '200':
           description: Reserva actualizada
@@ -517,6 +723,16 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                motivo:
+                  type: string
+                  example: "Ya no podré asistir"
       responses:
         '401':
           description: Token JWT ausente, inválido o vencido
