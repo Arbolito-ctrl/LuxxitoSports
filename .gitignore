@@ -22,7 +22,8 @@ mobile/build/
 mobile/.metadata
 mobile/android/.gradle/
 mobile/android/local.properties
-mobile/ios/Pods/
+# El proyecto es solo Android; flutter pub get regenera mobile/ios/ por su cuenta
+mobile/ios/
 
 # Sistema y editores
 .DS_Store
