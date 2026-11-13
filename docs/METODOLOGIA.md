@@ -9,7 +9,7 @@ Adaptación de la metodología incremental basada en contratos, responsabilidade
 
 | Práctica | Implementación en Luxxito Sports | Evidencia en el Repositorio |
 |---|---|---|
-| **El servidor es la autoridad** | Disponibilidad, precios (diurno/nocturno), stock de extras por intervalo, bloqueo de 20 min y reembolsos se calculan en el backend. | `backend/src/services/catalogService.ts` y `reservationService.ts` |
+| **El servidor es la autoridad** | Disponibilidad, precios (diurno/nocturno), stock de extras por intervalo, bloqueo de 20 min y reembolsos se calculan en el backend. | `backend/src/services/catalogService.ts` y `backend/src/services/reservas/` |
 | **Contratos primero** | Especificación OpenAPI 3.0.3, colección Postman y ejemplos de éxito (`201`) y conflicto (`409`). | `contracts/openapi.yaml`, `docs/LuxxitoSports.postman_collection.json` |
 | **Arquitectura en capas** | Separación estricta de Controladores (`controllers/`), Servicios (`services/`) y Acceso a Datos (`repositories/`). | `backend/src/controllers/`, `services/`, `repositories/` |
 | **Separación de secretos y ambientes** | Las credenciales de Supabase viven en `.env` (ignorado en Git); el repositorio provee `.env.example` y modo aislado para pruebas. | `.gitignore`, `backend/.env.example`, `backend/src/config/database.ts` |
