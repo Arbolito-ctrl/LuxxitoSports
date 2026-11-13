@@ -26,8 +26,8 @@ API REST Propia Node.js + Express + TypeScript (backend/)
         ▼
 Base de Datos PostgreSQL en Supabase (backend/sql/schema.sql)
   ├── 7 Tablas con RLS activo: usuarios, complejos, canchas, extras, reservas, reserva_extras, pagos
-  ├── Storage: bucket privado 'comprobantes'
-  └── Funciones RPC SECURITY DEFINER (autoridad del servidor en modo nube)
+  │     (la anon key solo lee el catálogo; reservas, pagos y usuarios solo los lee el backend)
+  └── Storage: bucket privado 'comprobantes'
 ```
 
 ## 3. Entregables Cumplidos del Taller 3
