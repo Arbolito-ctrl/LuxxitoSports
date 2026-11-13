@@ -16,6 +16,9 @@ app.use('/api/pagos/comprobante', express.json({ limit: '8mb' }));
 app.use(/^\/api\/canchas\/\d+\/imagen$/, express.json({ limit: '8mb' }));
 app.use(express.json());
 
+// Quien abre la raíz o /api en el navegador llega a la documentación (Swagger UI)
+app.get(['/', '/api', '/api/'], (_req: Request, res: Response) => res.redirect('/api/docs'));
+
 // Rutas principales de la API REST
 app.use('/api', apiRoutes);
 
