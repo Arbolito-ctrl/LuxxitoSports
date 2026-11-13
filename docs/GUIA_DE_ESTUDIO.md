@@ -36,8 +36,8 @@ Ejemplo: el jugador toca **Reservar**.
 3. **Express (`app.ts`).** Aplica CORS, lee el JSON (máximo 100 KB, 8 MB solo para fotos) y busca la ruta.
 4. **Ruta (`routes/apiRoutes.ts`).** Decide qué middlewares y qué controlador atienden la ruta.
 5. **Middlewares (`middlewares/authMiddleware.ts`).** `requireAuth` valida el JWT; `requireRole('ADMIN')` o `requireTitularDeReserva` revisan permisos. Si fallan, responden 401 o 403 y la petición no sigue.
-6. **Controlador (`controllers/reservationController.ts`).** Lee `req.body`, llama al servicio y responde con `{ ok, data }` o pasa el error al manejador.
-7. **Servicio (`services/reservationService.ts`).** Aplica las reglas: horario válido, sin solapamiento, stock de extras, precio día/noche y bloqueo de 20 minutos.
+6. **Controlador (`controllers/reservaController.ts`).** Lee `req.body`, llama al servicio y responde con `{ ok, data }` o pasa el error al manejador.
+7. **Servicio (`services/reservas/reservaService.ts`).** Aplica las reglas: horario válido, sin solapamiento y bloqueo de 20 minutos. El precio día/noche y el stock de extras los calcula `cotizacionService.ts`, en la misma carpeta. Los pagos, los comprobantes y el Ticket QR tienen su propio servicio (`pagoService.ts`, `comprobanteService.ts` y `ticketQrService.ts`).
 8. **Repositorio (`repositories/dataRepository.ts`).** Ejecuta el SQL dentro de una transacción contra PostgreSQL.
 9. **Respuesta.** `201 Created` con la reserva, o un error con formato único: `{ "ok": false, "code": "CONFLICT", "message": "..." }`.
 

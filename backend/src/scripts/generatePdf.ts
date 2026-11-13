@@ -63,7 +63,7 @@ async function generatePdf() {
     'Cliente móvil (mobile/, Flutter + Dart): jugador con Explorar (filtros por distrito y deporte, foto de cada cancha), Disponibilidad y Reserva (turnos, extras y cotización del servidor), Mis Reservas (pago Yape/Plin/Transferencia con foto del voucher, Ticket QR, edición y cancelación) y Perfil. El ADMIN tiene su propio panel: Inicio, Pagos (bandeja con foto del comprobante), Ingreso (lector de QR con cámara o código escrito), Reservas y gestión de canchas. La sesión se guarda cifrada (flutter_secure_storage) y la app se actualiza desde GitHub Releases.',
     'Rutas y middlewares (backend/src/routes, middlewares): definen los endpoints y aplican requireAuth (JWT), requireRole("ADMIN") y requireTitularDeReserva antes de llegar al controlador.',
     'Controladores (backend/src/controllers): leen la petición, llaman al servicio y traducen errores de dominio a códigos HTTP con un formato único { ok, code, message }.',
-    'Servicios (backend/src/services): AuthService, CatalogService y ReservationService contienen todas las reglas de negocio y validaciones.',
+    'Servicios (backend/src/services): AuthService, CatalogService y el módulo reservas/ (CotizacionService, ReservaService, PagoService, ComprobanteService y TicketQrService) contienen todas las reglas de negocio y validaciones.',
     'Repositorios (backend/src/repositories): encapsulan SQL y transacciones contra PostgreSQL (pooler de Supabase) y el acceso a Storage. Un modo de almacenamiento local permite correr las pruebas sin base de datos.',
     'Infraestructura: API en Render (Node 22, despliegue automático desde main), base y buckets en Supabase, y GitHub Actions para pruebas, despliegue y APK firmado con una clave fija.',
   ]);
