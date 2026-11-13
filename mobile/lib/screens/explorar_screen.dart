@@ -1,14 +1,20 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 
 import '../models/luxxito_models.dart';
 import '../services/api_service.dart';
 import '../theme/luxxito_theme.dart';
+import '../widgets/catalogo/filtros_catalogo.dart';
+import '../widgets/catalogo/hoja_nueva_cancha.dart';
+import '../widgets/catalogo/tarjeta_cancha.dart';
 import '../widgets/luxxito_widgets.dart';
 import '../widgets/selector_foto.dart';
 import 'disponibilidad_reserva_screen.dart';
 
+/// Catálogo de canchas con filtros por distrito y deporte.
+///
+/// El jugador lo usa para elegir dónde reservar; el ADMIN ([modoGestion]) lo
+/// usa para ver el estado de las canchas, cambiar sus fotos y publicar nuevas.
+/// Lo visual está en widgets/catalogo/.
 class ExplorarScreen extends StatefulWidget {
   final VoidCallback onNavigateToReservas;
 
@@ -28,6 +34,8 @@ class ExplorarScreen extends StatefulWidget {
 class _ExplorarScreenState extends State<ExplorarScreen> {
   List<Complejo> _complejos = [];
   List<Cancha> _canchas = [];
+
+  /// Foto de cada complejo (por id), para las canchas que no tienen foto propia.
   Map<int, String?> _fotos = {};
   bool _cargando = true;
   String? _errorMsg;
@@ -57,6 +65,7 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
     _cargarCatalogo();
   }
 
+  /// Carga complejos y canchas en paralelo aplicando los filtros actuales.
   Future<void> _cargarCatalogo() async {
     setState(() {
       _cargando = true;
@@ -90,6 +99,10 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Acciones
+  // ---------------------------------------------------------------------------
+
   Future<void> _abrirReserva(Cancha cancha) async {
     final ok = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -102,6 +115,7 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
     if (ok == true) widget.onNavigateToReservas();
   }
 
+  /// ADMIN: reemplaza la foto de una cancha (bucket público 'canchas').
   Future<void> _cambiarFoto(Cancha cancha) async {
     final foto = await elegirFoto(context);
     if (foto == null || !mounted) return;
@@ -126,535 +140,21 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
     }
   }
 
-  Future<void> _mostrarDialogoNuevaCancha() async {
-    final formKey = GlobalKey<FormState>();
-    final nombreCtrl = TextEditingController();
-    final superficieCtrl = TextEditingController(text: 'Grass sintético');
-    final diurnoCtrl = TextEditingController(text: '85');
-    final nocturnoCtrl = TextEditingController(text: '115');
-    int? complejoSel = _complejos.isNotEmpty ? _complejos.first.id : null;
-    String deporteSel = 'Futbol 7';
-    bool techada = false;
-    bool guardando = false;
-    (Uint8List, String)? fotoNueva;
-
-    final creado = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + espacioInferior(ctx)),
-          child: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Nueva cancha',
-                    style: TextStyle(
-                      color: LuxxitoColors.texto,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Se publicará de inmediato en el catálogo.',
-                    style: TextStyle(color: LuxxitoColors.textoSecundario),
-                  ),
-                  const SizedBox(height: 18),
-                  DropdownButtonFormField<int>(
-                    initialValue: complejoSel,
-                    dropdownColor: LuxxitoColors.superficieAlta,
-                    decoration: const InputDecoration(
-                      labelText: 'Complejo',
-                      prefixIcon: Icon(Icons.stadium_outlined),
-                    ),
-                    items: _complejos
-                        .map(
-                          (c) => DropdownMenuItem(
-                            value: c.id,
-                            child: Text(c.nombre),
-                          ),
-                        )
-                        .toList(),
-                    validator: (v) => v == null ? 'Elige un complejo' : null,
-                    onChanged: (v) => setSheetState(() => complejoSel = v),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: nombreCtrl,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre de la cancha',
-                      prefixIcon: Icon(Icons.edit_outlined),
-                    ),
-                    validator: (v) => (v ?? '').trim().length < 3
-                        ? 'Escribe un nombre'
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: deporteSel,
-                          dropdownColor: LuxxitoColors.superficieAlta,
-                          decoration: const InputDecoration(
-                            labelText: 'Deporte',
-                          ),
-                          items: _deportes
-                              .where((d) => d.isNotEmpty)
-                              .map(
-                                (d) =>
-                                    DropdownMenuItem(value: d, child: Text(d)),
-                              )
-                              .toList(),
-                          onChanged: (v) =>
-                              setSheetState(() => deporteSel = v ?? deporteSel),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: superficieCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Superficie',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: diurnoCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Precio día',
-                            prefixText: 'S/ ',
-                            helperText: 'Antes de 18:00',
-                          ),
-                          validator: (v) => (double.tryParse(v ?? '') ?? 0) <= 0
-                              ? 'Precio inválido'
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: nocturnoCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Precio noche',
-                            prefixText: 'S/ ',
-                            helperText: 'Desde 18:00',
-                          ),
-                          validator: (v) {
-                            final noche = double.tryParse(v ?? '') ?? 0;
-                            final dia = double.tryParse(diurnoCtrl.text) ?? 0;
-                            if (noche <= 0) return 'Precio inválido';
-                            if (noche < dia) return 'Debe ser ≥ día';
-                            return null;
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Cancha techada'),
-                    value: techada,
-                    onChanged: (v) => setSheetState(() => techada = v),
-                  ),
-                  if (fotoNueva == null)
-                    OutlinedButton.icon(
-                      onPressed: guardando
-                          ? null
-                          : () async {
-                              final foto = await elegirFoto(ctx);
-                              if (foto != null) {
-                                setSheetState(() => fotoNueva = foto);
-                              }
-                            },
-                      icon: const Icon(Icons.add_a_photo_outlined),
-                      label: const Text('Agregar foto de la cancha (opcional)'),
-                    )
-                  else
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Stack(
-                        children: [
-                          Image.memory(
-                            fotoNueva!.$1,
-                            height: 140,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                          Positioned(
-                            top: 6,
-                            right: 6,
-                            child: IconButton.filled(
-                              tooltip: 'Quitar foto',
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.black54,
-                              ),
-                              onPressed: guardando
-                                  ? null
-                                  : () => setSheetState(() => fotoNueva = null),
-                              icon: const Icon(
-                                Icons.close,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  FilledButton(
-                    onPressed: guardando
-                        ? null
-                        : () async {
-                            if (!formKey.currentState!.validate()) return;
-                            setSheetState(() => guardando = true);
-                            try {
-                              final creada = await ApiService.crearCancha(
-                                complejoId: complejoSel!,
-                                nombre: nombreCtrl.text.trim(),
-                                deporte: deporteSel,
-                                superficie: superficieCtrl.text.trim(),
-                                techada: techada,
-                                precioDiurno: double.parse(diurnoCtrl.text),
-                                precioNocturno: double.parse(nocturnoCtrl.text),
-                              );
-                              if (fotoNueva != null) {
-                                try {
-                                  await ApiService.subirImagenCancha(
-                                    canchaId: creada.id,
-                                    bytes: fotoNueva!.$1,
-                                    mimeType: fotoNueva!.$2,
-                                  );
-                                } catch (_) {
-                                  // La cancha ya existe: la foto se puede agregar luego con "Cambiar foto"
-                                  if (ctx.mounted) {
-                                    mostrarAviso(
-                                      ctx,
-                                      'Cancha creada, pero no se pudo subir la foto.',
-                                      tipo: TipoAviso.info,
-                                    );
-                                  }
-                                }
-                              }
-                              if (!ctx.mounted) return;
-                              Navigator.of(ctx).pop(true);
-                            } catch (e) {
-                              setSheetState(() => guardando = false);
-                              if (!ctx.mounted) return;
-                              mostrarAviso(
-                                ctx,
-                                mensajeError(e),
-                                tipo: TipoAviso.error,
-                              );
-                            }
-                          },
-                    child: Text(guardando ? 'Guardando…' : 'Publicar cancha'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+  Future<void> _nuevaCancha() async {
+    final creado = await mostrarHojaNuevaCancha(
+      context,
+      complejos: _complejos,
+      deportes: _deportes,
     );
-
-    if (creado == true && mounted) {
+    if (creado && mounted) {
       mostrarAviso(context, 'Cancha publicada en el catálogo.');
       _cargarCatalogo();
     }
   }
 
-  Widget _filtros() {
-    final nombre = ApiService.currentSession?.nombre.split(' ').first ?? '';
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            widget.modoGestion
-                ? 'Catálogo de canchas'
-                : nombre.isEmpty
-                ? '¡Hola!'
-                : '¡Hola, $nombre!',
-            style: const TextStyle(
-              color: LuxxitoColors.texto,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            widget.modoGestion
-                ? 'Revisa precios y estado de cada cancha, o publica una nueva.'
-                : '¿Dónde y a qué juegas hoy?',
-            style: const TextStyle(color: LuxxitoColors.textoSecundario),
-          ),
-          const SizedBox(height: 14),
-          _filaChips(
-            opciones: _distritos,
-            seleccion: _distritoFiltro,
-            etiquetaTodos: 'Todo Lima',
-            icono: (_) => Icons.location_on_outlined,
-            onSeleccion: (v) {
-              setState(() => _distritoFiltro = v);
-              _cargarCatalogo();
-            },
-          ),
-          const SizedBox(height: 8),
-          _filaChips(
-            opciones: _deportes,
-            seleccion: _deporteFiltro,
-            etiquetaTodos: 'Todos los deportes',
-            icono: (d) => d.isEmpty ? Icons.sports : iconoDeporte(d),
-            onSeleccion: (v) {
-              setState(() => _deporteFiltro = v);
-              _cargarCatalogo();
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _filaChips({
-    required List<String> opciones,
-    required String seleccion,
-    required String etiquetaTodos,
-    required IconData Function(String) icono,
-    required ValueChanged<String> onSeleccion,
-  }) {
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: opciones.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, idx) {
-          final valor = opciones[idx];
-          final sel = valor == seleccion;
-          return ChoiceChip(
-            showCheckmark: false,
-            avatar: Icon(
-              icono(valor),
-              size: 16,
-              color: sel ? Colors.white : LuxxitoColors.textoSecundario,
-            ),
-            label: Text(valor.isEmpty ? etiquetaTodos : valor),
-            selected: sel,
-            onSelected: (_) => onSeleccion(valor),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _tarjetaCancha(Cancha cancha) {
-    final activa = cancha.estado == 'ACTIVA';
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: activa && !widget.modoGestion
-            ? () => _abrirReserva(cancha)
-            : null,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Stack(
-              children: [
-                FotoComplejo(
-                  url: cancha.imagenUrl ?? _fotos[cancha.complejoId],
-                  iconoRespaldo: iconoDeporte(cancha.deporte),
-                ),
-                Positioned(
-                  left: 12,
-                  top: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          iconoDeporte(cancha.deporte),
-                          size: 14,
-                          color: LuxxitoColors.texto,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          cancha.deporte,
-                          style: const TextStyle(
-                            color: LuxxitoColors.texto,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-              child: Text(
-                cancha.nombre,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: LuxxitoColors.texto,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DatoFila(
-                    Icons.location_on_outlined,
-                    '${cancha.complejoNombre} · ${cancha.distrito}',
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      Insignia(
-                        cancha.superficie,
-                        color: LuxxitoColors.textoSecundario,
-                        icono: Icons.grass,
-                      ),
-                      Insignia(
-                        cancha.techada ? 'Techada' : 'Aire libre',
-                        color: LuxxitoColors.secundario,
-                        icono: cancha.techada
-                            ? Icons.roofing
-                            : Icons.wb_sunny_outlined,
-                      ),
-                      if (cancha.iluminacion)
-                        const Insignia(
-                          'Iluminación',
-                          color: LuxxitoColors.advertencia,
-                          icono: Icons.lightbulb_outline,
-                        ),
-                      if (!activa)
-                        const Insignia(
-                          'En mantenimiento',
-                          color: LuxxitoColors.error,
-                          icono: Icons.construction,
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text.rich(
-                              TextSpan(
-                                children: [
-                                  const TextSpan(
-                                    text: 'Desde ',
-                                    style: TextStyle(
-                                      color: LuxxitoColors.textoSecundario,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text:
-                                        'S/ ${cancha.precioHoraDiurno.toStringAsFixed(0)}',
-                                    style: const TextStyle(
-                                      color: LuxxitoColors.texto,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const TextSpan(
-                                    text: ' /hora',
-                                    style: TextStyle(
-                                      color: LuxxitoColors.textoSecundario,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              'Noche (desde 18:00): S/ ${cancha.precioHoraNocturno.toStringAsFixed(0)}',
-                              style: const TextStyle(
-                                color: LuxxitoColors.textoTenue,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (widget.modoGestion)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Insignia(
-                              activa ? 'Activa' : 'Inactiva',
-                              color: activa
-                                  ? LuxxitoColors.exito
-                                  : LuxxitoColors.error,
-                              icono: activa ? Icons.check_circle : Icons.block,
-                            ),
-                            TextButton.icon(
-                              onPressed: () => _cambiarFoto(cancha),
-                              icon: const Icon(
-                                Icons.add_a_photo_outlined,
-                                size: 18,
-                              ),
-                              label: const Text('Cambiar foto'),
-                            ),
-                          ],
-                        )
-                      else
-                        FilledButton.icon(
-                          onPressed: activa
-                              ? () => _abrirReserva(cancha)
-                              : null,
-                          icon: const Icon(Icons.calendar_month, size: 18),
-                          label: const Text('Reservar'),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // ---------------------------------------------------------------------------
+  // Pantalla
+  // ---------------------------------------------------------------------------
 
   Widget _contenido() {
     if (_cargando) {
@@ -690,6 +190,7 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
       itemCount: _canchas.length + 1,
       separatorBuilder: (_, _) => const SizedBox(height: 14),
       itemBuilder: (context, idx) {
+        // La primera fila es el contador; las demás, una tarjeta por cancha
         if (idx == 0) {
           return Text(
             _canchas.length == 1
@@ -705,7 +206,14 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
             ),
           );
         }
-        return _tarjetaCancha(_canchas[idx - 1]);
+        final cancha = _canchas[idx - 1];
+        return TarjetaCancha(
+          cancha: cancha,
+          fotoComplejo: _fotos[cancha.complejoId],
+          modoGestion: widget.modoGestion,
+          onReservar: () => _abrirReserva(cancha),
+          onCambiarFoto: () => _cambiarFoto(cancha),
+        );
       },
     );
   }
@@ -715,7 +223,7 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
     return Scaffold(
       floatingActionButton: ApiService.esAdmin
           ? FloatingActionButton.extended(
-              onPressed: _mostrarDialogoNuevaCancha,
+              onPressed: _nuevaCancha,
               icon: const Icon(Icons.add),
               label: const Text(
                 'Nueva cancha',
@@ -725,7 +233,21 @@ class _ExplorarScreenState extends State<ExplorarScreen> {
           : null,
       body: Column(
         children: [
-          _filtros(),
+          FiltrosCatalogo(
+            modoGestion: widget.modoGestion,
+            distritos: _distritos,
+            deportes: _deportes,
+            distritoSeleccionado: _distritoFiltro,
+            deporteSeleccionado: _deporteFiltro,
+            onDistrito: (v) {
+              setState(() => _distritoFiltro = v);
+              _cargarCatalogo();
+            },
+            onDeporte: (v) {
+              setState(() => _deporteFiltro = v);
+              _cargarCatalogo();
+            },
+          ),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _cargarCatalogo,
