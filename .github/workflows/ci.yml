@@ -35,6 +35,9 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+          # Versión fija (la misma del equipo). Sin ella el CI toma la última de Flutter
+          # y un cambio de Google puede romper el análisis sin que toquemos el código.
+          flutter-version: '3.47.3'
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
