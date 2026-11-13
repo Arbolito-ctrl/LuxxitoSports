@@ -21,6 +21,8 @@ async function generateApiPdf() {
     tituloCorto: 'Documentación de la API REST',
     archivo: 'DOCUMENTACION_API_TALLER3.pdf',
     indice: true,
+    // Con un ### por endpoint el índice no cabe en una página: se listan solo las secciones
+    nivelesIndice: 1,
   });
   d.portada(
     'Referencia de la API REST propia del proyecto: recursos, reglas de negocio que aplica el servidor, autenticación con JWT y roles, titularidad de reservas, concurrencia y ejemplos de solicitudes y respuestas.'
@@ -37,7 +39,7 @@ async function generateApiPdf() {
     { titulo: 'Datos generales de la API.' }
   );
   d.parrafo(
-    'Este documento se genera a partir de `docs/API_DOCUMENTATION.md`. El contrato formal está en `contracts/openapi.yaml` (OpenAPI 3.0.3) y puede abrirse en Swagger Editor o Redocly.'
+    'Este documento se genera a partir de `docs/API_DOCUMENTATION.md`. Todos los ejemplos de respuesta se obtuvieron llamando a la API. El contrato formal está en `contracts/openapi.yaml` (OpenAPI 3.0.3) y cada endpoint se puede probar en Swagger UI: `https://luxxito-sports-api.onrender.com/api/docs`.'
   );
 
   d.markdown(cuerpo, (enc) => {

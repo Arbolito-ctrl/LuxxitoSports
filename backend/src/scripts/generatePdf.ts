@@ -31,7 +31,7 @@ async function generatePdf() {
   );
   d.p(
     '3. ¿Qué hará la API que no deba hacer el cliente?',
-    'El servidor es la única autoridad sobre disponibilidad, precios (diurno antes de las 18:00, nocturno desde las 18:00), seña del 50%, stock de extras por intervalo, emisión y uso único del Ticket QR, vencimiento de bloqueos y reembolsos de 24 horas. También decide quién puede hacer qué: el catálogo y la revisión de pagos son del ADMIN y cada reserva solo la ve y modifica su titular. La app Flutter muestra datos y solicita operaciones; nunca calcula un precio ni confirma una reserva por su cuenta.'
+    'El servidor es la única autoridad sobre disponibilidad, precios (diurno antes de las 18:00, nocturno desde las 18:00), seña del 50%, stock de extras por intervalo, emisión y uso único del Ticket QR, vencimiento de bloqueos y reembolsos de 24 horas. También decide quién puede hacer qué: el catálogo y la revisión de pagos son del ADMIN y cada reserva solo la ve y modifica su titular. La app Flutter muestra datos y solicita operaciones; nunca calcula un precio, no confirma una reserva por su cuenta y no se conecta directamente a la base de datos.'
   );
   d.p(
     '4. ¿Qué datos y relaciones se almacenarán?',
@@ -47,11 +47,11 @@ async function generatePdf() {
   );
   d.p(
     '7. ¿Qué entradas deben rechazarse?',
-    'DNI distinto de 8 dígitos, correos mal formados, tarifa nocturna menor a la diurna, imágenes que no sean JPEG/PNG/WEBP y rechazos de pago sin motivo (400); peticiones sin token o con token vencido (401); un JUGADOR que intenta usar funciones de ADMIN o la reserva de otra persona (403); horas pasadas, fuera de atención o de más de 4 horas (422); turnos ocupados, extras sin stock, QR ya usado o cancelado y nombres de cancha repetidos (409); imágenes de más de 5 MB (413).'
+    'DNI distinto de 8 dígitos, correos mal formados, tarifa nocturna menor a la diurna, imágenes que no sean JPEG/PNG/WEBP y rechazos de pago sin motivo (400); peticiones sin token o con token vencido (401); un JUGADOR que intenta usar funciones de ADMIN o la reserva de otra persona (403); horas pasadas, fuera de atención o de más de 4 horas (422); turnos ocupados, extras sin stock, QR ya usado o cancelado y nombres de cancha repetidos (409); imágenes de más de 5 MB (413); más de 10 consultas de DNI por minuto desde la misma IP (429).'
   );
   d.p(
     '8. ¿Cómo comprobarán cada resultado?',
-    'Con 28 pruebas automatizadas (Vitest + Supertest, npm test) que cubren éxitos, fallos, seguridad y concurrencia; con la colección Postman ejecutada por Newman (38 solicitudes y 63 aserciones aprobadas); y con una demostración completa en un Motorola Edge 50 usando el APK de producción contra la API de Render y la base de Supabase, con 12 capturas y el estado final de la base como evidencia.'
+    'Con 37 pruebas automatizadas (Vitest + Supertest, npm test) que cubren éxitos, fallos, seguridad y concurrencia; con la colección Postman ejecutada por Newman (38 solicitudes y 63 aserciones aprobadas); y con una demostración completa en un Motorola Edge 50 usando el APK de producción contra la API de Render y la base de Supabase, con 12 capturas y el estado final de la base como evidencia.'
   );
 
   // =========================================================================
@@ -60,12 +60,12 @@ async function generatePdf() {
   d.nuevaPagina();
   d.h1('2. Arquitectura en capas');
   d.lista([
-    'Cliente móvil (mobile/, Flutter + Dart): jugador con Explorar (filtros por distrito y deporte, foto de cada cancha), Disponibilidad y Reserva (turnos, extras y cotización del servidor), Mis Reservas (pago Yape/Plin/Transferencia con foto del voucher, Ticket QR, edición y cancelación) y Perfil. El ADMIN tiene su propio panel: Inicio, Pagos (bandeja con foto del comprobante), Ingreso (lector de QR con cámara o código escrito), Reservas y gestión de canchas. La sesión se guarda cifrada (flutter_secure_storage) y la app se actualiza desde GitHub Releases.',
+    'Cliente móvil (mobile/, Flutter + Dart): registro con sugerencia del nombre a partir del DNI; jugador con Explorar (filtros por distrito y deporte, foto de cada cancha), Disponibilidad y Reserva (turnos, extras y cotización del servidor), Mis Reservas (pago Yape/Plin/Transferencia con foto del voucher, Ticket QR, edición y cancelación) y Perfil. El ADMIN tiene su propio panel: Inicio, Pagos (bandeja con foto del comprobante), Ingreso (lector de QR con cámara o código escrito), Reservas y gestión de canchas. La sesión se guarda cifrada (flutter_secure_storage), la app solo se comunica con la API (services/api/, sin claves de Supabase) y se actualiza desde GitHub Releases.',
     'Rutas y middlewares (backend/src/routes, middlewares): definen los endpoints y aplican requireAuth (JWT), requireRole("ADMIN") y requireTitularDeReserva antes de llegar al controlador.',
     'Controladores (backend/src/controllers): leen la petición, llaman al servicio y traducen errores de dominio a códigos HTTP con un formato único { ok, code, message }.',
-    'Servicios (backend/src/services): AuthService, CatalogService y el módulo reservas/ (CotizacionService, ReservaService, PagoService, ComprobanteService y TicketQrService) contienen todas las reglas de negocio y validaciones.',
+    'Servicios (backend/src/services): AuthService, CatalogService, DniService y el módulo reservas/ (CotizacionService, ReservaService, PagoService, ComprobanteService y TicketQrService) contienen todas las reglas de negocio y validaciones.',
     'Repositorios (backend/src/repositories): encapsulan SQL y transacciones contra PostgreSQL (pooler de Supabase) y el acceso a Storage. Un modo de almacenamiento local permite correr las pruebas sin base de datos.',
-    'Infraestructura: API en Render (Node 22, despliegue automático desde main), base y buckets en Supabase, y GitHub Actions para pruebas, despliegue y APK firmado con una clave fija.',
+    'Infraestructura: API en Render (Node 22, despliegue automático desde main), base y buckets en Supabase, Decolecta para el nombre por DNI, y GitHub Actions para pruebas, despliegue y APK firmado con una clave fija.',
   ]);
 
   d.h1('3. Modelo de datos relacional (Supabase PostgreSQL)');
@@ -98,7 +98,7 @@ async function generatePdf() {
   d.nuevaPagina();
   d.h1('4. Endpoints de la API REST propia');
   d.parrafo(
-    'Base: `https://luxxito-sports-api.onrender.com/api` · JSON UTF-8 · contrato completo en `contracts/openapi.yaml` (OpenAPI 3.0.3, versión 1.6.0).'
+    'Base: `https://luxxito-sports-api.onrender.com/api` · JSON UTF-8 · 31 endpoints · contrato OpenAPI 3.0.3 versión 1.8.0 · Swagger UI público para probarlos: `https://luxxito-sports-api.onrender.com/api/docs`.'
   );
   d.tabla(
     [
@@ -111,7 +111,10 @@ async function generatePdf() {
       ['POST /auth/registro', 'Público', 'Crea una cuenta JUGADOR y devuelve el JWT', '201, 400, 409'],
       ['POST /auth/login', 'Público', 'Inicia sesión y devuelve el JWT (30 días)', '200, 400, 401'],
       ['GET /auth/me', 'Sesión', 'Perfil del usuario del token', '200, 401'],
-      ['GET /health · GET /version', 'Público', 'Estado, versión desplegada y última versión del APK', '200, 502, 503'],
+      ['POST /auth/recuperar', 'Público', 'Solicita recuperar el acceso por correo', '200, 400'],
+      ['GET /dni/:numero', 'Público', 'Sugiere el nombre del DNI en el registro (solo nombre)', '200, 400, 404, 429, 503'],
+      ['GET /health · /version · /apk/download', 'Público', 'Estado, versión desplegada, última versión y descarga del APK', '200, 302, 502, 503'],
+      ['GET /docs · /openapi.yaml', 'Público', 'Swagger UI y contrato OpenAPI', '200'],
       ['GET /complejos · /complejos/:id', 'Público', 'Complejos, con sus canchas y extras', '200, 400, 404'],
       ['GET /canchas · /canchas/:id', 'Público', 'Catálogo con filtros de complejo, distrito, deporte y estado', '200, 400, 404'],
       ['POST /canchas', 'ADMIN', 'CRUD Create: registra una cancha validando tarifas', '201, 400, 401, 403, 409'],
@@ -188,7 +191,7 @@ async function generatePdf() {
   );
   d.p(
     'Secretos:',
-    'Las credenciales viven solo en Render, en GitHub Secrets y en un backend/.env local ignorado por Git; el repositorio incluye solo backend/.env.example.'
+    'Las credenciales (base de datos, JWT y el token de Decolecta) viven solo en Render, en GitHub Secrets y en un backend/.env local ignorado por Git. El APK solo recibe la URL de la API. En Supabase, la clave pública únicamente puede leer el catálogo: reservas, pagos, usuarios y las funciones rpc_ están cerrados. La consulta de DNI devuelve solo nombre y apellidos y tiene un límite de 10 por minuto por IP.'
   );
 
   // =========================================================================
@@ -197,8 +200,8 @@ async function generatePdf() {
   d.nuevaPagina();
   d.h1('7. Pruebas automatizadas');
   d.p(
-    'Vitest + Supertest (backend/src/tests/api.test.ts):',
-    '28 de 28 pruebas aprobadas. Se ejecutan en cada push con GitHub Actions.'
+    'Vitest + Supertest (backend/src/tests/):',
+    '37 de 37 pruebas aprobadas (29 en api.test.ts y 8 en dni.test.ts). Se ejecutan en cada push con GitHub Actions.'
   );
   d.tabla(
     [
@@ -212,6 +215,7 @@ async function generatePdf() {
       ['Cancelación', '8 reembolso 100% con más de 24 h; 15 retención 50% con menos de 24 h'],
       ['Seguridad', '17 login, credenciales inválidas (401) y registro duplicado (409); 18 roles (401/403); 23 token vencido (401); 27 titularidad (401/403); 28 contraseñas con scrypt'],
       ['Concurrencia', '25 pedidos simultáneos no duplican turnos, extras, comprobantes ni aprobaciones'],
+      ['Documentación y DNI', '29 Swagger UI y contrato OpenAPI; dni.test.ts: solo nombre y apellidos, caché, DNI inválido (400), no encontrado (404), sin token o proveedor caído (503) y límite por IP (429)'],
     ],
     { titulo: 'Casos de prueba automatizados agrupados por funcionalidad.', tam: 8.8 }
   );

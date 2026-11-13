@@ -1,5 +1,7 @@
 /**
- * Pagos manuales de las reservas (LÓGICA DE NEGOCIO 4): Yape, Plin o transferencia.
+ * Pagos manuales de las reservas: Yape, Plin o transferencia.
+ * LÓGICA DE NEGOCIO 4: registro del comprobante y protección de la reserva en revisión.
+ * LÓGICA DE NEGOCIO 5: aprobación idempotente y emisión del Ticket QR.
  *
  * Flujo:
  *   1. El jugador registra el pago con el número de operación (y opcionalmente el

@@ -248,7 +248,7 @@ export class ReservaService {
   // ===========================================================================
 
   /**
-   * LÓGICA DE NEGOCIO 5: cancelación con política de 24 horas.
+   * LÓGICA DE NEGOCIO 6: cancelación con política de 24 horas.
    * - Con 24 h o más de anticipación: se devuelve el 100 % de lo pagado.
    * - Con menos de 24 h: se retiene el 50 % como penalidad y se devuelve el otro 50 %.
    * Al cancelar se anula el Ticket QR y se liberan el turno y el stock de extras.

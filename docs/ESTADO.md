@@ -1,5 +1,27 @@
 # Estado Vigente del Proyecto — Luxxito Sports
 
+## Actualización al 13 de noviembre de 2026
+
+| Componente | Comprobación | Resultado |
+|---|---|---|
+| Pruebas del backend | `cd backend && npm test` | `37 passed (37)`: 29 en `api.test.ts` y 8 en `dni.test.ts` |
+| Análisis y pruebas de la app | `cd mobile && flutter analyze && flutter test` | `No issues found!` · 3 de 3 |
+| API en producción | `GET /api/health` | HTTP 200, `db_mode=POSTGRES_POOL`, versión 1.8.0 |
+| Swagger UI público | `https://luxxito-sports-api.onrender.com/api/docs` | Disponible para probar los 31 endpoints |
+| Sugerencia de nombre por DNI | `GET /api/dni/00000000` en producción | `404` (token configurado en Render; ese DNI no existe) |
+| Acceso público a Supabase | Llamadas con la anon key | Funciones `rpc_*` y lectura de reservas/pagos: `401 permission denied`; catálogo: `200` |
+
+Cambios desde el corte anterior:
+
+- **Seguridad (PR #58):** la app ya no lleva claves de Supabase ni tiene modo "Supabase directo". Se cerró a la clave pública la ejecución de las 11 funciones `rpc_*` y la lectura de `reservas`, `reserva_extras` y `pagos` (migración `backend/sql/migraciones/2026-11-13_cerrar_acceso_publico.sql`, aplicada y verificada en producción).
+- **Sugerencia de nombre por DNI (PR #60):** `GET /api/dni/:numero` con Decolecta (solo nombre y apellidos), límite por IP y caché. El token está en Render (issue #62).
+- **Código reorganizado:** `backend/src/services/reservas/` (PR #52), pantallas de la app divididas en `mobile/lib/widgets/` (PR #53 y #56) y `api_service.dart` dividido en `mobile/lib/services/api/` (PR #58). Versión fija de Flutter en el CI (PR #54).
+- **Entregables actualizados:** documento técnico (6 páginas), documentación de la API con los 31 endpoints y la guía de estudio.
+
+Lo que sigue es el registro del corte anterior (3 de noviembre).
+
+---
+
 **Fecha de corte:** 3 de noviembre de 2026 (Perú)  
 **Etapa:** Infraestructura publicada y acceso/catálogo/reserva validados en Android físico (issue #14, PR #17/#18). El recorrido completo pago/comprobante/QR permanece pendiente.
 

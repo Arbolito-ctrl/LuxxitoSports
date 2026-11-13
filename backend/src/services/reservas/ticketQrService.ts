@@ -1,5 +1,6 @@
 /**
- * Ticket QR de ingreso (LÓGICA DE NEGOCIO 6, LX-202).
+ * Ticket QR de ingreso (LÓGICA DE NEGOCIO 5, LX-202): se emite al aprobar el pago
+ * (pagoService) y aquí se verifica una sola vez en la puerta.
  *
  * El backend no genera ninguna imagen: el "QR" es un texto con el formato
  * LUXXITO-QR-<idReserva>-<10 caracteres hexadecimales>. La app lo dibuja como

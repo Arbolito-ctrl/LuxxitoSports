@@ -45,6 +45,8 @@ export interface OpcionesDocumento {
   tituloCorto: string;
   archivo: string;
   indice?: boolean;
+  /** 1 = el índice solo lista los títulos ##; 2 (por defecto) también los ###. */
+  nivelesIndice?: 1 | 2;
   tamTexto?: number;
   carpeta?: string; // por defecto, entregables/
 }
@@ -195,8 +197,11 @@ export class DocumentoAcademico {
         tramos[i - 1].t += ' ';
       }
     }
-    tramos.forEach((s, i) => {
-      this.doc.font(s.fuente).fontSize(s.size).fillColor(s.color).text(s.t, { ...opciones, continued: i < tramos.length - 1 });
+    // Un tramo que solo tenía espacios queda vacío: PDFKit lo dibuja como un hueco
+    // grande (por ejemplo entre "**Acceso:**" y un `código`), así que se descarta.
+    const visibles = tramos.filter((s) => s.t !== '');
+    visibles.forEach((s, i) => {
+      this.doc.font(s.fuente).fontSize(s.size).fillColor(s.color).text(s.t, { ...opciones, continued: i < visibles.length - 1 });
     });
   }
 
@@ -365,8 +370,15 @@ export class DocumentoAcademico {
   }
 
   // ------------------------------------------------------------------ Markdown sencillo
-  /** Renderiza títulos ##/###, párrafos, listas, tablas, citas y bloques de código. */
-  markdown(md: string, anchosTabla?: (encabezados: string[]) => number[] | undefined) {
+  /**
+   * Renderiza títulos ##/###, párrafos, listas, tablas, citas, bloques de código e
+   * imágenes PNG (`![pie](ruta)`, con la ruta relativa a `carpetaImagenes`).
+   */
+  markdown(
+    md: string,
+    anchosTabla?: (encabezados: string[]) => number[] | undefined,
+    carpetaImagenes?: string
+  ) {
     const lineas = md.replace(/\r/g, '').split('\n');
     let i = 0;
     let parrafo: string[] = [];
@@ -382,6 +394,10 @@ export class DocumentoAcademico {
         i += 1;
         while (i < lineas.length && !lineas[i].startsWith('```')) bloque.push(lineas[i++]);
         this.codigo(bloque.join('\n'));
+      } else if (/^!\[[^\]]*\]\([^)]+\.png\)\s*$/.test(l) && carpetaImagenes) {
+        cerrarParrafo();
+        const [, pie, ruta] = l.match(/^!\[([^\]]*)\]\(([^)]+)\)/)!;
+        this.figuras([{ ruta: path.join(carpetaImagenes, ruta), pie }], 330);
       } else if (l.startsWith('## ')) {
         cerrarParrafo();
         this.h1(l.slice(3));
@@ -443,7 +459,8 @@ export class DocumentoAcademico {
       d.y = d.page.margins.top;
       d.font('Times-Bold').fontSize(16).fillColor(AZUL).text('Índice', { width: w });
       d.moveDown(0.8);
-      for (const t of this.titulos) {
+      const niveles = this.o.nivelesIndice ?? 2;
+      for (const t of this.titulos.filter((x) => x.nivel <= niveles)) {
         const sangria = t.nivel === 1 ? 0 : 16;
         const y = d.y;
         d.font(t.nivel === 1 ? 'Times-Bold' : 'Times-Roman').fontSize(t.nivel === 1 ? 11 : 10.3).fillColor(TINTA);

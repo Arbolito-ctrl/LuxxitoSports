@@ -19,7 +19,7 @@ const MIME_PERMITIDOS = ['image/jpeg', 'image/png', 'image/webp'];
 
 export class ComprobanteService {
   /**
-   * LÓGICA DE NEGOCIO 7: recibe la imagen en base64, la valida y la sube al bucket.
+   * Recibe la imagen en base64, la valida y la sube al bucket (complementa la regla 4).
    * Devuelve la referencia `comprobante_url` que luego se envía al registrar el pago.
    */
   async subirComprobanteStorage(payload: {
