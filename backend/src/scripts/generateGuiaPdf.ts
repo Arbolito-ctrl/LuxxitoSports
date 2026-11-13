@@ -27,7 +27,7 @@ async function generateGuiaPdf() {
     if (enc[0] === 'Método') return [0.12, 0.34, 0.14, 0.4];
     if (enc[0] === 'Código') return [0.22, 0.3, 0.48];
     return undefined;
-  });
+  }, path.join(RAIZ, 'docs'));
   await d.finalizar();
 }
 
