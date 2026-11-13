@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Luxxito Sports REST API
-  version: 1.7.0
+  version: 1.8.0
   description: >
     Contrato OpenAPI de la API REST propia de Luxxito Sports (SI806 - Taller 3 UNI).
     El servidor es la autoridad sobre disponibilidad, precios, stock de extras por intervalo,
@@ -80,6 +80,44 @@ paths:
           description: Datos de entrada inválidos
         '409':
           description: Correo o DNI duplicado
+  /dni/{numero}:
+    get:
+      security: []
+      summary: Sugerir el nombre asociado a un DNI (autocompletar el registro)
+      description: >
+        Devuelve solo nombres y apellidos (datos públicos, igual que la consulta gratuita de RENIEC)
+        a partir del proveedor Decolecta. El token del proveedor vive solo en el servidor.
+        Límite de 10 consultas por minuto por IP. Si el proveedor no está configurado o no responde,
+        la app deja escribir el nombre manualmente.
+      parameters:
+        - name: numero
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{8}$'
+            example: "46027897"
+      responses:
+        '200':
+          description: Nombre sugerido
+          content:
+            application/json:
+              example:
+                ok: true
+                data:
+                  dni: "46027897"
+                  nombres: "JUAN CARLOS"
+                  apellido_paterno: "PEREZ"
+                  apellido_materno: "GARCIA"
+                  nombre_completo: "JUAN CARLOS PEREZ GARCIA"
+        '400':
+          description: El DNI no tiene 8 dígitos
+        '404':
+          description: No se encontró un nombre para ese DNI
+        '429':
+          description: Demasiadas consultas desde la misma IP (ver cabecera Retry-After)
+        '503':
+          description: La consulta de DNI no está configurada o el proveedor no responde
   /auth/me:
     get:
       summary: Obtener perfil del usuario autenticado a partir del token JWT (LX-201)

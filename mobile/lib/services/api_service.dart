@@ -17,7 +17,7 @@ export 'api/cliente_api.dart' show ApiException;
 /// |-----------------------|-------------------------------------------------------|
 /// | api/cliente_api.dart  | URL base, token, timeout y traducción de errores      |
 /// | api/sesion_api.dart   | usuario logueado y si es ADMIN                        |
-/// | api/auth_api.dart     | login y registro                                      |
+/// | api/auth_api.dart     | login, registro y sugerencia de nombre por DNI        |
 /// | api/catalogo_api.dart | complejos, canchas, disponibilidad, gestión de canchas|
 /// | api/reservas_api.dart | cotizar, crear, listar, editar, eliminar, cancelar    |
 /// | api/pagos_api.dart    | pagos, comprobantes, bandeja del ADMIN y Ticket QR    |
@@ -56,6 +56,9 @@ class ApiService {
         email: email,
         password: password,
       );
+
+  static Future<String?> sugerirNombrePorDni(String dni) =>
+      AuthApi.sugerirNombrePorDni(dni);
 
   // --- Catálogo ----------------------------------------------------------------
   static Future<Map<String, dynamic>> checkHealth() => CatalogoApi.checkHealth();

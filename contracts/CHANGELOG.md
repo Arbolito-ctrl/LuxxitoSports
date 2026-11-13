@@ -1,5 +1,13 @@
 # Historial de Cambios de Contratos — Luxxito Sports API
 
+## [1.8.0] - 2026-11-13 (Sugerencia de nombre por DNI)
+
+### Añadido
+- `GET /dni/{numero}`: devuelve solo nombres y apellidos asociados al DNI para autocompletar el registro (proveedor Decolecta, token solo en el servidor). Límite de 10 consultas por minuto por IP (`429` con `Retry-After`); `404` si no se encuentra y `503` si el proveedor no está configurado o no responde.
+
+### Seguridad
+- La app ya no lleva `SUPABASE_URL` ni `SUPABASE_ANON_KEY` y solo usa la API propia. Las funciones `rpc_*` y la lectura de `reservas`, `reserva_extras` y `pagos` quedaron cerradas a la anon key (migración `backend/sql/migraciones/2026-11-13_cerrar_acceso_publico.sql`).
+
 ## [1.7.0] - 2026-11-03 (Swagger UI)
 
 ### Añadido
