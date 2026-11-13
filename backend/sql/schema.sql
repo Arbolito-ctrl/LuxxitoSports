@@ -167,8 +167,9 @@ END $$;
 
 -- ============================================================================
 -- 8. ROW LEVEL SECURITY (RLS) Y POLÍTICAS DE ACCESO (Issue #5)
--- La anon key queda limitada a lectura en tablas de consulta; las escrituras
--- y validaciones de negocio se ejecutan a través del servidor / funciones RPC.
+-- La anon key es pública (viaja en el APK): solo puede leer el catálogo
+-- (complejos, canchas, extras). Reservas, pagos y usuarios tienen datos
+-- personales y solo los lee el backend. Ver migraciones/2026-11-13_cerrar_acceso_publico.sql
 -- ============================================================================
 ALTER TABLE usuarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE complejos ENABLE ROW LEVEL SECURITY;
@@ -200,7 +201,7 @@ CREATE POLICY "service_role_all_reserva_extras" ON reserva_extras FOR ALL TO ser
 DROP POLICY IF EXISTS "service_role_all_pagos" ON pagos;
 CREATE POLICY "service_role_all_pagos" ON pagos FOR ALL TO service_role USING (true) WITH CHECK (true);
 
--- Políticas de solo lectura (SELECT) para anon y authenticated en catálogo y consultas
+-- Políticas de solo lectura (SELECT) para anon y authenticated, solo en el catálogo
 DROP POLICY IF EXISTS "anon_select_complejos" ON complejos;
 CREATE POLICY "anon_select_complejos" ON complejos FOR SELECT TO anon, authenticated USING (true);
 
@@ -210,19 +211,16 @@ CREATE POLICY "anon_select_canchas" ON canchas FOR SELECT TO anon, authenticated
 DROP POLICY IF EXISTS "anon_select_extras" ON extras;
 CREATE POLICY "anon_select_extras" ON extras FOR SELECT TO anon, authenticated USING (true);
 
+-- Reservas, extras de reservas y pagos NO son públicos (datos personales)
 DROP POLICY IF EXISTS "anon_select_reservas" ON reservas;
-CREATE POLICY "anon_select_reservas" ON reservas FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "anon_select_reserva_extras" ON reserva_extras;
-CREATE POLICY "anon_select_reserva_extras" ON reserva_extras FOR SELECT TO anon, authenticated USING (true);
-
 DROP POLICY IF EXISTS "anon_select_pagos" ON pagos;
-CREATE POLICY "anon_select_pagos" ON pagos FOR SELECT TO anon, authenticated USING (true);
 
 -- ============================================================================
 -- 9. FUNCIONES RPC EN SERVIDOR (SECURITY DEFINER)
--- Garantizan que toda regla de negocio y control de rol ADMIN se ejecute en el
--- servidor incluso cuando el cliente móvil opera en modo nube contra Supabase.
+-- Quedaron del antiguo modo "Supabase directo" de la app, que ya no se usa.
+-- Solo service_role puede ejecutarlas (ver los permisos al final): las de ADMIN
+-- confían en el parámetro p_rol, así que nunca deben quedar abiertas a anon.
 -- ============================================================================
 
 -- 9.1 Autenticación segura en servidor (no expone password_hash)
@@ -740,10 +738,13 @@ BEGIN
 END;
 $$;
 
--- Permisos de esquema: anon solo tiene SELECT en tablas con política RLS y EXECUTE en funciones RPC del servidor
+-- Permisos de esquema: anon solo lee el catálogo; las funciones rpc_* son solo del servidor.
+-- (En PostgreSQL las funciones nacen con EXECUTE para PUBLIC, por eso se revoca también a PUBLIC.)
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;
-GRANT SELECT ON complejos, canchas, extras, reservas, reserva_extras, pagos TO anon, authenticated;
+GRANT SELECT ON complejos, canchas, extras TO anon, authenticated;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO service_role;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO service_role;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
