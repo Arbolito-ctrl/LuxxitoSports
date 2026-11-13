@@ -29,8 +29,17 @@ Future<(Uint8List, String)?> elegirFoto(BuildContext context) async {
       ),
     ),
   );
-  if (origen == null) return null;
+  if (origen == null || !context.mounted) return null;
+  return tomarFoto(context, origen);
+}
 
+/// Abre directamente la cámara o la galería (sin preguntar) y devuelve la foto
+/// reducida para no superar el límite de 5 MB del bucket, junto con su tipo MIME.
+/// Devuelve null si el usuario cancela o si no hay permisos (y muestra un aviso).
+Future<(Uint8List, String)?> tomarFoto(
+  BuildContext context,
+  ImageSource origen,
+) async {
   try {
     final foto = await ImagePicker().pickImage(
       source: origen,
