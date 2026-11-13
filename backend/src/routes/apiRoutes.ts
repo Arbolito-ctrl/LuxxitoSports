@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { authController } from '../controllers/authController';
 import { catalogController } from '../controllers/catalogController';
+import { dniController } from '../controllers/dniController';
 import { docsController } from '../controllers/docsController';
 import { pagoController } from '../controllers/pagoController';
 import { reservaController } from '../controllers/reservaController';
 import { ticketQrController } from '../controllers/ticketQrController';
 import { requireAuth, requireRole, requireTitularDeReserva } from '../middlewares/authMiddleware';
+import { limiteConsultas } from '../middlewares/limiteConsultas';
 
 const router = Router();
 
@@ -15,6 +17,13 @@ router.post('/auth/registro', (req, res, next) => authController.registro(req, r
 router.get('/auth/me', requireAuth, (req, res, next) => authController.me(req, res, next));
 router.post('/auth/recuperar', (req, res, next) =>
   authController.recuperarAcceso(req, res, next)
+);
+// Sugerencia de nombre por DNI para el registro: pública (aún no hay sesión),
+// con límite por IP porque el proveedor externo tiene cuota mensual.
+router.get(
+  '/dni/:numero',
+  limiteConsultas({ maximo: 10, ventanaMs: 60 * 1000 }),
+  (req, res, next) => dniController.sugerirNombre(req, res, next)
 );
 
 // 1. Estado del servicio, versión de APK y descarga OTA
