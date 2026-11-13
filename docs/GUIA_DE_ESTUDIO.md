@@ -12,7 +12,7 @@ Guía para entender el proyecto de punta a punta y preparar la sustentación: qu
 
 ![Arquitectura de Luxxito Sports](arquitectura/arquitectura.png)
 
-*Diagrama de arquitectura (versión interactiva: [`arquitectura/arquitectura.html`](arquitectura/arquitectura.html)).*
+Versión interactiva del diagrama: [`docs/arquitectura/arquitectura.html`](arquitectura/arquitectura.html).
 
 | Pieza | Tecnología | Dónde está |
 |---|---|---|
@@ -21,9 +21,10 @@ Guía para entender el proyecto de punta a punta y preparar la sustentación: qu
 | Base de datos | PostgreSQL en Supabase (7 tablas) | `backend/sql/schema.sql` |
 | Archivos | Supabase Storage (buckets `comprobantes` y `canchas`) | — |
 | Despliegue | Render (API), GitHub Actions (pruebas y APK) | `.github/workflows/` |
-| Contrato | OpenAPI 3.0.3 | `contracts/openapi.yaml` |
+| Contrato | OpenAPI 3.0.3 (versión 1.8.0, 31 endpoints) | `contracts/openapi.yaml` |
+| Probar la API | Swagger UI público | `https://luxxito-sports-api.onrender.com/api/docs` |
 
-**Flujo principal (lo que se mostró en la demo):** el jugador busca una cancha → ve horarios y precio (calculado por el servidor) → reserva y el turno queda bloqueado 20 minutos → paga por Yape y sube la foto del voucher → el ADMIN revisa y aprueba → el jugador recibe un Ticket QR → el ADMIN lo escanea en la puerta (sirve una sola vez) → si el jugador cancela, se aplica la política de 24 horas.
+**Flujo principal (lo que se mostró en la demo):** el jugador se registra (al escribir su DNI se sugiere su nombre) → busca una cancha → ve horarios y precio (calculado por el servidor) → reserva y el turno queda bloqueado 20 minutos → paga por Yape y sube la foto del voucher → el ADMIN revisa y aprueba → el jugador recibe un Ticket QR → el ADMIN lo escanea en la puerta (sirve una sola vez) → si el jugador cancela, se aplica la política de 24 horas.
 
 ---
 
@@ -56,6 +57,10 @@ Ejemplo: el jugador toca **Reservar**.
 | Repositorios | Acceso a datos (SQL, transacciones, Storage) | Decidir precios o permisos |
 
 **¿Por qué así?** Cada capa cambia por una sola razón. Si mañana se cambia PostgreSQL por otra base, solo cambia el repositorio. Las pruebas pueden correr con un almacenamiento local (`LOCAL_STORE`) sin tocar los servicios.
+
+**Servicios por responsabilidad.** Las reglas de reservas están en `services/reservas/`, un archivo por tema: `cotizacionService` (precio), `reservaService` (crear, editar, cancelar), `pagoService` (registrar, aprobar, rechazar), `comprobanteService` (vouchers en Storage) y `ticketQrService` (emitir y verificar el QR). `reglasCompartidas` guarda el bloqueo de 20 minutos y la cola por reserva que usan todos.
+
+**En la app pasa lo mismo.** Las pantallas solo guardan el estado y lo visual está en `mobile/lib/widgets/`. Todas las llamadas HTTP pasan por `mobile/lib/services/api/` (`cliente_api` pone el token, el tiempo de espera y traduce los errores). La app no se conecta a Supabase: solo habla con la API.
 
 ---
 
@@ -104,12 +109,13 @@ Ejemplo: el jugador toca **Reservar**.
 
 ### 4.3. Los endpoints por grupo
 
-- **Autenticación:** `POST /auth/registro`, `POST /auth/login`, `GET /auth/me`.
+- **Autenticación:** `POST /auth/registro`, `POST /auth/login`, `GET /auth/me`, `POST /auth/recuperar`, y `GET /dni/:numero` (sugiere el nombre en el registro).
 - **Catálogo:** `GET /complejos`, `GET /canchas`, `POST`/`PUT /canchas` (solo ADMIN), `POST /canchas/:id/imagen` (solo ADMIN).
 - **Reservas:** `GET /canchas/:id/disponibilidad`, `POST /reservas/cotizar`, `POST /reservas`, `GET`/`PUT`/`DELETE /reservas/:id` (titular o ADMIN), `POST /reservas/:id/cancelar`.
 - **Pagos:** `POST /pagos/comprobante` (foto), `POST /reservas/:id/pagos`, `GET /pagos` y `PATCH /pagos/:id/aprobar|rechazar` (solo ADMIN).
 - **Ingreso:** `POST /reservas/verificar-qr` (solo ADMIN).
-- **Operación:** `GET /health` (estado y versión), `GET /version` (última versión del APK).
+- **Operación:** `GET /health` (estado y versión), `GET /version` (última versión del APK), `GET /apk/download`.
+- **Documentación:** `GET /docs` (Swagger UI) y `GET /openapi.yaml` (contrato). En total, 31 endpoints.
 
 ---
 
@@ -161,7 +167,7 @@ Con la hora de Lima: si faltan 24 horas o más, se devuelve el 100% de lo pagado
 | **scrypt** | Función de hash lenta a propósito y que usa memoria, para que adivinar contraseñas por fuerza bruta sea caro | Viene incluida en Node (`crypto.scryptSync`) |
 | **Comparación en tiempo constante** | Comparar sin terminar antes al primer carácter distinto, para no filtrar pistas por el tiempo de respuesta | `crypto.timingSafeEqual` |
 | **Bucket privado + URL firmada** | Archivo no público; se comparte con un enlace temporal | Vouchers en `comprobantes`, enlace de 1 hora para el ADMIN |
-| **RLS (Row Level Security)** | Políticas de PostgreSQL que limitan qué filas puede leer cada rol de la base | Activado en las 7 tablas; solo el backend (service role) accede |
+| **RLS (Row Level Security)** | Políticas de PostgreSQL que limitan qué filas puede leer cada rol de la base | Activado en las 7 tablas. La clave pública (`anon`) solo lee el catálogo; reservas, pagos y usuarios solo los lee el backend |
 | **Variables de entorno / secretos** | Configuración sensible fuera del código | `backend/.env` (ignorado por Git), Render y GitHub Secrets |
 
 > **Cifrar no es lo mismo que hashear.** Lo cifrado se puede descifrar con la clave; un hash no se "deshace". Por eso guardamos hashes de contraseñas: ni nosotros podemos leerlas. Al hacer login se calcula el hash de lo que escribió el usuario y se compara.
@@ -225,7 +231,7 @@ Las 7 tablas: `usuarios`, `complejos`, `canchas`, `extras`, `reservas`, `reserva
 
 | Concepto | Significado | En el proyecto |
 |---|---|---|
-| **Prueba automatizada** | Código que verifica el comportamiento sin intervención humana | 28 casos en `backend/src/tests/api.test.ts` |
+| **Prueba automatizada** | Código que verifica el comportamiento sin intervención humana | 37 casos en `backend/src/tests/` (29 en `api.test.ts` y 8 en `dni.test.ts`) |
 | **Vitest** | Ejecutor de pruebas para TypeScript | `npm test` |
 | **Supertest** | Librería que hace peticiones HTTP a la app Express sin levantar un servidor real | Cada caso llama a un endpoint |
 | **Postman / Newman** | Herramienta para probar APIs a mano / la misma colección ejecutada por consola | 38 solicitudes y 63 aserciones |
@@ -299,7 +305,10 @@ Las 7 tablas: `usuarios`, `complejos`, `canchas`, `extras`, `reservas`, `reserva
 - **¿Cómo guardan las contraseñas?** Con `scrypt` y una sal aleatoria por usuario. No se pueden recuperar; al hacer login se calcula el hash y se compara en tiempo constante.
 - **¿Por qué una sal?** Para que dos contraseñas iguales tengan hashes distintos y no se puedan usar tablas precalculadas.
 - **¿Puede un jugador ver las reservas de otro?** No. `GET /reservas/:id` y las acciones sobre una reserva exigen que el DNI del token sea el de la reserva (o ser ADMIN); si no, 403. En el listado, el jugador solo recibe las suyas.
-- **¿Dónde están las claves de Supabase?** En variables de entorno de Render y en GitHub Secrets. El repositorio solo tiene `backend/.env.example` sin valores reales.
+- **¿Dónde están las claves de Supabase?** Solo en el servidor: variables de entorno de Render y `backend/.env` local (ignorado por Git). El repositorio solo tiene `backend/.env.example` sin valores reales, y el APK solo recibe la URL de la API.
+- **¿La app se conecta directo a Supabase?** No. Antes tenía un "plan B" que llamaba a Supabase si la API fallaba, pero estaba apagado y obligaba a dejar funciones abiertas en la base. Se quitó: la app solo habla con la API, que es la que aplica todas las reglas.
+- **¿Qué problema de seguridad encontraron y cómo lo cerraron?** La clave pública de Supabase iba dentro del APK. Con ella se podían ejecutar funciones de la base que solo revisaban el rol que enviaba el cliente (alguien podía aprobar su propio pago) y leer todas las reservas con DNI y teléfono. Se quitaron esos permisos a la clave pública (migración `2026-11-13_cerrar_acceso_publico.sql`) y se verificó desde fuera: ahora responde *permission denied*.
+- **¿De dónde sale el nombre que se sugiere con el DNI?** Del servicio Decolecta, que devuelve solo nombre y apellidos: los mismos datos que RENIEC muestra gratis en su web. La consulta la hace el servidor (el token no va en la app), con un límite de 10 por minuto por IP y una caché de 24 horas. El usuario puede corregir el nombre, y si el servicio falla el registro funciona igual.
 - **¿Por qué el bucket de comprobantes es privado?** Porque un voucher tiene datos personales. El ADMIN lo ve con un enlace firmado que vence en 1 hora.
 
 ### Base de datos
@@ -311,9 +320,10 @@ Las 7 tablas: `usuarios`, `complejos`, `canchas`, `extras`, `reservas`, `reserva
 
 ### Pruebas
 
-- **¿Cómo prueban que funciona?** Con 28 pruebas automatizadas (éxitos, fallos, seguridad y concurrencia) que corren en cada cambio en GitHub Actions; con Postman/Newman (38 solicitudes, 63 aserciones); y con la demostración real en un celular contra Render y Supabase.
+- **¿Cómo prueban que funciona?** Con 37 pruebas automatizadas (éxitos, fallos, seguridad y concurrencia) que corren en cada cambio en GitHub Actions; con Postman/Newman (38 solicitudes, 63 aserciones); y con la demostración real en un celular contra Render y Supabase.
 - **¿Las pruebas usan la base real?** No: usan un almacenamiento local para ser rápidas y repetibles. La base real se validó en la demostración, con capturas y el estado de Supabase como evidencia.
-- **Muestren un caso de fallo.** Reservar un turno ya ocupado → 409; reservar a una hora que ya pasó → 422; aprobar un pago con token de jugador → 403.
+- **Muestren un caso de fallo.** Reservar un turno ya ocupado → 409; reservar a una hora que ya pasó → 422; aprobar un pago con token de jugador → 403. Se pueden mostrar en vivo desde Swagger UI (`/api/docs`).
+- **¿Cómo prueban la consulta de DNI sin gastar consultas reales?** Las pruebas simulan al proveedor: comprueban que se devuelva solo el nombre, la caché, el DNI inválido (400), no encontrado (404), proveedor caído (503) y el límite por IP (429).
 
 ---
 

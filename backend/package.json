@@ -1,6 +1,6 @@
 {
   "name": "luxxito-sports-api",
-  "version": "1.6.0",
+  "version": "1.8.0",
   "description": "API REST propia para Luxxito Sports (SI806 - Taller 3) con arquitectura en capas y persistencia en Supabase PostgreSQL",
   "main": "dist/server.js",
   "scripts": {

@@ -13,10 +13,11 @@ El backend se despliega automáticamente desde GitHub Actions: push/merge a `mai
 
 En el panel Render, Auto-Deploy nativo queda en `Off`: el disparador automático es el job `Publicar backend en Render tras pruebas` de `.github/workflows/ci.yml`. Esto permite usar el repositorio público sin instalar la integración GitHub de Render y evita tener dos mecanismos publicando a la vez.
 
-- API: `https://luxxito-sports-api.onrender.com/api`.
+- API: `https://luxxito-sports-api.onrender.com/api` (31 endpoints, contrato OpenAPI 1.8.0).
+- **Swagger UI público (probar la API desde el navegador): [https://luxxito-sports-api.onrender.com/api/docs](https://luxxito-sports-api.onrender.com/api/docs).**
 - Diagnóstico: [GET /api/health](https://luxxito-sports-api.onrender.com/api/health), comprobado con HTTP 200 y `POSTGRES_POOL` el 03/11/2026.
 - Publicación del APK: [release latest-apk](https://github.com/Arbolito-ctrl/LuxxitoSports/releases/tag/latest-apk). Verificar el commit del release, no usar como referencia el APK antiguo guardado en `release/`.
-- El APK del taller consume la API propia y no cambia silenciosamente a Supabase directo. La instancia gratuita puede tardar al despertar; el timeout móvil es de 60 segundos.
+- El APK solo consume la API propia: no lleva claves de Supabase ni se conecta a la base. La instancia gratuita puede tardar al despertar; el timeout móvil es de 60 segundos.
 - APK de producción **1.0.22** (build 22, commit `ac5a75c`) instalado en **TECNO KJ5, Android 13**: registro/login, catálogo de 6 canchas, Perfil y reserva con chalecos por S/105 comprobados. Los fallos conocidos de pagos/comprobantes/QR se atenderán después, por indicación de Juan.
 - Seguimiento actual: [validación de infraestructura #14](docs/validaciones/2026-11-03-infra-issue14.md).
 
@@ -33,20 +34,25 @@ LuxxitoSports/
 ├── backend/                          # API REST propia (Node.js + Express + TypeScript)
 │   ├── sql/
 │   │   ├── schema.sql                # Esquema de 7 tablas relacionadas para Supabase PostgreSQL
-│   │   └── seed.sql                  # Datos iniciales (Complejos, Canchas y Extras en Lima)
+│   │   ├── seed.sql                  # Datos iniciales (Complejos, Canchas y Extras en Lima)
+│   │   └── migraciones/              # Cambios aplicados a la base existente (p. ej. cierre del acceso público)
 │   ├── src/
 │   │   ├── config/database.ts        # Conector a Supabase (Pool PostgreSQL / REST / Local)
-│   │   ├── controllers/              # Capa de Controladores HTTP y códigos de estado
-│   │   ├── services/                 # Capa de Servicios y 5 Reglas de Negocio
+│   │   ├── controllers/              # Controladores HTTP (reserva, pago, ticketQr, catalog, auth, dni, docs)
+│   │   ├── services/                 # Reglas de negocio: auth, catalog, dni y reservas/
+│   │   │   └── reservas/             # cotizacion, reserva, pago, comprobante, ticketQr y reglas compartidas
+│   │   ├── middlewares/              # JWT, roles, titularidad y límite de consultas por IP
 │   │   ├── repositories/             # Capa de Acceso a Datos y Transacciones
-│   │   ├── routes/apiRoutes.ts       # Definición de 27 rutas HTTP bajo /api
-│   │   └── tests/api.test.ts         # 21 casos API locales (éxitos y fallos)
+│   │   ├── routes/apiRoutes.ts       # Definición de los 31 endpoints bajo /api
+│   │   └── tests/                    # 37 pruebas: api.test.ts (29) y dni.test.ts (8)
 │   ├── .env.example                  # Plantilla pública de variables de entorno
 │   └── package.json
 ├── mobile/                           # Aplicación Cliente Móvil (Flutter + Dart)
 │   ├── lib/
 │   │   ├── models/luxxito_models.dart
-│   │   ├── services/api_service.dart # Cliente HTTP que consume los endpoints de la API
+│   │   ├── services/api_service.dart # Fachada única hacia la API
+│   │   ├── services/api/             # cliente_api (token, timeout, errores), auth, catalogo, reservas, pagos
+│   │   ├── widgets/                  # Piezas visuales: reservas/, disponibilidad/, pagos/, catalogo/
 │   │   ├── screens/
 │   │   │   ├── auth_screen.dart
 │   │   │   ├── explorar_screen.dart
@@ -64,7 +70,7 @@ LuxxitoSports/
 ├── entregables/                      # Índice de entregables del Taller 3
 │   ├── README.md                     # Dónde está cada entregable
 │   ├── DOCUMENTO_TECNICO_TALLER3.pdf # Documento Técnico (carátula + 5 páginas)
-│   ├── DOCUMENTACION_API_TALLER3.pdf # Documentación de la API en PDF
+│   ├── DOCUMENTACION_API_TALLER3.pdf # Documentación de los 31 endpoints con ejemplos reales
 │   └── DEMOSTRACION_TALLER3.pdf      # Informe de la demostración con capturas
 ├── docs/                             # Documentación técnica y metodológica
 │   ├── DOCUMENTO_TECNICO_TALLER3.md  # Versión Markdown del Documento Técnico
@@ -95,11 +101,14 @@ Las credenciales nunca se suben al repositorio (`.gitignore` protege `backend/.e
    # Opción A (Recomendada): Connection String de PostgreSQL desde Supabase Dashboard -> Connect
    DATABASE_URL=postgresql://postgres.[TU_REF]:[TU_PASSWORD]@aws-0-sa-east-1.pooler.supabase.com:6543/postgres
 
-   # Opción B (Alternativa): URL y API Key desde Supabase Dashboard -> Project Settings -> API
+   # Storage (fotos de vouchers y canchas): URL y service role key desde Project Settings -> API
    SUPABASE_URL=https://[TU_REF].supabase.co
-   SUPABASE_ANON_KEY=[TU_ANON_KEY]
    SUPABASE_SERVICE_ROLE_KEY=[TU_SERVICE_ROLE_KEY]
+
+   # Sugerencia de nombre por DNI en el registro (opcional; sin él el registro funciona igual)
+   DECOLECTA_TOKEN=[TU_TOKEN_DE_DECOLECTA]
    ```
+   Estas variables viven solo en el servidor (este `.env` y Render): ninguna se incluye en el APK.
 2. **Inicializar las tablas y datos en Supabase**:
    - **Desde terminal** (si configuraste `DATABASE_URL`):
      ```bash
@@ -121,12 +130,12 @@ npm run dev
 - El servidor escuchará en `http://localhost:3000/api`.
 - Verifica el estado en `http://localhost:3000/api/health`.
 
-### 3.2. Ejecutar las Pruebas Automatizadas del Backend (`>= 5 casos: éxitos y fallos`)
+### 3.2. Ejecutar las Pruebas Automatizadas del Backend (37 casos: éxitos y fallos)
 ```bash
 cd backend
 npm test
 ```
-Ejecuta **21 casos API en almacenamiento local** con Vitest y Supertest: CRUD, cotización día/noche, conflictos `409`, validación `422`, pagos, QR, cancelación y autenticación. Estos tests no acreditan carga real a Storage ni persistencia de QR en PostgreSQL; consultar la evidencia física y los fallos aplazados.
+Ejecuta **37 casos en almacenamiento local** con Vitest y Supertest: CRUD, cotización día/noche, conflictos `409`, validación `422`, pagos, QR, cancelación, seguridad, concurrencia, Swagger y la sugerencia de nombre por DNI (con el proveedor simulado). Estos tests no acreditan carga real a Storage ni el SQL de producción; eso se validó en la demostración contra Supabase.
 
 La colección Postman también se puede ejecutar completa desde la terminal (con el backend levantado):
 
@@ -146,6 +155,12 @@ flutter run
 ---
 
 ## 4. Historial de Cambios (Changelog)
+
+- **v1.8.0 (2026-11-13):**
+  - Sugerencia del nombre completo a partir del DNI en el registro (`GET /api/dni/:numero`, proveedor Decolecta, solo nombre y apellidos, límite de 10 consultas por minuto por IP).
+  - Seguridad: la app ya no lleva claves de Supabase ni se conecta a la base; se cerró a la clave pública el acceso a las funciones `rpc_*` y a reservas, pagos y usuarios.
+  - Código reorganizado por responsabilidad: `services/reservas/` en el backend, `services/api/` y `widgets/` en la app.
+  - Documentación de la API completa (31 endpoints con ejemplos reales) y enlace público a Swagger UI.
 
 - **v1.0.0 (2026-11-02):**
   - Implementación de esquema relacional PostgreSQL de 6 tablas (`complejos`, `canchas`, `extras`, `reservas`, `reserva_extras`, `pagos`) en `backend/sql/schema.sql`.
