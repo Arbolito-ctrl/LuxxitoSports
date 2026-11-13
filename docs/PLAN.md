@@ -16,9 +16,11 @@ App Móvil Flutter + Dart (mobile/)
 API REST Propia Node.js + Express + TypeScript (backend/)
   ├── Middlewares (Validación JWT HMAC-SHA256 y control de rol ADMIN)
   ├── Controllers (Validación de formato y códigos HTTP)
-  ├── Services (AuthService, CatalogService, ReservationService: tarifas día/noche,
-  │             exclusión de turnos, expiración de 20 min, stock de extras, pagos QR,
-  │             verificación única de QR y reembolso 24h)
+  ├── Services (AuthService, CatalogService y el módulo services/reservas/:
+  │             CotizacionService: tarifas día/noche y stock de extras;
+  │             ReservaService: exclusión de turnos, expiración de 20 min y reembolso 24h;
+  │             PagoService y ComprobanteService: pagos y vouchers;
+  │             TicketQrService: emisión y verificación única de QR)
   └── Repositories (Acceso a datos relacional)
         │
         ▼

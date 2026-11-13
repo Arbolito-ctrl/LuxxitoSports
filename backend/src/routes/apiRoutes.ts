@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { authController } from '../controllers/authController';
 import { catalogController } from '../controllers/catalogController';
 import { docsController } from '../controllers/docsController';
-import { reservationController } from '../controllers/reservationController';
+import { pagoController } from '../controllers/pagoController';
+import { reservaController } from '../controllers/reservaController';
+import { ticketQrController } from '../controllers/ticketQrController';
 import { requireAuth, requireRole, requireTitularDeReserva } from '../middlewares/authMiddleware';
 
 const router = Router();
@@ -55,46 +57,46 @@ router.get('/canchas/:id/disponibilidad', (req, res, next) =>
 
 // 4. Reservas (CRUD + Cotización del Servidor + Bloqueo + Verificación QR + Cancelación 24h)
 router.post('/reservas/cotizar', (req, res, next) =>
-  reservationController.cotizarReserva(req, res, next)
+  reservaController.cotizarReserva(req, res, next)
 );
 // Solo el operador (ADMIN) puede registrar el ingreso con el Ticket QR
 router.post('/reservas/verificar-qr', requireAuth, requireRole('ADMIN'), (req, res, next) =>
-  reservationController.verificarQr(req, res, next)
+  ticketQrController.verificarQr(req, res, next)
 );
 router.get('/reservas', requireAuth, (req, res, next) =>
-  reservationController.listarReservas(req, res, next)
+  reservaController.listarReservas(req, res, next)
 );
 router.get('/reservas/:id', requireAuth, requireTitularDeReserva, (req, res, next) =>
-  reservationController.obtenerReserva(req, res, next)
+  reservaController.obtenerReserva(req, res, next)
 );
 router.post('/reservas', (req, res, next) =>
-  reservationController.crearReserva(req, res, next)
+  reservaController.crearReserva(req, res, next)
 );
 router.put('/reservas/:id', requireAuth, requireTitularDeReserva, (req, res, next) =>
-  reservationController.actualizarReserva(req, res, next)
+  reservaController.actualizarReserva(req, res, next)
 );
 router.delete('/reservas/:id', requireAuth, requireTitularDeReserva, (req, res, next) =>
-  reservationController.eliminarReserva(req, res, next)
+  reservaController.eliminarReserva(req, res, next)
 );
 router.post('/reservas/:id/cancelar', requireAuth, requireTitularDeReserva, (req, res, next) =>
-  reservationController.cancelarReserva(req, res, next)
+  reservaController.cancelarReserva(req, res, next)
 );
 
 // 5. Pagos manuales (Yape / Plin / Transferencia), subida a bucket comprobantes, bandeja y aprobación/rechazo (ADMIN - LX-201)
 router.post('/pagos/comprobante', (req, res, next) =>
-  reservationController.subirComprobante(req, res, next)
+  pagoController.subirComprobante(req, res, next)
 );
 router.post('/reservas/:id/pagos', requireAuth, requireTitularDeReserva, (req, res, next) =>
-  reservationController.registrarPago(req, res, next)
+  pagoController.registrarPago(req, res, next)
 );
 router.get('/pagos', requireAuth, requireRole('ADMIN'), (req, res, next) =>
-  reservationController.listarPagos(req, res, next)
+  pagoController.listarPagos(req, res, next)
 );
 router.patch('/pagos/:id/aprobar', requireAuth, requireRole('ADMIN'), (req, res, next) =>
-  reservationController.aprobarPago(req, res, next)
+  pagoController.aprobarPago(req, res, next)
 );
 router.patch('/pagos/:id/rechazar', requireAuth, requireRole('ADMIN'), (req, res, next) =>
-  reservationController.rechazarPago(req, res, next)
+  pagoController.rechazarPago(req, res, next)
 );
 
 export default router;
