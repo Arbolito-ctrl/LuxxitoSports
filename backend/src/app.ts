@@ -5,6 +5,10 @@ import { AppError } from './utils/errors';
 
 const app = express();
 
+// Render pone un proxy delante de la API: así req.ip es la IP real del usuario
+// (la usa el límite de consultas) y no la del proxy, que sería la misma para todos.
+app.set('trust proxy', 1);
+
 app.use(cors());
 // La foto del voucher viaja en base64: 5 MB del bucket equivalen a ~6,7 MB de JSON.
 // El resto de la API mantiene el límite por defecto de 100 KB.

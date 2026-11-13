@@ -52,4 +52,18 @@ class AuthApi {
     SesionApi.setSession(session);
     return session;
   }
+
+  /// GET /dni/:numero — nombre completo asociado al DNI, para sugerirlo en el
+  /// registro. Devuelve null si no se encuentra o si el servicio no está
+  /// disponible: la sugerencia es opcional y nunca debe bloquear el registro.
+  static Future<String?> sugerirNombrePorDni(String dni) async {
+    if (!RegExp(r'^\d{8}$').hasMatch(dni.trim())) return null;
+    try {
+      final body = await ClienteApi.get('/dni/${dni.trim()}');
+      final nombre = (body['data'] as Map<String, dynamic>?)?['nombre_completo'];
+      return nombre is String && nombre.trim().isNotEmpty ? nombre.trim() : null;
+    } on ApiException {
+      return null;
+    }
+  }
 }

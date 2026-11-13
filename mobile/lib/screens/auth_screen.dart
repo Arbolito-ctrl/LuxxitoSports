@@ -38,8 +38,116 @@ class _AuthScreenState extends State<AuthScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
 
+  // Sugerencia de nombre por DNI (solo en el registro). Es opcional: si el
+  // servicio no responde, el usuario escribe su nombre como siempre.
+  String? _nombreSugerido;
+  bool _buscandoNombre = false;
+  String _dniConsultado = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _dniCtrl.addListener(_alCambiarDni);
+  }
+
+  /// Al completar los 8 dígitos del DNI pide al servidor el nombre asociado.
+  /// Si el campo "Nombre completo" está vacío lo rellena; si no, solo lo ofrece.
+  Future<void> _alCambiarDni() async {
+    if (!_esRegistro) return;
+    final dni = _dniCtrl.text.trim();
+    if (dni == _dniConsultado) return;
+    _dniConsultado = dni;
+
+    if (!RegExp(r'^\d{8}$').hasMatch(dni)) {
+      if (_nombreSugerido != null || _buscandoNombre) {
+        setState(() {
+          _nombreSugerido = null;
+          _buscandoNombre = false;
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _buscandoNombre = true;
+      _nombreSugerido = null;
+    });
+    final nombre = await ApiService.sugerirNombrePorDni(dni);
+    // Si el usuario cambió el DNI mientras se consultaba, se ignora esta respuesta
+    if (!mounted || _dniCtrl.text.trim() != dni) return;
+
+    final sugerido = nombre == null ? null : _formatoNombre(nombre);
+    setState(() {
+      _buscandoNombre = false;
+      _nombreSugerido = sugerido;
+      if (sugerido != null && _nombreCtrl.text.trim().isEmpty) {
+        _nombreCtrl.text = sugerido;
+      }
+    });
+  }
+
+  /// "JUAN CARLOS PEREZ GARCIA" → "Juan Carlos Perez Garcia".
+  String _formatoNombre(String nombre) => nombre
+      .trim()
+      .toLowerCase()
+      .split(RegExp(r'\s+'))
+      .map((p) => p.isEmpty ? p : p[0].toUpperCase() + p.substring(1))
+      .join(' ');
+
+  /// Debajo del DNI: "buscando…", "completamos tu nombre" o "¿usar este nombre?".
+  Widget _avisoNombreDni() {
+    if (_buscandoNombre) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 8),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 8),
+            Text(
+              'Buscando tu nombre…',
+              style: TextStyle(color: LuxxitoColors.textoTenue, fontSize: 12.5),
+            ),
+          ],
+        ),
+      );
+    }
+    final sugerido = _nombreSugerido;
+    if (sugerido == null) return const SizedBox.shrink();
+
+    if (_nombreCtrl.text.trim() == sugerido) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 8),
+        child: Row(
+          children: [
+            Icon(Icons.check_circle, size: 16, color: LuxxitoColors.exito),
+            SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Completamos tu nombre con tu DNI. Puedes corregirlo si hace falta.',
+                style: TextStyle(color: LuxxitoColors.textoTenue, fontSize: 12.5),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: () => setState(() => _nombreCtrl.text = sugerido),
+        icon: const Icon(Icons.person_search, size: 18),
+        label: Text('¿Eres $sugerido? Usar este nombre'),
+      ),
+    );
+  }
+
   @override
   void dispose() {
+    _dniCtrl.removeListener(_alCambiarDni);
     _nombreCtrl.dispose();
     _dniCtrl.dispose();
     _telefonoCtrl.dispose();
@@ -103,7 +211,12 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _cambiarModo() {
-    setState(() => _esRegistro = !_esRegistro);
+    setState(() {
+      _esRegistro = !_esRegistro;
+      _nombreSugerido = null;
+      _buscandoNombre = false;
+      _dniConsultado = '';
+    });
     _formKey.currentState?.reset();
   }
 
@@ -204,17 +317,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                   const SizedBox(height: 28),
                   if (_esRegistro) ...[
-                    TextFormField(
-                      controller: _nombreCtrl,
-                      textCapitalization: TextCapitalization.words,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre completo',
-                        prefixIcon: Icon(Icons.person_outline),
-                      ),
-                      validator: (v) => _validarRequerido(v, 'nombre'),
-                    ),
-                    const SizedBox(height: 14),
+                    // El DNI va primero: al completarlo se sugiere el nombre
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -254,6 +357,22 @@ class _AuthScreenState extends State<AuthScreen> {
                           ),
                         ),
                       ],
+                    ),
+                    _avisoNombreDni(),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _nombreCtrl,
+                      textCapitalization: TextCapitalization.words,
+                      textInputAction: TextInputAction.next,
+                      // Redibuja para que el aviso de la sugerencia siga al texto
+                      onChanged: (_) {
+                        if (_nombreSugerido != null) setState(() {});
+                      },
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre completo',
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
+                      validator: (v) => _validarRequerido(v, 'nombre'),
                     ),
                     const SizedBox(height: 14),
                   ],
