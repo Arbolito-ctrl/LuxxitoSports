@@ -3,10 +3,15 @@ import 'package:flutter/material.dart';
 import '../models/luxxito_models.dart';
 import '../services/api_service.dart';
 import '../theme/luxxito_theme.dart';
-import '../widgets/luxxito_widgets.dart';
+import '../widgets/pagos/dialogos_pago.dart';
+import '../widgets/pagos/resumen_bandeja.dart';
+import '../widgets/pagos/tarjeta_pago.dart';
 
 /// Modo Operador (LX-301): bandeja de comprobantes PENDIENTE_REVISION para
 /// aprobarlos (reserva CONFIRMADA + Ticket QR) o rechazarlos con motivo.
+///
+/// Esta pantalla guarda la lista y llama a la API; la tarjeta de cada pago,
+/// el resumen y los diálogos están en widgets/pagos/.
 class RevisionPagosScreen extends StatefulWidget {
   /// false cuando la bandeja vive como pestaña del panel del ADMIN.
   final bool mostrarAppBar;
@@ -25,44 +30,13 @@ class RevisionPagosScreen extends StatefulWidget {
 }
 
 class RevisionPagosScreenState extends State<RevisionPagosScreen> {
-  static const Color _fondo = LuxxitoColors.fondo;
-  static const Color _superficie = LuxxitoColors.superficie;
   static const Color _verde = LuxxitoColors.primario;
-  static const Color _celeste = LuxxitoColors.secundario;
-  static const int _minObservacion = 5;
-  static const List<String> _motivosFrecuentes = [
-    'El monto no coincide con la reserva',
-    'Comprobante ilegible o recortado',
-    'Número de operación inválido',
-    'El pago no se refleja en la cuenta',
-  ];
-  static const List<String> _dias = [
-    'lun',
-    'mar',
-    'mié',
-    'jue',
-    'vie',
-    'sáb',
-    'dom',
-  ];
-  static const List<String> _meses = [
-    'ene',
-    'feb',
-    'mar',
-    'abr',
-    'may',
-    'jun',
-    'jul',
-    'ago',
-    'sep',
-    'oct',
-    'nov',
-    'dic',
-  ];
 
   List<PagoEnRevision> _pagos = [];
   bool _cargando = true;
   String? _errorMsg;
+
+  /// IDs de los pagos que se están aprobando o rechazando en este momento.
   final Set<int> _procesando = {};
 
   @override
@@ -99,50 +73,11 @@ class RevisionPagosScreenState extends State<RevisionPagosScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Formato amigable
-  // ---------------------------------------------------------------------------
-
-  String _fechaLegible(String fecha) {
-    final d = DateTime.tryParse(fecha);
-    if (d == null) return fecha;
-    return '${_dias[d.weekday - 1]} ${d.day} ${_meses[d.month - 1]}';
-  }
-
-  String _hora(int h) => '${h.toString().padLeft(2, '0')}:00';
-
-  String _haceCuanto(String iso) {
-    final d = DateTime.tryParse(iso);
-    if (d == null) return '';
-    final diff = DateTime.now().difference(d.toLocal());
-    if (diff.inMinutes < 1) return 'hace un momento';
-    if (diff.inMinutes < 60) return 'hace ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'hace ${diff.inHours} h';
-    return 'hace ${diff.inDays} d';
-  }
-
-  String _iniciales(String nombre) {
-    final partes = nombre
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((p) => p.isNotEmpty);
-    return partes.take(2).map((p) => p[0].toUpperCase()).join();
-  }
-
-  Color _colorMetodo(String metodo) {
-    switch (metodo) {
-      case 'YAPE':
-        return const Color(0xFF7C3AED);
-      case 'PLIN':
-        return const Color(0xFF0891B2);
-      default:
-        return LuxxitoColors.textoSecundario;
-    }
-  }
-
-  // ---------------------------------------------------------------------------
   // Acciones
   // ---------------------------------------------------------------------------
 
+  /// Ejecuta aprobar o rechazar: marca la tarjeta como "procesando", llama a la
+  /// API y, si sale bien, quita el pago de la bandeja y muestra el aviso.
   Future<void> _ejecutar(
     PagoEnRevision item,
     Future<void> Function() accion,
@@ -183,46 +118,8 @@ class RevisionPagosScreenState extends State<RevisionPagosScreen> {
     );
   }
 
-  Future<void> _confirmarAprobacion(PagoEnRevision item) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: _superficie,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        icon: const Icon(Icons.verified, color: _verde, size: 40),
-        title: const Text(
-          '¿Aprobar este pago?',
-          style: TextStyle(color: LuxxitoColors.texto, fontSize: 18),
-        ),
-        content: Text(
-          'Confirmaremos la reserva de ${item.clienteNombre} '
-          '(${_fechaLegible(item.fecha)}, ${_hora(item.horaInicio)}) '
-          'y le enviaremos su Ticket QR por S/ ${item.pago.monto.toStringAsFixed(2)}.',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: LuxxitoColors.textoSecundario,
-            height: 1.4,
-          ),
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Volver'),
-          ),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: _verde,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            icon: const Icon(Icons.check),
-            label: const Text('Sí, aprobar'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
+  Future<void> _aprobar(PagoEnRevision item) async {
+    if (!await confirmarAprobacionPago(context, item)) return;
     await _ejecutar(
       item,
       () => ApiService.aprobarPago(item.pago.id),
@@ -230,128 +127,8 @@ class RevisionPagosScreenState extends State<RevisionPagosScreen> {
     );
   }
 
-  Future<void> _mostrarDialogoRechazo(PagoEnRevision item) async {
-    final obsCtrl = TextEditingController();
-    String? errorObs;
-
-    final observacion = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: _superficie,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            12,
-            20,
-            20 + espacioInferior(ctx),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: LuxxitoColors.borde,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Rechazar comprobante',
-                style: TextStyle(
-                  color: LuxxitoColors.texto,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${item.clienteNombre} verá este motivo y podrá enviar un nuevo comprobante.',
-                style: const TextStyle(
-                  color: LuxxitoColors.textoSecundario,
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _motivosFrecuentes
-                    .map(
-                      (m) => ActionChip(
-                        label: Text(m, style: const TextStyle(fontSize: 12)),
-                        backgroundColor: _fondo,
-                        labelStyle: const TextStyle(
-                          color: LuxxitoColors.textoSecundario,
-                        ),
-                        side: const BorderSide(color: LuxxitoColors.borde),
-                        onPressed: () => setSheetState(() {
-                          obsCtrl.text = m;
-                          errorObs = null;
-                        }),
-                      ),
-                    )
-                    .toList(),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: obsCtrl,
-                maxLines: 3,
-                minLines: 2,
-                style: const TextStyle(color: LuxxitoColors.texto),
-                onChanged: (_) {
-                  if (errorObs != null) setSheetState(() => errorObs = null);
-                },
-                decoration: InputDecoration(
-                  hintText: 'Escribe o elige un motivo…',
-                  hintStyle: const TextStyle(color: LuxxitoColors.textoTenue),
-                  filled: true,
-                  fillColor: _fondo,
-                  errorText: errorObs,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: LuxxitoColors.error,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: () {
-                    final texto = obsCtrl.text.trim();
-                    if (texto.length < _minObservacion) {
-                      setSheetState(
-                        () => errorObs =
-                            'Cuéntale al jugador qué falló (mínimo $_minObservacion caracteres).',
-                      );
-                      return;
-                    }
-                    Navigator.of(ctx).pop(texto);
-                  },
-                  icon: const Icon(Icons.block),
-                  label: const Text('Rechazar y notificar'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  Future<void> _rechazar(PagoEnRevision item) async {
+    final observacion = await pedirMotivoRechazo(context, item);
     if (observacion == null) return;
     await _ejecutar(
       item,
@@ -363,362 +140,12 @@ class RevisionPagosScreenState extends State<RevisionPagosScreen> {
     );
   }
 
-  void _verComprobante(String url) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.black,
-            foregroundColor: Colors.white,
-            title: const Text('Comprobante'),
-          ),
-          body: Center(
-            child: InteractiveViewer(
-              maxScale: 5,
-              child: Image.network(
-                url,
-                errorBuilder: (_, _, _) => const Text(
-                  'No se pudo cargar la imagen del comprobante.',
-                  style: TextStyle(color: LuxxitoColors.textoSecundario),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   // ---------------------------------------------------------------------------
-  // Componentes visuales
+  // Pantalla
   // ---------------------------------------------------------------------------
 
-  Widget _resumen() {
-    final totalMonto = _pagos.fold<double>(0, (acc, p) => acc + p.pago.monto);
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: LuxxitoColors.superficie,
-        border: Border.all(color: LuxxitoColors.borde),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            radius: 24,
-            backgroundColor: LuxxitoColors.primarioSuave,
-            child: Icon(Icons.receipt_long, color: LuxxitoColors.primario),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _pagos.length == 1
-                      ? '1 comprobante por revisar'
-                      : '${_pagos.length} comprobantes por revisar',
-                  style: const TextStyle(
-                    color: LuxxitoColors.texto,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'Los más antiguos aparecen primero.',
-                  style: TextStyle(
-                    color: LuxxitoColors.textoSecundario,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Text(
-                'Por conciliar',
-                style: TextStyle(
-                  color: LuxxitoColors.textoSecundario,
-                  fontSize: 11,
-                ),
-              ),
-              Text(
-                'S/ ${totalMonto.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  color: LuxxitoColors.primario,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _chip(String texto, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.6)),
-      ),
-      child: Text(
-        texto,
-        style: TextStyle(
-          color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  Widget _dato(IconData icono, String texto) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Row(
-        children: [
-          Icon(icono, size: 16, color: LuxxitoColors.textoTenue),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              texto,
-              style: const TextStyle(
-                color: LuxxitoColors.textoSecundario,
-                fontSize: 13,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _vistaPreviaComprobante(Pago pago) {
-    // El bucket es privado: solo se puede mostrar el enlace firmado temporal.
-    final directa = pago.comprobanteUrl;
-    final url = pago.comprobanteUrlFirmada ??
-        (directa != null && directa.startsWith('http') ? directa : null);
-    final placeholder = Container(
-      height: 96,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: _fondo,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: LuxxitoColors.borde),
-      ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.image_not_supported_outlined,
-            color: LuxxitoColors.textoTenue,
-          ),
-          SizedBox(width: 8),
-          Text(
-            'Sin imagen del comprobante',
-            style: TextStyle(color: LuxxitoColors.textoTenue, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-    if (url == null || url.isEmpty) return placeholder;
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: () => _verComprobante(url),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Stack(
-          children: [
-            Image.network(
-              url,
-              height: 150,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => placeholder,
-              loadingBuilder: (_, child, progress) => progress == null
-                  ? child
-                  : Container(
-                      height: 150,
-                      color: _fondo,
-                      alignment: Alignment.center,
-                      child: const CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: _verde,
-                      ),
-                    ),
-            ),
-            Positioned(
-              right: 8,
-              bottom: 8,
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(Icons.zoom_in, color: Colors.white, size: 18),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _tarjetaPago(PagoEnRevision item) {
-    final pago = item.pago;
-    final ocupado = _procesando.contains(pago.id);
-    final colorMetodo = _colorMetodo(pago.metodo);
-
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 200),
-      opacity: ocupado ? 0.6 : 1,
-      child: Card(
-        color: _superficie,
-        elevation: 0,
-        margin: const EdgeInsets.only(bottom: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: LuxxitoColors.borde),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: colorMetodo.withValues(alpha: 0.2),
-                    child: Text(
-                      _iniciales(item.clienteNombre),
-                      style: TextStyle(
-                        color: colorMetodo,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.clienteNombre,
-                          style: const TextStyle(
-                            color: LuxxitoColors.texto,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Enviado ${_haceCuanto(pago.createdAt)} · Reserva #${pago.reservaId}',
-                          style: const TextStyle(
-                            color: LuxxitoColors.textoTenue,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'S/ ${pago.monto.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: _verde,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 17,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      _chip(pago.metodo, colorMetodo),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              _dato(
-                Icons.stadium_outlined,
-                '${item.canchaNombre} · ${item.complejoNombre}',
-              ),
-              _dato(
-                Icons.event_outlined,
-                '${_fechaLegible(item.fecha)} · ${_hora(item.horaInicio)} – ${_hora(item.horaFin)}',
-              ),
-              _dato(
-                Icons.tag,
-                'Operación ${pago.numeroOperacion} · ${pago.modalidad == 'SENA_50' ? 'Seña 50%' : 'Pago total'} de S/ ${item.total.toStringAsFixed(2)}',
-              ),
-              _dato(
-                Icons.phone_outlined,
-                '${item.clienteTelefono} · DNI ${item.clienteDni}',
-              ),
-              const SizedBox(height: 12),
-              _vistaPreviaComprobante(pago),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: LuxxitoColors.error,
-                        side: const BorderSide(color: LuxxitoColors.error),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      onPressed: ocupado
-                          ? null
-                          : () => _mostrarDialogoRechazo(item),
-                      icon: const Icon(Icons.close, size: 18),
-                      label: const Text('Rechazar'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: _verde,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      onPressed: ocupado
-                          ? null
-                          : () => _confirmarAprobacion(item),
-                      icon: ocupado
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.check, size: 18),
-                      label: Text(ocupado ? 'Procesando…' : 'Aprobar'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
+  /// Vista centrada para "error" y "bandeja vacía". Es una lista para que se
+  /// pueda deslizar hacia abajo y recargar.
   Widget _estadoCentrado({
     required IconData icono,
     required Color color,
@@ -814,10 +241,17 @@ class RevisionPagosScreenState extends State<RevisionPagosScreen> {
         padding: const EdgeInsets.only(bottom: 16),
         itemCount: _pagos.length + 1,
         itemBuilder: (context, idx) {
-          if (idx == 0) return _resumen();
+          // La primera fila es el resumen; las demás, una tarjeta por pago
+          if (idx == 0) return ResumenBandeja(pagos: _pagos);
+          final item = _pagos[idx - 1];
           return Padding(
             padding: EdgeInsets.fromLTRB(16, idx == 1 ? 12 : 0, 16, 0),
-            child: _tarjetaPago(_pagos[idx - 1]),
+            child: TarjetaPago(
+              item: item,
+              procesando: _procesando.contains(item.pago.id),
+              onAprobar: () => _aprobar(item),
+              onRechazar: () => _rechazar(item),
+            ),
           );
         },
       ),
@@ -827,11 +261,11 @@ class RevisionPagosScreenState extends State<RevisionPagosScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _fondo,
+      backgroundColor: LuxxitoColors.fondo,
       appBar: !widget.mostrarAppBar
           ? null
           : AppBar(
-        backgroundColor: _superficie,
+        backgroundColor: LuxxitoColors.superficie,
         foregroundColor: LuxxitoColors.texto,
         elevation: 0,
         title: const Column(
@@ -840,7 +274,7 @@ class RevisionPagosScreenState extends State<RevisionPagosScreen> {
             Text('Revisión de pagos', style: TextStyle(fontSize: 18)),
             Text(
               'Modo operador',
-              style: TextStyle(fontSize: 12, color: _celeste),
+              style: TextStyle(fontSize: 12, color: LuxxitoColors.secundario),
             ),
           ],
         ),
