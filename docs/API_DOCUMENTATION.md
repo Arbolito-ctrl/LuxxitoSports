@@ -226,7 +226,7 @@ Estado de la API y de la base de datos. Render lo usa para saber si el servicio 
 Descarga el APK. Responde `302 Found` y redirige a `https://github.com/Arbolito-ctrl/LuxxitoSports/releases/latest/download/luxxito-sports.apk`. **Acceso:** público.
 
 ### 5.4. `GET /api/docs`
-Página de Swagger UI (HTML) para explorar y probar todos los endpoints desde el navegador: `https://luxxito-sports-api.onrender.com/api/docs`. **Acceso:** público.
+Página de Swagger UI (HTML) para explorar y probar todos los endpoints desde el navegador: `https://luxxito-sports-api.onrender.com/api/docs`. Abrir la raíz del dominio o `/api` redirige aquí (`302`). **Acceso:** público.
 
 ### 5.5. `GET /api/openapi.yaml`
 Entrega el contrato OpenAPI 3.0.3 (`application/yaml`) que usa Swagger UI. Se puede importar en Postman, Swagger Editor o Redocly. **Acceso:** público.
