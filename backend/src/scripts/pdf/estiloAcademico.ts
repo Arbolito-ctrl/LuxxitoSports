@@ -201,7 +201,10 @@ export class DocumentoAcademico {
     // grande (por ejemplo entre "**Acceso:**" y un `código`), así que se descarta.
     const visibles = tramos.filter((s) => s.t !== '');
     visibles.forEach((s, i) => {
-      this.doc.font(s.fuente).fontSize(s.size).fillColor(s.color).text(s.t, { ...opciones, continued: i < visibles.length - 1 });
+      // Las URL escritas como `código` quedan clicables en el PDF
+      const url = /^https?:\/\/\S+$/.test(s.t.trim()) ? s.t.trim() : undefined;
+      this.doc.font(s.fuente).fontSize(s.size).fillColor(s.color)
+        .text(s.t, { ...opciones, link: url ?? null, continued: i < visibles.length - 1 });
     });
   }
 

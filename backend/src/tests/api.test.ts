@@ -968,6 +968,10 @@ describe('Luxxito Sports API REST - Suite de Pruebas (Taller 3 - SI806)', () => 
     expect(pagina.status).toBe(200);
     expect(pagina.headers['content-type']).toContain('text/html');
     expect(pagina.text).toContain('swagger-ui');
+    // El contrato se pide con ruta absoluta para que funcione también desde /api/docs/
+    expect(pagina.text).toContain("url: '/api/openapi.yaml'");
+    const conBarra = await request(app).get('/api/docs/');
+    expect(conBarra.status).toBe(200);
 
     const contrato = await request(app).get('/api/openapi.yaml');
     expect(contrato.status).toBe(200);
