@@ -26,7 +26,9 @@ const PAGINA = `<!DOCTYPE html>
   <script src="${SWAGGER_UI}/swagger-ui-bundle.js"></script>
   <script>
     window.ui = SwaggerUIBundle({
-      url: 'openapi.yaml',
+      // Ruta absoluta: con una relativa, abrir /api/docs/ (con barra final) buscaba
+      // /api/docs/openapi.yaml, que no existe, y Swagger no cargaba los endpoints.
+      url: '/api/openapi.yaml',
       dom_id: '#swagger-ui',
       deepLinking: true,
       persistAuthorization: true,

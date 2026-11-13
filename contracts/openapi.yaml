@@ -118,6 +118,31 @@ paths:
           description: Demasiadas consultas desde la misma IP (ver cabecera Retry-After)
         '503':
           description: La consulta de DNI no está configurada o el proveedor no responde
+  /auth/recuperar:
+    post:
+      security: []
+      summary: Solicitar la recuperación del acceso por correo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  example: "ana.torres@uni.pe"
+      responses:
+        '200':
+          description: Pedido registrado (en el taller no se envía un correo real)
+          content:
+            application/json:
+              example:
+                ok: true
+                message: "Se han enviado las instrucciones de recuperación de contraseña a ana.torres@uni.pe."
+        '400':
+          description: Correo inválido
   /auth/me:
     get:
       summary: Obtener perfil del usuario autenticado a partir del token JWT (LX-201)
@@ -152,6 +177,29 @@ paths:
           description: Versión, número de compilación y enlace de descarga del APK
         '502':
           description: No se pudo consultar GitHub Releases
+  /apk/download:
+    get:
+      security: []
+      summary: Descargar el APK de producción
+      description: Redirige a la última versión publicada en GitHub Releases.
+      responses:
+        '302':
+          description: Redirección a https://github.com/Arbolito-ctrl/LuxxitoSports/releases/latest/download/luxxito-sports.apk
+  /docs:
+    get:
+      security: []
+      summary: Swagger UI (esta página) para explorar y probar la API
+      description: También se llega abriendo la raíz del dominio o /api en el navegador.
+      responses:
+        '200':
+          description: Página HTML de Swagger UI
+  /openapi.yaml:
+    get:
+      security: []
+      summary: Contrato OpenAPI 3.0.3 (este documento)
+      responses:
+        '200':
+          description: Contrato en formato YAML (application/yaml)
   /complejos:
     get:
       security: []
@@ -164,6 +212,24 @@ paths:
       responses:
         '200':
           description: Lista de complejos
+  /complejos/{id}:
+    get:
+      security: []
+      summary: Detalle de un complejo con sus canchas y extras
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Complejo con sus canchas y extras
+        '400':
+          description: El ID no es un entero positivo
+        '404':
+          description: No existe el complejo
   /canchas:
     get:
       security: []

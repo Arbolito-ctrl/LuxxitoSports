@@ -5,6 +5,10 @@
 ### Añadido
 - `GET /dni/{numero}`: devuelve solo nombres y apellidos asociados al DNI para autocompletar el registro (proveedor Decolecta, token solo en el servidor). Límite de 10 consultas por minuto por IP (`429` con `Retry-After`); `404` si no se encuentra y `503` si el proveedor no está configurado o no responde.
 
+### Documentado
+- En el contrato (y por lo tanto en Swagger UI) se agregan los 5 endpoints que existían pero faltaban: `POST /auth/recuperar`, `GET /complejos/{id}`, `GET /apk/download`, `GET /docs` y `GET /openapi.yaml`. El contrato cubre ahora los 31 endpoints.
+- Abrir la raíz o `/api` en el navegador redirige a Swagger UI (`/api/docs`), que ahora pide el contrato con ruta absoluta.
+
 ### Seguridad
 - La app ya no lleva `SUPABASE_URL` ni `SUPABASE_ANON_KEY` y solo usa la API propia. Las funciones `rpc_*` y la lectura de `reservas`, `reserva_extras` y `pagos` quedaron cerradas a la anon key (migración `backend/sql/migraciones/2026-11-13_cerrar_acceso_publico.sql`).
 
