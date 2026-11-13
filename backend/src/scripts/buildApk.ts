@@ -6,8 +6,6 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
-const supaUrl = (process.env.SUPABASE_URL || '').trim();
-const supaAnonKey = (process.env.SUPABASE_ANON_KEY || '').trim();
 const apiBaseUrl = (process.env.API_BASE_URL || '').trim();
 
 const mobileDir = path.join(__dirname, '../../../mobile');
@@ -24,13 +22,11 @@ if (!apiBaseUrl || !/^https:\/\/[^\s()]+\/api$/.test(apiBaseUrl)) {
 
 console.log('[APK Builder] Compilando APK Release conectado a la API propia...');
 // Las variables no se interpolan en comandos: Flutter las lee de un JSON temporal.
+// El APK solo recibe la URL de la API: ninguna clave de Supabase viaja dentro de la app.
 const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'luxxito-apk-'));
 const configPath = path.join(configDir, 'defines.json');
 fs.writeFileSync(configPath, JSON.stringify({
   API_BASE_URL: apiBaseUrl,
-  ALLOW_SUPABASE_DIRECT: 'false',
-  SUPABASE_URL: supaUrl,
-  SUPABASE_ANON_KEY: supaAnonKey,
 }), { mode: 0o600 });
 try {
   const defineArg = `--dart-define-from-file=${configPath}`;

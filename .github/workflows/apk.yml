@@ -97,8 +97,6 @@ jobs:
         working-directory: ./mobile
         env:
           API_BASE_URL: ${{ secrets.API_BASE_URL }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
@@ -107,9 +105,6 @@ jobs:
             --build-name=1.0.${{ github.run_number }} \
             --build-number=${{ github.run_number }} \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
-            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
-            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
-            --dart-define=ALLOW_SUPABASE_DIRECT=false \
             --dart-define=APK_CANAL=${{ steps.env_info.outputs.TAG_NAME }}
           # Versión publicada que la app consulta para ofrecer la actualización
           printf '{"version":"1.0.%s","build_number":%s,"commit":"%s","canal":"%s"}\n' \

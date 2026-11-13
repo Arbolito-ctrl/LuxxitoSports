@@ -9,9 +9,22 @@ void main() {
     expect(uri.host, isNot(anyOf('localhost', '10.0.2.2', '192.168.1.14')));
   });
 
-  test('un fallo de API no puede activar Supabase directo en el APK del taller', () {
+  test('si la API no responde, la app muestra un error de red y no cambia de destino', () async {
     final original = ApiService.baseUrl;
-    expect(ApiService.enableSupabaseCloudMode, throwsA(isA<ApiException>()));
-    expect(ApiService.baseUrl, original);
+    // Puerto cerrado en la propia máquina: la conexión falla al instante
+    ApiService.setBaseUrl('http://127.0.0.1:1/api');
+    try {
+      await expectLater(
+        ApiService.getComplejos(),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.code, 'code', 'NETWORK_ERROR')
+              .having((e) => e.statusCode, 'statusCode', 0),
+        ),
+      );
+      expect(ApiService.baseUrl, 'http://127.0.0.1:1/api');
+    } finally {
+      ApiService.setBaseUrl(original);
+    }
   });
 }
