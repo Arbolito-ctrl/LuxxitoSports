@@ -147,6 +147,7 @@ export class DocumentoAcademico {
     };
     enlace('Repositorio en GitHub (rama main)', REPO_MAIN);
     enlace('API pública', API_PUBLICA);
+    enlace('Swagger UI (probar la API desde el navegador)', `${API_PUBLICA}/docs`);
 
     d.font('Times-Roman').fontSize(11).fillColor(TINTA).text('Lima, noviembre de 2026', x, H - 92, { width: w, align: 'center' });
     d.lineWidth(0.5).strokeColor(AZUL).moveTo(x, H - 62).lineTo(x + w, H - 62).stroke();
