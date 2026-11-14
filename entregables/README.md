@@ -18,6 +18,7 @@
 | 7 | Documento técnico (carátula + 5 páginas) | [`DOCUMENTO_TECNICO_TALLER3.pdf`](DOCUMENTO_TECNICO_TALLER3.pdf). Versión Markdown: [`docs/DOCUMENTO_TECNICO_TALLER3.md`](../docs/DOCUMENTO_TECNICO_TALLER3.md) |
 | 8 | Evidencia de la demostración | PDF con las capturas en orden: [`DEMOSTRACION_TALLER3.pdf`](DEMOSTRACION_TALLER3.pdf). Fuente: [`docs/validaciones/DEMOSTRACION_TALLER3.md`](../docs/validaciones/DEMOSTRACION_TALLER3.md) con 12 capturas en [`docs/validaciones/capturas/`](../docs/validaciones/capturas) |
 | 9 | Historial de cambios | [`contracts/CHANGELOG.md`](../contracts/CHANGELOG.md) y el historial de Git (ramas `steven/*`, `juan/*` y `elvis/*` integradas por PR a `develop` y luego a `main`) |
+| 10 | Diapositivas de Sustentación | [`PRESENTACION_TALLER3_LUXXITO_SPORTS.pptx`](PRESENTACION_TALLER3_LUXXITO_SPORTS.pptx): Presentación oficial en PowerPoint (12 diapositivas) alineada a la rúbrica del docente |
 
 ## Cuentas de demostración
 

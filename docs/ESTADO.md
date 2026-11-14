@@ -16,7 +16,8 @@ Cambios desde el corte anterior:
 - **Seguridad (PR #58):** la app ya no lleva claves de Supabase ni tiene modo "Supabase directo". Se cerró a la clave pública la ejecución de las 11 funciones `rpc_*` y la lectura de `reservas`, `reserva_extras` y `pagos` (migración `backend/sql/migraciones/2026-11-13_cerrar_acceso_publico.sql`, aplicada y verificada en producción).
 - **Sugerencia de nombre por DNI (PR #60):** `GET /api/dni/:numero` con Decolecta (solo nombre y apellidos), límite por IP y caché. El token está en Render (issue #62).
 - **Código reorganizado:** `backend/src/services/reservas/` (PR #52), pantallas de la app divididas en `mobile/lib/widgets/` (PR #53 y #56) y `api_service.dart` dividido en `mobile/lib/services/api/` (PR #58). Versión fija de Flutter en el CI (PR #54).
-- **Entregables actualizados:** documento técnico (6 páginas), documentación de la API con los 31 endpoints y la guía de estudio.
+- **Entregables actualizados:** documento técnico (6 páginas), documentación de la API con los 31 endpoints, la guía de estudio y la presentación oficial en PowerPoint (`entregables/PRESENTACION_TALLER3_LUXXITO_SPORTS.pptx`) alineada al PDF del docente.
+- **Documentación de actualización móvil:** guía detallada en `docs/ACTUALIZACION_IN_APP.md` sobre la detección automática, barra de progreso en vivo, FileProvider y firma fija de release.
 
 Lo que sigue es el registro del corte anterior (3 de noviembre).
 
